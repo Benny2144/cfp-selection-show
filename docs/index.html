@@ -130,6 +130,14 @@
           </select>
         </div>
         <div class="setting">
+          <label>Just missed</label>
+          <select id="optOutCount">
+            <option value="2">First two out &mdash; seeds 13 and 14</option>
+            <option value="4">First four out &mdash; seeds 13 to 16</option>
+            <option value="0">Don't show it</option>
+          </select>
+        </div>
+        <div class="setting">
           <label>Team calls</label>
           <select id="optCalls">
             <option value="on">On &mdash; announcer calls each team</option>
@@ -329,7 +337,7 @@
     <div class="field"><label>Show title</label><input type="text" id="fTitle" placeholder="College Football Playoff"></div>
     <div class="field"><label>Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
     <div class="field"><label>Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
-    <div class="field"><label>Just-missed</label><input type="text" id="fOutLabel" placeholder="First Four Out"></div>
+    <div class="field"><label>Just-missed</label><input type="text" id="fOutLabel" placeholder="auto — First Two Out"></div>
     <p class="note">Two audio files drive the show: the spoken intro during the cold open,
       then the music bed under the picks. Swap them by replacing the mp3s in this folder
       and updating INTRO_FILE / MUSIC_FILE at the top of <b>js/show.js</b>.</p>
@@ -408,7 +416,7 @@
 <script src="js/teams.js?v=226ef5bc"></script>
 <script src="js/logos.js?v=db37b9ac"></script>
 <script src="js/recorder.js?v=3cbae938"></script>
-<script src="js/app.js?v=5f82a727"></script>
-<script src="js/show.js?v=b0f8af4f"></script>
+<script src="js/app.js?v=9bae341a"></script>
+<script src="js/show.js?v=3ae02dd2"></script>
 </body>
 </html>

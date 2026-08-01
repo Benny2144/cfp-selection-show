@@ -19,7 +19,8 @@ const STATE = {
   fx:       'max',
   volume:   55,
   record:   false,
-  outLabel: 'First Four Out',
+  outCount: 2,                         // 13 and 14, the way reveal day does it
+  outLabel: '',                        // blank = derive it from the count
   logoPattern: '',
   seeds: Array(12).fill(null),         // null | {id, record, champ}
   out:   Array(4).fill(null)           // first four out — shown before the bracket
@@ -185,11 +186,11 @@ function seedNext(id) {
     if (i === 11) toast('That\'s all twelve — now the four who missed');
     return;
   }
-  const o = STATE.out.findIndex(s => !s);
-  if (o === -1) { toast('Field and first four out are both full'); return; }
+  const o = STATE.out.slice(0, STATE.outCount).findIndex(s => !s);
+  if (o === -1) { toast('The board is full'); return; }
   STATE.out[o] = { id, record: '' };
   persist(); renderPool(); renderSeeds();
-  if (o === 3) toast('Board complete');
+  if (o === STATE.outCount - 1) toast('Board complete');
 }
 
 /* ======================================================================
@@ -275,7 +276,7 @@ function renderOut() {
   if (!list) return;
   list.innerHTML = '';
 
-  STATE.out.forEach((s, i) => {
+  STATE.out.slice(0, STATE.outCount).forEach((s, i) => {
     const row = document.createElement('div');
     row.className = 'seedrow out' + (s ? '' : ' empty');
     row.innerHTML = `<span class="num">${i + 13}</span>`;
@@ -297,7 +298,7 @@ function renderOut() {
       const move = document.createElement('div');
       move.className = 'move';
       move.innerHTML = `<button title="Move up" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
-                        <button title="Move down" ${i === 3 ? 'disabled' : ''}>&#9660;</button>`;
+                        <button title="Move down" ${i === STATE.outCount - 1 ? 'disabled' : ''}>&#9660;</button>`;
       move.children[0].onclick = () => swapOut(i, i - 1);
       move.children[1].onclick = () => swapOut(i, i + 1);
       row.appendChild(move);
@@ -322,7 +323,7 @@ function renderOut() {
 }
 
 function swapOut(a, b) {
-  if (b < 0 || b > 3) return;
+  if (b < 0 || b >= STATE.outCount) return;
   const t = STATE.out[a]; STATE.out[a] = STATE.out[b]; STATE.out[b] = t;
   persist(); renderOut();
 }
@@ -340,7 +341,7 @@ function firstRound() {
 function encodeState() {
   const payload = {
     l: STATE.league, y: STATE.season, t: STATE.title, s: STATE.subtitle,
-    k: STATE.ticker, ol: STATE.outLabel, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
+    k: STATE.ticker, ol: STATE.outLabel, oc: STATE.outCount, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
     n: STATE.calls, g: STATE.logoPattern,
     d: STATE.seeds.map(x => x ? [x.id, x.record || ''] : null),
     u: STATE.out.map(x => x ? [x.id, x.record || ''] : null),
@@ -362,7 +363,8 @@ function decodeState(b64) {
     STATE.title    = p.t ?? STATE.title;
     STATE.subtitle = p.s ?? STATE.subtitle;
     STATE.ticker   = p.k ?? '';
-    STATE.outLabel = p.ol ?? 'First Four Out';
+    STATE.outLabel = p.ol ?? '';
+    STATE.outCount = p.oc ?? 2;
     STATE.order    = p.o ?? 'asc';
     STATE.pace     = p.p ?? 10000;
     STATE.cold     = p.c ?? 'full';
@@ -675,8 +677,12 @@ function showScreen(name) {
   if (name !== 'show') Show.stop();
 }
 
+const OUT_WORD = { 2: 'First Two Out', 4: 'First Four Out' };
+const outLabelText = () =>
+  STATE.outLabel || OUT_WORD[STATE.outCount] || 'Just Missed';
+
 function applyOutLabel() {
-  const t = (STATE.outLabel || 'First Four Out').toUpperCase();
+  const t = outLabelText().toUpperCase();
   const a = $('#outHead'), b = $('#foHead');
   if (a) a.textContent = t;
   if (b) b.textContent = t;
@@ -735,6 +741,7 @@ async function boot() {
   $('#optPace').value  = String(STATE.pace);
   $('#optCold').value  = STATE.cold;
   $('#optCalls').value = STATE.calls;
+  $('#optOutCount').value = String(STATE.outCount);
   $('#optFx').value    = STATE.fx;
   $('#optVol').value   = STATE.volume;
   $('#volLbl').textContent = STATE.volume + '%';
@@ -745,6 +752,10 @@ async function boot() {
   };
   $('#optCold').onchange  = e => { STATE.cold  = e.target.value; persist(); };
   $('#optCalls').onchange = e => { STATE.calls = e.target.value; persist(); };
+  $('#optOutCount').onchange = e => {
+    STATE.outCount = +e.target.value;
+    applyOutLabel(); renderSeeds(); renderPool(); persist();
+  };
   $('#optFx').onchange   = e => { STATE.fx = e.target.value; applyFx(); persist(); };
   $('#optVol').oninput   = e => {
     STATE.volume = +e.target.value;
@@ -815,7 +826,7 @@ async function boot() {
     STATE.title    = $('#fTitle').value.trim()    || 'College Football Playoff';
     STATE.subtitle = $('#fSubtitle').value.trim() || 'Selection Show';
     STATE.ticker   = $('#fTicker').value.trim();
-    STATE.outLabel = $('#fOutLabel').value.trim() || 'First Four Out';
+    STATE.outLabel = $('#fOutLabel').value.trim();
     applyOutLabel();
     persist(); $('#mLeague').classList.remove('on'); toast('League saved');
   };

@@ -903,8 +903,8 @@ const Show = (() => {
 
   /* ================================================== FIRST FOUR OUT */
   function runFourOut(then) {
-    const outs = STATE.out.filter(Boolean);
-    if (!outs.length || STATE.showOut === 'off') { then(); return; }
+    const outs = STATE.out.slice(0, STATE.outCount).filter(Boolean);
+    if (!outs.length) { then(); return; }
 
     phase = 'fourout';
     el.revealLayer.classList.remove('on');
@@ -914,7 +914,7 @@ const Show = (() => {
 
     el.cold.classList.add('on');
     showSlate({ kick: () => 'So close',
-                big: () => esc((STATE.outLabel || 'First Four Out').toUpperCase()),
+                big: () => esc(outLabelText().toUpperCase()),
                 small: () => 'The ones who just missed' });
     stinger(392); crowd(2);
 
