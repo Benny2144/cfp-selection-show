@@ -790,6 +790,9 @@ function refreshLogoCount() {
 const persist = () => {
   if (VIEWER) return;          // never overwrite a guest's own board
   localStorage.setItem('cfp27.state', JSON.stringify(STATE));
+  document.dispatchEvent(new CustomEvent('cfp:state', {
+    detail: { seeded: STATE.seeds.filter(Boolean).length }
+  }));
 };
 
 function restore() {
@@ -832,6 +835,7 @@ const VIEWER_BLOCKED = ['room', 'home'];
 function showScreen(name) {
   if (VIEWER && VIEWER_BLOCKED.includes(name)) name = 'show';
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === name));
+  document.body.dataset.screen = name;
 
   /* The show is the broadcast — it gets the whole glass. Everywhere else
      wears the ESPN chrome. A guest on a share link never sees it at all,
@@ -846,6 +850,7 @@ function showScreen(name) {
   if (name === 'history') Dynasty.renderHistory();
   if (name === 'home')    refreshHub();
   if (name !== 'show') Show.stop();
+  document.dispatchEvent(new CustomEvent('cfp:screen', { detail: { name } }));
 }
 
 /** The counts on the home-screen hub cards. */

@@ -18,12 +18,15 @@
 <meta name="media-base" content="/media">
 <meta name="description" content="Run a broadcast-style College Football Playoff selection show for your online dynasty. Set the 12-team field, hit play, reveal it like TV.">
 <meta property="og:title" content="CFP Selection Show">
-<meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
+<meta property="og:description" content="Build the field. Premiere Selection Night. Turn your online dynasty into an event.">
+<meta name="color-scheme" content="dark">
+<link rel="preload" as="image" href="assets/room-bg.webp" fetchpriority="high">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
 <link rel="stylesheet" href="css/broadcast.css?v=e93ce466">
 <link rel="stylesheet" href="css/dynasty.css?v=f693d625">
 <link rel="stylesheet" href="css/espn.css?v=9568c1e2">
 <link rel="stylesheet" href="css/cinematic.css?v=730aa168">
+<link rel="stylesheet" href="css/prime.css?v=6eb34dbc">
 </head>
 <body>
 
@@ -65,61 +68,90 @@
   <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
   <div class="vignette"></div>
 
-  <nav class="site-nav">
-    <span class="nm">Selection Show</span>
+  <nav class="site-nav prime-site-nav">
+    <div class="prime-brand" aria-label="CFP Dynasty Studio">
+      <span class="prime-brand-mark">CFP</span>
+      <span><b>DYNASTY STUDIO</b><small>Selection Night</small></span>
+    </div>
     <div class="spacer"></div>
+    <span class="prime-nav-note">Built for online leagues</span>
     <button class="btn ghost" id="navHowTo">How it works</button>
   </nav>
 
   <div class="home-scroll">
-    <div class="hero">
-      <div class="kicker anim-in-up">For your online dynasty</div>
-      <h1 class="anim-in-up d1">COLLEGE FOOTBALL<br>PLAYOFF</h1>
-      <div class="rule anim-in-up d1"></div>
-      <h2 class="anim-in-up d2">SELECTION SHOW</h2>
-      <p class="anim-in-up d3">
-        Set the twelve. Nobody sees it but you. Then hit play and reveal the whole
-        bracket like it's live on air.
-      </p>
-      <div class="hero-cta anim-in-up d3">
-        <button class="btn primary big" id="goCommish">Build the field &#9654;</button>
-        <button class="btn big" id="goWatch">I have a link</button>
+    <div class="hero prime-hero">
+      <div class="prime-hero-copy">
+        <div class="kicker anim-in-up"><i></i> THE DYNASTY EVENT PLATFORM</div>
+        <h1 class="anim-in-up d1">MAKE YOUR DYNASTY<br><span>PRIME TIME.</span></h1>
+        <p class="anim-in-up d2">
+          Build the twelve-team field in private. Bring the league together.
+          Then premiere every pick, every snub and the full road to the title.
+        </p>
+        <div class="hero-cta anim-in-up d3">
+          <button class="btn primary big" id="goCommish"><span>Open Commissioner Studio</span><i>&#9654;</i></button>
+          <button class="btn big" id="goWatch"><span>Watch an Invitation</span></button>
+        </div>
+        <div class="hero-note anim-in-up d3" id="resumeNote"></div>
+        <div class="prime-proof anim-in-up d3" aria-label="Product highlights">
+          <span><b>136</b><small>FBS teams</small></span>
+          <span><b>12</b><small>dramatic reveals</small></span>
+          <span><b>1</b><small>league-wide moment</small></span>
+        </div>
       </div>
-      <div class="hero-note anim-in-up d3" id="resumeNote"></div>
+
+      <aside class="prime-event-card anim-in-up d3" aria-label="Selection night workflow">
+        <div class="pec-live"><i></i> EVENT CONTROL</div>
+        <div class="pec-title">SELECTION<br>NIGHT</div>
+        <div class="pec-rule"></div>
+        <div class="pec-row"><span>01</span><b>Build the field</b><em>Private</em></div>
+        <div class="pec-row"><span>02</span><b>Premiere the show</b><em>Cinematic</em></div>
+        <div class="pec-row"><span>03</span><b>Play the bracket</b><em>Live</em></div>
+        <div class="pec-foot">EVERY SEASON BECOMES HISTORY</div>
+      </aside>
     </div>
 
-    <div class="hub anim-in-up d3">
-      <button class="hub-card" data-go="results">
-        <i class="hub-ic">&#9202;</i>
-        <b>Play it out</b>
-        <span>Enter the scores and advance the bracket to a champion.</span>
-        <em id="hubResults"></em>
-      </button>
-      <button class="hub-card" data-go="pickem">
-        <i class="hub-ic">&#9998;</i>
-        <b>League pick&rsquo;em</b>
-        <span>Everyone predicts the bracket. Live, scored leaderboard.</span>
-        <em id="hubPickem"></em>
-      </button>
-      <button class="hub-card" data-go="history">
-        <i class="hub-ic">&#127942;</i>
-        <b>Dynasty history</b>
-        <span>Every season you have run, and who lifted the trophy.</span>
-        <em id="hubHistory"></em>
-      </button>
-      <button class="hub-card" data-go="final">
-        <i class="hub-ic">&#9783;</i>
-        <b>The bracket</b>
-        <span>The full field, and a one-tap image for the group chat.</span>
-        <em id="hubField"></em>
-      </button>
-    </div>
+    <section class="command-center anim-in-up d3" aria-labelledby="commandTitle">
+      <div class="command-head">
+        <div>
+          <span class="section-kicker">YOUR LEAGUE. ONE CONTROL ROOM.</span>
+          <h2 id="commandTitle">RUN THE WHOLE POSTSEASON</h2>
+        </div>
+        <p>Selection Night is the beginning. Predictions, results and league history stay together after the field is revealed.</p>
+      </div>
 
-    <div class="feature-strip">
-      <div><b>136 teams</b><span>Every FBS program, colours and all</span></div>
-      <div><b>Cold open</b><span>Hype package before the first pick</span></div>
-      <div><b>Zero spoilers</b><span>Nothing leaks until you reveal it</span></div>
-      <div><b>One link</b><span>Send the whole bracket to the league</span></div>
+      <div class="hub">
+        <button class="hub-card" data-go="results">
+          <span class="hub-num">01</span><i class="hub-ic">&#9202;</i>
+          <b>Play it out</b>
+          <span>Enter final scores and watch the bracket advance itself.</span>
+          <em id="hubResults"></em>
+        </button>
+        <button class="hub-card" data-go="pickem">
+          <span class="hub-num">02</span><i class="hub-ic">&#9998;</i>
+          <b>League challenge</b>
+          <span>Everyone predicts the field. You run the live leaderboard.</span>
+          <em id="hubPickem"></em>
+        </button>
+        <button class="hub-card" data-go="history">
+          <span class="hub-num">03</span><i class="hub-ic">&#127942;</i>
+          <b>Dynasty archive</b>
+          <span>Preserve every champion, bracket and season-defining run.</span>
+          <em id="hubHistory"></em>
+        </button>
+        <button class="hub-card" data-go="final">
+          <span class="hub-num">04</span><i class="hub-ic">&#9783;</i>
+          <b>The field</b>
+          <span>Open the official bracket and share it with one tap.</span>
+          <em id="hubField"></em>
+        </button>
+      </div>
+    </section>
+
+    <div class="feature-strip prime-process">
+      <div><i>01</i><b>Rank it</b><span>Full commissioner control</span></div>
+      <div><i>02</i><b>Premiere it</b><span>Video, voices and reveal FX</span></div>
+      <div><i>03</i><b>Share it</b><span>One spoiler-free league link</span></div>
+      <div><i>04</i><b>Remember it</b><span>A permanent dynasty archive</span></div>
     </div>
   </div>
 </section>
@@ -136,19 +168,28 @@
 
   <header class="room-head">
     <div>
-      <h1 id="roomHome" title="Back to the home screen">SELECTION COMMITTEE</h1>
-      <div class="sub">Commissioner control &mdash; not shared until you say so</div>
+      <span class="room-eyebrow">PRIVATE COMMISSIONER WORKSPACE</span>
+      <h1 id="roomHome" title="Back to the home screen">COMMITTEE COMMAND CENTER</h1>
+      <div class="sub">Shape the field. Control the story. Nothing goes public until premiere.</div>
     </div>
     <div class="spacer"></div>
-    <button class="btn ghost" id="btnLogos">Logos <span id="logoCount"></span></button>
-    <button class="btn ghost" id="btnLeague">League Setup</button>
-    <button class="btn ghost" id="btnAddTeam">+ Custom Team</button>
-    <button class="btn ghost" id="btnClear">Clear Board</button>
+    <button class="btn ghost" id="btnLogos">Branding <span id="logoCount"></span></button>
+    <button class="btn ghost" id="btnLeague">League Identity</button>
+    <button class="btn ghost" id="btnAddTeam">+ Add Team</button>
+    <button class="btn ghost" id="btnClear">Reset Field</button>
   </header>
 
+  <div class="studio-steps" aria-label="Selection Night workflow">
+    <div class="on"><span>01</span><b>BUILD THE FIELD</b><small>Rank twelve teams</small></div>
+    <i></i>
+    <div><span>02</span><b>PRODUCE THE SHOW</b><small>Set pace and sound</small></div>
+    <i></i>
+    <div><span>03</span><b>PREMIERE</b><small>Send the league link</small></div>
+  </div>
+
   <div class="room-tabs" id="roomTabs">
-    <button data-tab="pool" class="on">Teams</button>
-    <button data-tab="board">The Field <span id="tabCount"></span></button>
+    <button data-tab="pool" class="on">Team Pool</button>
+    <button data-tab="board">Selection Board <span id="tabCount"></span></button>
   </div>
 
   <div class="room-body" id="roomBody" data-tab="pool">
@@ -163,16 +204,16 @@
 
     <div class="board">
       <div class="board-head">
-        <h2>THE FIELD</h2>
-        <span class="hint">click a team to seed &middot; drag rows to reorder</span>
+        <div><span>OFFICIAL RANKING</span><h2>THE PLAYOFF FIELD</h2></div>
+        <span class="hint">choose a team to seed &middot; drag to reorder</span>
       </div>
       <div class="seed-list" id="seedList"></div>
 
       <div class="bid-note" id="bidNote"></div>
 
       <div class="board-head sub-head">
-        <h2 id="outHead">FIRST TWO OUT</h2>
-        <span class="hint">the ones who just missed</span>
+        <div><span>ON THE BUBBLE</span><h2 id="outHead">FIRST TWO OUT</h2></div>
+        <span class="hint">the argument starts here</span>
       </div>
       <div class="out-list" id="outList"></div>
     </div>
@@ -180,10 +221,11 @@
 
   <div class="room-actions">
     <div class="go-row">
-          <button class="btn" id="btnSetup">Show Setup</button>
-          <button class="btn" id="btnShare">Copy Share Link</button>
-          <button class="btn" id="btnBracket">Bracket</button>
-          <button class="btn primary" id="btnGo">Go To Show &#9654;</button>
+          <span class="room-ready"><i></i><b id="roomReadyLabel">FIELD IN PROGRESS</b></span>
+          <button class="btn" id="btnSetup">Production Setup</button>
+          <button class="btn" id="btnShare">Create League Link</button>
+          <button class="btn" id="btnBracket">Preview Bracket</button>
+          <button class="btn primary" id="btnGo">Enter Premiere &#9654;</button>
     </div>
   </div>
 </section>
@@ -320,20 +362,24 @@
   </div>
 
   <div class="ctl" id="ctl">
-    <button id="cMix">Mix</button>
-    <button id="cPrev">&#9664; Prev</button>
+    <button id="cMix" title="Audio mixer">Audio</button>
+    <button id="cPrev" title="Previous pick">&#9664; Previous</button>
     <button id="cPlay" class="go">Pause</button>
-    <button id="cNext">Next &#9654;</button>
+    <button id="cNext" title="Next pick">Next &#9654;</button>
     <span class="sep"></span>
-    <button id="cSkip">Skip Intro</button>
+    <button id="cSkip">Skip Film</button>
     <button id="cRestart">Restart</button>
-    <button id="cBracket">Bracket</button>
+    <button id="cBracket">View Bracket</button>
     <button id="cFull">Fullscreen</button>
     <button id="cRoom">Exit</button>
   </div>
 
   <div class="gate" id="gate">
+    <video class="gate-film" id="gateFilm" muted loop playsinline preload="none"
+           poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+    <div class="gate-film-scrim"></div>
     <div class="gate-glow"></div>
+    <div class="gate-overline"><i></i> CFP DYNASTY STUDIO PRESENTS <i></i></div>
     <div class="kick" id="gateKick">The field is set</div>
     <h1 id="gateTitle">College Football Playoff<br>Selection Show</h1>
     <p id="gateSub">12 teams &middot; press play when everyone is watching</p>
@@ -346,6 +392,7 @@
 
     <button class="playbtn" id="btnPlay" aria-label="Play the show">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <span>BEGIN SELECTION NIGHT</span>
     </button>
     <label class="rec-opt" id="recOpt">
       <input type="checkbox" id="optRecord">
@@ -366,6 +413,11 @@
      SCREEN 3 — FINAL BRACKET
      ================================================================== -->
 <section id="final" class="screen">
+  <div class="final-status" aria-hidden="true">
+    <span><i></i> FIELD LOCKED</span>
+    <b>THE ROAD TO THE CHAMPIONSHIP</b>
+    <em id="finalStatusMeta">12 TEAMS &middot; 11 GAMES &middot; 1 CHAMPION</em>
+  </div>
   <div class="bracket-wrap" id="bracketWrap">
     <div class="bracket" id="bracket"></div>
   </div>
@@ -389,8 +441,9 @@
   <div class="carbon"></div>
   <header class="dy-head">
     <div>
-      <h1>PLAY IT OUT</h1>
-      <div class="sub">Type the score as each game finishes &mdash; the bracket advances itself</div>
+      <span class="dy-eyebrow">POSTSEASON CONTROL</span>
+      <h1>PLAYOFF LIVE DESK</h1>
+      <div class="sub">Enter the finals. Winners advance. Your league story updates in real time.</div>
     </div>
     <div class="spacer"></div>
     <span class="dy-progress" id="resProgress"></span>
@@ -414,8 +467,9 @@
   <div class="carbon"></div>
   <header class="dy-head">
     <div>
-      <h1>LEAGUE PICK&rsquo;EM</h1>
-      <div class="sub">Everybody fills in the bracket &mdash; the commissioner keeps score</div>
+      <span class="dy-eyebrow">LEAGUE-WIDE COMPETITION</span>
+      <h1>BRACKET CHALLENGE</h1>
+      <div class="sub">Make every game matter before kickoff. Predict the champion and own the leaderboard.</div>
     </div>
     <div class="spacer"></div>
     <span class="dy-progress" id="pkCount"></span>
@@ -423,8 +477,8 @@
   </header>
 
   <div class="pk-tabs">
-    <button class="pk-tab on" data-mode="make">Make my picks</button>
-    <button class="pk-tab" data-mode="board">Leaderboard</button>
+    <button class="pk-tab on" data-mode="make">Build my bracket</button>
+    <button class="pk-tab" data-mode="board">League leaderboard</button>
   </div>
 
   <div class="dy-body">
@@ -470,8 +524,9 @@
   <div class="carbon"></div>
   <header class="dy-head">
     <div>
-      <h1>DYNASTY HISTORY</h1>
-      <div class="sub">Every playoff this league has run</div>
+      <span class="dy-eyebrow">YOUR LEAGUE LEGACY</span>
+      <h1>DYNASTY ARCHIVE</h1>
+      <div class="sub">Every field. Every champion. Every season your league still talks about.</div>
     </div>
     <div class="spacer"></div>
     <button class="btn ghost" id="histSave">Archive this season</button>
@@ -720,11 +775,12 @@
 <script src="js/teams.js?v=37d37716"></script>
 <script src="js/logos.js?v=d49e9f30"></script>
 <script src="js/recorder.js?v=3cbae938"></script>
-<script src="js/app.js?v=f3833adb"></script>
+<script src="js/app.js?v=4981beed"></script>
 <script src="js/dynasty.js?v=bd2e407e"></script>
 <script src="js/pickem.js?v=57695d46"></script>
 <script src="js/export.js?v=a19034fc"></script>
-<script src="js/ui-dynasty.js?v=1f861994"></script>
+<script src="js/ui-dynasty.js?v=fd316b1b"></script>
 <script src="js/show.js?v=ff7bbe79"></script>
+<script src="js/experience.js?v=fa5f193a"></script>
 </body>
 </html>

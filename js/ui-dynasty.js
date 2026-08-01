@@ -325,9 +325,8 @@ const Dynasty = (() => {
     const list = History.all();
     if (!list.length) {
       wrap.innerHTML =
-        '<p class="dy-empty">Nothing archived yet. Finish a show, or press ' +
-        '<b>Archive this season</b>, and every playoff you run lands here — ' +
-        'field, bracket and champion.</p>';
+        '<p class="dy-empty">Nothing archived yet. Finish the show and archive ' +
+        'the season. Every playoff you run lands here — field, bracket and champion.</p>';
       $('#histRoll').innerHTML = '';
       return;
     }
