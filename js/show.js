@@ -718,6 +718,7 @@ const Show = (() => {
 
     hideCold();
     hidePops();
+    if (el.snubWrap) el.snubWrap.classList.remove('on');
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
     el.rail.style.opacity = '0';
@@ -744,6 +745,9 @@ const Show = (() => {
     startBed();
     setBedVolume();
     startAmbient();
+
+    /* If a premiere time is set the gate holds until it arrives. */
+    Dynasty.watchPremiere();
   }
 
   /* ======================================================== COLD OPEN */
@@ -1108,6 +1112,13 @@ const Show = (() => {
   /* Recording has to be requested straight off the click, before anything
      async happens, or the browser refuses the capture prompt. */
   async function play() {
+    /* A premiere that has not arrived yet holds everybody at the gate — the
+       whole point is that the league watches the same thing at once. */
+    const left = Dynasty.untilPremiere();
+    if (left != null) {
+      toast('The show starts in ' + Dynasty.fmtLeft(left));
+      return;
+    }
     /* A click is the only moment iOS lets the context start, so this is where
        every source moves onto the mixer. */
     Bus.adopt([el.music, el.intro, el.boone, el.film], applyLevels);
@@ -1307,6 +1318,25 @@ const Show = (() => {
     el.bannerStage.classList.add('slam');
     setTimeout(() => { if (gen === revealGen) b.classList.add('sweep'); }, 470);
 
+    /* How they got here, the way the broadcast labels it: champion of a
+       league and holding one of the five automatic bids, or an at-large. */
+    if (el.bidTag) {
+      const champ = !!s.champ;
+      el.bidTag.textContent = Champs.tagFor(i) +
+        (champ && Champs.isAutoBid(i) ? ' · AUTOMATIC BID' : '');
+      el.bidTag.className = 'bid-tag' + (champ ? ' champ' : '');
+    }
+    if (el.moveTag) {
+      const mv = Movement.of(i);
+      el.moveTag.className = 'move-tag' + (mv ? ' ' + mv.dir : '');
+      el.moveTag.textContent = mv ? Movement.caption(i) : '';
+      el.moveTag.hidden = !mv;
+    }
+    if (el.bidRow) {
+      el.bidRow.classList.remove('in'); void el.bidRow.offsetWidth;
+      el.bidRow.classList.add('in');
+    }
+
     el.teamInfo.innerHTML =
       `<div class="school">${esc(t.school.toUpperCase())}</div>` +
       (s.record ? `<div class="rec">${esc(s.record)}</div>` : '') +
@@ -1404,6 +1434,60 @@ const Show = (() => {
 
   function hexA(h, a) { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; }
 
+  /* =====================================================================
+     LAST ONE IN vs FIRST ONE OUT
+
+     The most argued-about thirty seconds of any selection show. Both teams
+     are already on the board — the last seed and the first name on the
+     just-missed list — so this is only a matter of putting them next to
+     each other and letting the league shout at the screen.
+     ===================================================================== */
+  function snubCard(s, seedNo, label) {
+    const t = team(s.id);
+    const col = document.createElement('div');
+    col.innerHTML = `<span class="sn-label">${esc(label)}</span>` +
+                    `<span class="sn-seed">NO. ${seedNo}</span>`;
+    const w = document.createElement('div');
+    w.className = 'sn-banner';
+    w.appendChild(bannerEl(s.id));
+    col.appendChild(w);
+    col.insertAdjacentHTML('beforeend',
+      `<span class="sn-school">${esc(t.school.toUpperCase())}</span>` +
+      `<span class="sn-meta">${[esc(s.record || ''), esc(t.conf || '')]
+        .filter(Boolean).join(' · ')}</span>` +
+      (s.champ ? `<span class="sn-cc">${esc((t.conf || '').toUpperCase())} CHAMPION</span>` : ''));
+    return col;
+  }
+
+  function runSnub(then) {
+    /* Needs both halves of the argument — no last team in, or nobody left
+       out, and there is nothing to compare. */
+    const lastIn = [...STATE.seeds].reverse().find(Boolean);
+    const lastInSeed = STATE.seeds.lastIndexOf(lastIn) + 1;
+    const firstOut = STATE.out.slice(0, STATE.outCount).find(Boolean);
+    if (!lastIn || !firstOut || !el.snubWrap) { then(); return; }
+
+    phase = 'snub';
+    el.revealLayer.classList.remove('on');
+    el.lower.classList.remove('on');
+    showLiveBracket(false);
+    el.glow.style.opacity = '0';
+
+    el.snubIn.innerHTML = '';
+    el.snubOut.innerHTML = '';
+    el.snubIn.appendChild(snubCard(lastIn, lastInSeed, 'Last team in'));
+    el.snubOut.appendChild(snubCard(firstOut, 13, 'First team out'));
+
+    el.snubWrap.classList.add('on');
+    stinger(392); crowd(2.2); flare();
+    if (!isCalm()) shockwave(accentOf(team(lastIn.id)), 2);
+
+    timer = setTimeout(() => {
+      el.snubWrap.classList.remove('on');
+      setTimeout(then, 620);
+    }, 6200);
+  }
+
   /* ================================================== FIRST FOUR OUT */
   function runFourOut(then) {
     const outs = STATE.out.slice(0, STATE.outCount).filter(Boolean);
@@ -1466,7 +1550,8 @@ const Show = (() => {
 
     showLiveBracket(false);
     fullTicker();
-    runFourOut(closingCard);
+    /* the argument first, then the names, then the closing card */
+    runSnub(() => runFourOut(closingCard));
   }
 
   function closingCard() {
@@ -1487,6 +1572,13 @@ const Show = (() => {
       hideCold();
       fadeTo(bedVol() * 0.55, 1800);
       stopAmbient();
+
+      /* The field is now public, so it becomes history. Archiving here is
+         also what gives next season's show its movement arrows — a guest
+         watching a share link keeps their own archive, which is exactly
+         right: it is their copy of the league's seasons. */
+      try { History.save(); Movement.refresh(); } catch (e) {}
+
       showScreen('final');
       buildBracket();                    // the plates fly in one at a time
       /* let the bracket breathe, then close the recording and the music */
@@ -1572,6 +1664,8 @@ const Show = (() => {
      'bloom', 'l3bar', 'foHead',
      'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub',
      'liveWrap', 'liveBracket', 'lbCount',
+     'bidRow', 'bidTag', 'moveTag', 'snubWrap', 'snubIn', 'snubOut',
+     'preCount', 'preClock', 'preWhen',
      'fbFill', 'fbNow', 'fbLeft', 'fbTotal']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');

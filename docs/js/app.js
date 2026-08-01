@@ -7,6 +7,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
 /* ---------------------------------------------------------------- state */
 const STATE = {
+  v:        2,                         // board format — see restore()
   league:   'Dynasty League',
   season:   '2027',
   title:    'College Football Playoff',
@@ -29,6 +30,8 @@ const STATE = {
   outLabel: '',                        // blank = derive it from the count
   roomFilm: 'on',                      // silent film behind the board
   logoPattern: '',
+  premiere: 0,                         // epoch ms, or 0 for "whenever you like"
+  results: {},                         // gameId -> {a,b} scores, once it is played
   seeds: Array(12).fill(null),         // null | {id, record, champ}
   out:   Array(4).fill(null)           // first four out — shown before the bracket
 };
@@ -218,7 +221,7 @@ function seedNext(id) {
   if (isSeeded(id)) return;
   const i = STATE.seeds.findIndex(s => !s);
   if (i !== -1) {
-    STATE.seeds[i] = { id, record: '', champ: i < 4 };
+    STATE.seeds[i] = { id, record: '', champ: false };
     persist(); markPicked(id); renderSeeds();
     if (i === 11) toast('That\'s all twelve — now the four who missed');
     return;
@@ -259,6 +262,32 @@ function renderSeeds() {
       rec.oninput = () => { s.record = rec.value; persist(); };
       meta.appendChild(rec);
       row.appendChild(meta);
+
+      /* Conference champion. Five of these hold the automatic bids, which
+         is the single piece of context the real broadcast never leaves off
+         a name — so it is a toggle right on the row, not buried in a modal. */
+      const cc = document.createElement('button');
+      cc.className = 'ccbtn' + (s.champ ? ' on' : '');
+      cc.textContent = 'CC';
+      cc.title = s.champ
+        ? `${team(s.id).conf} champion — click to make at-large`
+        : 'Mark as conference champion';
+      cc.onclick = () => {
+        s.champ = !s.champ; persist(); renderSeeds();
+      };
+      row.appendChild(cc);
+
+      /* where they sat in the last archived field */
+      const mv = Movement.of(i);
+      if (mv) {
+        const m = document.createElement('span');
+        m.className = 'movetag ' + mv.dir;
+        m.title = Movement.caption(i);
+        m.textContent = mv.dir === 'new' ? 'NEW'
+          : mv.dir === 'same' ? '—'
+          : (mv.dir === 'up' ? '▲' : '▼') + mv.by;
+        row.appendChild(m);
+      }
 
       const move = document.createElement('div');
       move.className = 'move';
@@ -304,7 +333,30 @@ function renderSeeds() {
   });
 
   $('#btnGo').disabled = STATE.seeds.filter(Boolean).length === 0;
+  renderBidNote();
   renderOut();
+}
+
+/** Advisory line under the field: how the automatic bids are shaping up. */
+function renderBidNote() {
+  const box = $('#bidNote');
+  if (!box) return;
+  const champs = Champs.list();
+  const problems = Champs.problems();
+
+  if (!champs.length && !problems.length) {
+    box.className = 'bid-note';
+    box.innerHTML = 'Tap <b>CC</b> on a row to flag a conference champion. ' +
+      'The five highest-ranked champions hold the automatic bids.';
+    return;
+  }
+
+  const auto = champs.slice(0, 5).map(c => `No. ${c.seed}`).join(', ');
+  box.className = 'bid-note' + (problems.length ? ' warn' : ' ok');
+  box.innerHTML =
+    `<b>${champs.length} conference champion${champs.length === 1 ? '' : 's'}</b> in the field` +
+    (auto ? ` &mdash; automatic bids to ${auto}.` : '.') +
+    (problems.length ? '<i>' + problems.map(esc).join(' ') + '</i>' : '');
 }
 
 /* ---- first four out ------------------------------------------------- */
@@ -382,7 +434,9 @@ function encodeState() {
     n: STATE.calls, st: STATE.seedTalk, rf: STATE.roomFilm, mv: STATE.musicUnderVoice, vv: STATE.voiceVol,
     cv: STATE.callVol, fv: STATE.filmVol, bv: STATE.booneVol,
     g: STATE.logoPattern,
-    d: STATE.seeds.map(x => x ? [x.id, x.record || ''] : null),
+    pm: STATE.premiere || 0,
+    rs: STATE.results && Object.keys(STATE.results).length ? STATE.results : undefined,
+    d: STATE.seeds.map(x => x ? [x.id, x.record || '', x.champ ? 1 : 0] : null),
     u: STATE.out.map(x => x ? [x.id, x.record || ''] : null),
     v: Object.fromEntries(
       Object.entries(OVERRIDES).filter(([id]) => isSeeded(id))
@@ -417,8 +471,10 @@ function decodeState(b64) {
     STATE.callVol  = p.cv ?? 100;
     STATE.filmVol  = p.fv ?? 100;
     if (p.g) STATE.logoPattern = p.g;
-    STATE.seeds = (p.d || []).map((x, i) =>
-      x ? { id: x[0], record: x[1], champ: i < 4 } : null);
+    STATE.premiere = p.pm || 0;
+    STATE.results  = p.rs || {};
+    STATE.seeds = (p.d || []).map(x =>
+      x ? { id: x[0], record: x[1], champ: !!x[2] } : null);
     while (STATE.seeds.length < 12) STATE.seeds.push(null);
     STATE.out = (p.u || []).map(x => x ? { id: x[0], record: x[1] } : null);
     while (STATE.out.length < 4) STATE.out.push(null);
@@ -748,6 +804,16 @@ function restore() {
     if (STATE.seedTalk === 'on') STATE.seedTalk = 'lead';   // was build-up + reaction
     if (!Array.isArray(STATE.seeds) || STATE.seeds.length !== 12)
       STATE.seeds = Array(12).fill(null);
+
+    /* Format 1 stored `champ` as "has a first-round bye", which was only
+       ever seeds 1-4 and was never read. It now means "won their
+       conference", so an old board would arrive with four teams wrongly
+       flagged — clear them and let the commissioner set the real five. */
+    if ((s && s.v) !== 2) {
+      STATE.seeds.forEach(x => { if (x) x.champ = false; });
+      STATE.v = 2;
+    }
+    if (!STATE.results || typeof STATE.results !== 'object') STATE.results = {};
   } catch (e) {}
 }
 
@@ -757,12 +823,41 @@ function toast(msg) {
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2400);
 }
 
+/* A guest opened a share link: the committee room and the home hub are
+   sealed off so the field cannot be read before the show plays. Everything
+   downstream of the reveal — the bracket, pick'em, the history — is fine,
+   because by then they have seen it. */
+const VIEWER_BLOCKED = ['room', 'home'];
+
 function showScreen(name) {
-  if (VIEWER && (name === 'room' || name === 'home')) name = 'show';
+  if (VIEWER && VIEWER_BLOCKED.includes(name)) name = 'show';
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === name));
   applyRoomFilm(name);
-  if (name === 'final') renderBracket();
+  if (name === 'final')   renderBracket();
+  if (name === 'results') Dynasty.renderResults();
+  if (name === 'pickem')  Dynasty.renderPickem();
+  if (name === 'history') Dynasty.renderHistory();
+  if (name === 'home')    refreshHub();
   if (name !== 'show') Show.stop();
+}
+
+/** The counts on the home-screen hub cards. */
+function refreshHub() {
+  const set = (id, txt) => { const e = $('#' + id); if (e) e.textContent = txt; };
+  const champ = Bracket.champion();
+  const played = Bracket.played();
+  set('hubResults', champ
+    ? `${team(STATE.seeds[champ - 1].id).school} won it`
+    : played ? `${played} of ${GAMES.length} games played` : 'Not started');
+
+  const n = Pickem.all().length;
+  set('hubPickem', n ? `${n} entr${n === 1 ? 'y' : 'ies'} in` : 'No entries yet');
+
+  const h = History.all().length;
+  set('hubHistory', h ? `${h} season${h === 1 ? '' : 's'} archived` : 'Nothing archived yet');
+
+  const seeded = STATE.seeds.filter(Boolean).length;
+  set('hubField', `${seeded} of 12 seeded`);
 }
 
 const OUT_WORD = { 2: 'First Two Out', 4: 'First Four Out' };
@@ -947,6 +1042,12 @@ async function boot() {
   $('#mShareCopy').onclick  = copyShare;
   $('#mShareOpen').onclick  = () => window.open($('#shareUrl').value, '_blank');
   $('#btnBracket').onclick = () => showScreen('final');
+  $('#btnResults').onclick = () => showScreen('results');
+  $('#btnPickem').onclick  = () => showScreen('pickem');
+  $('#btnHistory').onclick = () => showScreen('history');
+  $('#fResults').onclick   = () => showScreen('results');
+  $('#fImage').onclick     = () => Dynasty.openExport();
+  $$('.hub-card').forEach(c => c.onclick = () => showScreen(c.dataset.go));
   $('#fRoom').onclick      = () => showScreen('room');
   $('#fShow').onclick      = () => { showScreen('show'); Show.arm(); };
   $('#btnGo').onclick      = () => { showScreen('show'); Show.arm(); };
@@ -991,6 +1092,11 @@ async function boot() {
     $('#fTitle').value = STATE.title;   $('#fSubtitle').value = STATE.subtitle;
     $('#fTicker').value = STATE.ticker;
     $('#fOutLabel').value = STATE.outLabel;
+    /* datetime-local wants local wall-clock time, not an ISO instant */
+    $('#fPremiere').value = STATE.premiere
+      ? new Date(STATE.premiere - new Date().getTimezoneOffset() * 60000)
+          .toISOString().slice(0, 16)
+      : '';
     $('#mLeague').classList.add('on');
   };
   $('#mLeagueCancel').onclick = () => $('#mLeague').classList.remove('on');
@@ -1125,8 +1231,23 @@ async function boot() {
     if (e.target === m) m.classList.remove('on');
   }));
 
+  /* The room header scrolls sideways on a phone, and a hidden scrollbar
+     means nobody knows it does. Fade the right edge only while there is
+     something still off-screen, so the hint disappears once you reach the
+     end rather than permanently dimming the last button. */
+  const rhead = $('.room-head');
+  if (rhead) {
+    const hint = () => rhead.classList.toggle('more',
+      rhead.scrollWidth - rhead.clientWidth - rhead.scrollLeft > 8);
+    rhead.addEventListener('scroll', hint, { passive: true });
+    addEventListener('resize', hint);
+    hint();
+  }
+
+  Dynasty.init();
   renderPool();
   renderSeeds();
+  refreshHub();
   refreshLogoCount();
   Show.init();
 

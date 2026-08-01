@@ -12,6 +12,7 @@
 <meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
 <link rel="stylesheet" href="css/broadcast.css">
+<link rel="stylesheet" href="css/dynasty.css">
 </head>
 <body>
 
@@ -33,27 +34,56 @@
     <button class="btn ghost" id="navHowTo">How it works</button>
   </nav>
 
-  <div class="hero">
-    <div class="kicker anim-in-up">For your online dynasty</div>
-    <h1 class="anim-in-up d1">COLLEGE FOOTBALL<br>PLAYOFF</h1>
-    <div class="rule anim-in-up d1"></div>
-    <h2 class="anim-in-up d2">SELECTION SHOW</h2>
-    <p class="anim-in-up d3">
-      Set the twelve. Nobody sees it but you. Then hit play and reveal the whole
-      bracket like it's live on air.
-    </p>
-    <div class="hero-cta anim-in-up d3">
-      <button class="btn primary big" id="goCommish">Build the field &#9654;</button>
-      <button class="btn big" id="goWatch">I have a link</button>
+  <div class="home-scroll">
+    <div class="hero">
+      <div class="kicker anim-in-up">For your online dynasty</div>
+      <h1 class="anim-in-up d1">COLLEGE FOOTBALL<br>PLAYOFF</h1>
+      <div class="rule anim-in-up d1"></div>
+      <h2 class="anim-in-up d2">SELECTION SHOW</h2>
+      <p class="anim-in-up d3">
+        Set the twelve. Nobody sees it but you. Then hit play and reveal the whole
+        bracket like it's live on air.
+      </p>
+      <div class="hero-cta anim-in-up d3">
+        <button class="btn primary big" id="goCommish">Build the field &#9654;</button>
+        <button class="btn big" id="goWatch">I have a link</button>
+      </div>
+      <div class="hero-note anim-in-up d3" id="resumeNote"></div>
     </div>
-    <div class="hero-note anim-in-up d3" id="resumeNote"></div>
-  </div>
 
-  <div class="feature-strip">
-    <div><b>136 teams</b><span>Every FBS program, colors and all</span></div>
-    <div><b>Cold open</b><span>Hype package before the first pick</span></div>
-    <div><b>Zero spoilers</b><span>Nothing leaks until you reveal it</span></div>
-    <div><b>One link</b><span>Send the whole bracket to the league</span></div>
+    <div class="hub anim-in-up d3">
+      <button class="hub-card" data-go="results">
+        <i class="hub-ic">&#9202;</i>
+        <b>Play it out</b>
+        <span>Enter the scores and advance the bracket to a champion.</span>
+        <em id="hubResults"></em>
+      </button>
+      <button class="hub-card" data-go="pickem">
+        <i class="hub-ic">&#9998;</i>
+        <b>League pick&rsquo;em</b>
+        <span>Everyone predicts the bracket. Live, scored leaderboard.</span>
+        <em id="hubPickem"></em>
+      </button>
+      <button class="hub-card" data-go="history">
+        <i class="hub-ic">&#127942;</i>
+        <b>Dynasty history</b>
+        <span>Every season you have run, and who lifted the trophy.</span>
+        <em id="hubHistory"></em>
+      </button>
+      <button class="hub-card" data-go="final">
+        <i class="hub-ic">&#9783;</i>
+        <b>The bracket</b>
+        <span>The full field, and a one-tap image for the group chat.</span>
+        <em id="hubField"></em>
+      </button>
+    </div>
+
+    <div class="feature-strip">
+      <div><b>136 teams</b><span>Every FBS program, colours and all</span></div>
+      <div><b>Cold open</b><span>Hype package before the first pick</span></div>
+      <div><b>Zero spoilers</b><span>Nothing leaks until you reveal it</span></div>
+      <div><b>One link</b><span>Send the whole bracket to the league</span></div>
+    </div>
   </div>
 </section>
 
@@ -73,6 +103,9 @@
       <div class="sub">Commissioner control &mdash; not shared until you say so</div>
     </div>
     <div class="spacer"></div>
+    <button class="btn ghost" id="btnHistory">History</button>
+    <button class="btn ghost" id="btnResults">Play It Out</button>
+    <button class="btn ghost" id="btnPickem">Pick&rsquo;em</button>
     <button class="btn ghost" id="btnLogos">Logos <span id="logoCount"></span></button>
     <button class="btn ghost" id="btnLeague">League Setup</button>
     <button class="btn ghost" id="btnAddTeam">+ Custom Team</button>
@@ -100,6 +133,8 @@
         <span class="hint">click a team to seed &middot; drag rows to reorder</span>
       </div>
       <div class="seed-list" id="seedList"></div>
+
+      <div class="bid-note" id="bidNote"></div>
 
       <div class="board-head sub-head">
         <h2 id="outHead">FIRST TWO OUT</h2>
@@ -176,7 +211,21 @@
     <div class="seed-numeral" id="bigNum">1</div>
     <div class="seed-chip" id="seedChip">NO. 1 SEED</div>
     <div class="banner-stage" id="bannerStage"></div>
+    <div class="bidrow" id="bidRow">
+      <span class="bid-tag" id="bidTag"></span>
+      <span class="move-tag" id="moveTag"></span>
+    </div>
     <div class="info" id="teamInfo"></div>
+  </div>
+
+  <!-- last team in, first team out — the argument of the night -->
+  <div class="snub" id="snubWrap">
+    <div class="snub-head"><b>THE LAST ONE IN</b><span>and the first one out</span></div>
+    <div class="snub-grid">
+      <div class="snub-col in" id="snubIn"></div>
+      <div class="snub-vs"><i>VS</i></div>
+      <div class="snub-col out" id="snubOut"></div>
+    </div>
   </div>
 
 
@@ -239,6 +288,13 @@
     <div class="kick" id="gateKick">The field is set</div>
     <h1 id="gateTitle">College Football Playoff<br>Selection Show</h1>
     <p id="gateSub">12 teams &middot; press play when everyone is watching</p>
+
+    <div class="precount" id="preCount">
+      <span class="pre-kick">Premiere begins in</span>
+      <b class="pre-clock" id="preClock">0:00</b>
+      <span class="pre-when" id="preWhen"></span>
+    </div>
+
     <button class="playbtn" id="btnPlay" aria-label="Play the show">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
     </button>
@@ -269,9 +325,113 @@
     <button class="btn" id="fView">Full Bracket</button>
     <button class="btn" id="fRoom">Committee Room</button>
     <button class="btn" id="fShow">Replay Show</button>
+    <button class="btn" id="fResults">Play It Out</button>
+    <button class="btn" id="fImage">Save Image</button>
     <button class="btn" id="fVideo" hidden>Save Video</button>
     <button class="btn" id="fVideoShare" hidden>Send To Phone</button>
     <button class="btn primary" id="fShare">Copy Share Link</button>
+  </div>
+</section>
+
+<!-- =====================================================================
+     SCREEN 4 — PLAY IT OUT
+     ================================================================== -->
+<section id="results" class="screen dyscreen">
+  <div class="carbon"></div>
+  <header class="dy-head">
+    <div>
+      <h1>PLAY IT OUT</h1>
+      <div class="sub">Type the score as each game finishes &mdash; the bracket advances itself</div>
+    </div>
+    <div class="spacer"></div>
+    <span class="dy-progress" id="resProgress"></span>
+    <button class="btn ghost" id="resBracketBtn">Bracket</button>
+    <button class="btn ghost" id="resArchive">Archive Season</button>
+    <button class="btn ghost danger" id="resClear">Clear Scores</button>
+    <button class="btn primary" id="resRoom">Done</button>
+  </header>
+  <div class="dy-bar"><i id="resBar"></i></div>
+
+  <div class="dy-body">
+    <div class="crown" id="resCrown"></div>
+    <div id="resultsBody"></div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     SCREEN 5 — PICK'EM
+     ================================================================== -->
+<section id="pickem" class="screen dyscreen">
+  <div class="carbon"></div>
+  <header class="dy-head">
+    <div>
+      <h1>LEAGUE PICK&rsquo;EM</h1>
+      <div class="sub">Everybody fills in the bracket &mdash; the commissioner keeps score</div>
+    </div>
+    <div class="spacer"></div>
+    <span class="dy-progress" id="pkCount"></span>
+    <button class="btn primary" id="pkRoom">Done</button>
+  </header>
+
+  <div class="pk-tabs">
+    <button class="pk-tab on" data-mode="make">Make my picks</button>
+    <button class="pk-tab" data-mode="board">Leaderboard</button>
+  </div>
+
+  <div class="dy-body">
+    <div id="pkMake">
+      <div class="pk-top">
+        <div class="field">
+          <label>Your name</label>
+          <input type="text" id="pkName" placeholder="Ben" maxlength="16" autocomplete="off">
+        </div>
+        <div class="pk-codebox">
+          <label>Your entry code</label>
+          <div class="pk-coderow">
+            <input type="text" id="pkCode" class="linkbox" readonly placeholder="fill in your name">
+            <button class="btn primary" id="pkCopy" disabled>Copy</button>
+          </div>
+          <p class="note" id="pkChampion"></p>
+        </div>
+      </div>
+      <div id="pkGames"></div>
+    </div>
+
+    <div id="pkBoard" hidden>
+      <div class="pk-top">
+        <div class="field wide">
+          <label>Paste entry codes &mdash; one per line, or a whole chat log</label>
+          <textarea id="pkPaste" class="linkbox" rows="3"
+                    placeholder="BEN-1JZ&#10;MARCUS-K4"></textarea>
+        </div>
+        <div class="pk-boardacts">
+          <button class="btn primary" id="pkAdd">Add entries</button>
+          <button class="btn ghost danger" id="pkClear">Clear all</button>
+        </div>
+      </div>
+      <div id="pkTable"></div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     SCREEN 6 — DYNASTY HISTORY
+     ================================================================== -->
+<section id="history" class="screen dyscreen">
+  <div class="carbon"></div>
+  <header class="dy-head">
+    <div>
+      <h1>DYNASTY HISTORY</h1>
+      <div class="sub">Every playoff this league has run</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="histSave">Archive this season</button>
+    <button class="btn primary" id="histRoom">Done</button>
+  </header>
+
+  <div class="dy-body">
+    <div class="hist-grid" id="histBody"></div>
+    <div class="hist-roll" id="histRoll"></div>
   </div>
 </section>
 
@@ -383,6 +543,14 @@
     <div class="field"><label>Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
     <div class="field"><label>Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
     <div class="field"><label>Just-missed</label><input type="text" id="fOutLabel" placeholder="auto — First Two Out"></div>
+    <div class="field">
+      <label>Premiere at</label>
+      <input type="datetime-local" id="fPremiere">
+      <button class="btn ghost sm" id="preClearBtn" type="button">Clear</button>
+    </div>
+    <p class="note">Set a time and everyone who opens the link sees a countdown
+      instead of a play button until it arrives &mdash; so the league watches
+      together rather than trickling in.</p>
     <p class="note">Two audio files drive the show: the spoken intro during the cold open,
       then the music bed under the picks. Swap them by replacing the mp3s in this folder
       and updating INTRO_FILE / MUSIC_FILE at the top of <b>js/show.js</b>.</p>
@@ -462,6 +630,19 @@
   </div>
 </div>
 
+<div class="modal" id="mExport">
+  <div class="card wide">
+    <h3>THE BRACKET AS AN IMAGE</h3>
+    <div class="exwrap"><img id="exImg" alt="Bracket"></div>
+    <p class="note" id="exNote">Drawing the bracket&hellip;</p>
+    <div class="row">
+      <button class="btn ghost" id="mExportClose">Close</button>
+      <button class="btn" id="exShare" hidden>Share</button>
+      <button class="btn primary" id="exSave">Save PNG</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="mLink">
   <div class="card">
     <h3>OPEN A SHARED BRACKET</h3>
@@ -491,6 +672,10 @@
 <script src="js/logos.js"></script>
 <script src="js/recorder.js"></script>
 <script src="js/app.js"></script>
+<script src="js/dynasty.js"></script>
+<script src="js/pickem.js"></script>
+<script src="js/export.js"></script>
+<script src="js/ui-dynasty.js"></script>
 <script src="js/show.js"></script>
 </body>
 </html>
