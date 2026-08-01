@@ -26,12 +26,12 @@
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Build the field. Premiere Selection Night. Turn your online dynasty into an event.">
 <meta property="og:url" content="https://cfp-selection-show.benarp2144.workers.dev/">
-<meta property="og:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/room-bg.webp">
-<meta property="og:image:alt" content="A cinematic college football selection committee room">
+<meta property="og:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/selection-deck-og.png">
+<meta property="og:image:alt" content="The Selection Deck, a cinematic college football ballot room">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="CFP Selection Show">
 <meta name="twitter:description" content="Build the field. Premiere Selection Night. Turn your online dynasty into an event.">
-<meta name="twitter:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/room-bg.webp">
+<meta name="twitter:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/selection-deck-og.png">
 <meta name="color-scheme" content="dark">
 <link rel="preload" as="image" href="assets/room-bg.webp" fetchpriority="high">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
@@ -184,75 +184,98 @@
 <!-- =====================================================================
      SCREEN 1 — COMMITTEE ROOM (commissioner only)
      ================================================================== -->
-<section id="room" class="screen">
-  <!-- the intro film, silent, behind the board -->
+<section id="room" class="screen selection-deck">
   <video class="roomfilm" id="roomFilm" muted loop playsinline preload="none"
          poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
   <div class="roomfilm-scrim"></div>
   <div class="carbon"></div>
+  <div class="deck-lighting" aria-hidden="true"><i></i><i></i><i></i></div>
 
-  <header class="room-head">
-    <div>
-      <span class="room-eyebrow">PRIVATE COMMISSIONER WORKSPACE</span>
-      <h1 id="roomHome" title="Back to the home screen">COMMITTEE COMMAND CENTER</h1>
-      <div class="sub">Shape the field. Control the story. Nothing goes public until premiere.</div>
+  <header class="room-head deck-masthead">
+    <div class="deck-title">
+      <span class="room-eyebrow"><i></i> EYES ONLY &middot; COMMISSIONER SESSION</span>
+      <h1 id="roomHome" title="Back to the home screen">THE SELECTION DECK</h1>
+      <div class="sub">Build the ranking in four rounds. Every decision becomes part of the premiere.</div>
     </div>
     <div class="spacer"></div>
-    <button class="btn ghost" id="btnLogos">Branding <span id="logoCount"></span></button>
-    <button class="btn ghost" id="btnLeague">League Identity</button>
-    <button class="btn ghost" id="btnAddTeam">+ Add Team</button>
-    <button class="btn ghost" id="btnClear">Reset Field</button>
+    <div class="deck-tools" aria-label="Selection Deck tools">
+      <button class="deck-tool" id="btnLogos"><span>01</span><b>Team Branding</b><em id="logoCount"></em></button>
+      <button class="deck-tool" id="btnLeague"><span>02</span><b>League Identity</b><em>Show</em></button>
+      <button class="deck-tool" id="btnAddTeam"><span>03</span><b>Add Program</b><em>Custom</em></button>
+      <button class="deck-tool danger" id="btnClear"><span>04</span><b>Clear Board</b><em>Reset</em></button>
+    </div>
   </header>
 
-  <div class="studio-steps" aria-label="Selection Night workflow">
-    <div class="on"><span>01</span><b>BUILD THE FIELD</b><small>Rank twelve teams</small></div>
-    <i></i>
-    <div><span>02</span><b>PRODUCE THE SHOW</b><small>Set pace and sound</small></div>
-    <i></i>
-    <div><span>03</span><b>PREMIERE</b><small>Send the league link</small></div>
+  <section class="decision-rail" aria-label="Current selection status">
+    <div class="decision-round">
+      <span>ACTIVE BALLOT</span>
+      <b id="decisionRound">ROUND ONE</b>
+      <small id="decisionRoundNote">Rank the four first-round byes</small>
+    </div>
+    <div class="decision-stat">
+      <span>FIELD</span><b id="decisionFilled">0<small>/12</small></b><em>selected</em>
+    </div>
+    <div class="decision-stat">
+      <span>AUTO BIDS</span><b id="decisionAqs">0<small>/5</small></b><em>flagged</em>
+    </div>
+    <div class="decision-next">
+      <span>NEXT DECISION</span>
+      <b id="decisionNext">NO. 1 &middot; BYE LINE</b>
+      <div class="decision-progress" aria-hidden="true"><i id="decisionProgress"></i></div>
+    </div>
+    <div class="decision-key"><kbd>/</kbd><span>Search teams</span></div>
+  </section>
+
+  <div class="room-tabs deck-tabs" id="roomTabs">
+    <button data-tab="pool" class="on"><span>01</span> Candidate Vault</button>
+    <button data-tab="board"><span>02</span> Ballot Board <b id="tabCount"></b></button>
   </div>
 
-  <div class="room-tabs" id="roomTabs">
-    <button data-tab="pool" class="on">Team Pool</button>
-    <button data-tab="board">Selection Board <span id="tabCount"></span></button>
-  </div>
-
-  <div class="room-body" id="roomBody" data-tab="pool">
-    <div class="pool">
-      <div class="pool-bar">
-        <input type="text" id="search" aria-label="Search teams" placeholder="Search school, mascot or abbreviation&hellip;" autocomplete="off">
-        <select id="confFilter" aria-label="Filter teams by conference"><option value="">All Conferences</option></select>
+  <main class="room-body deck-workspace" id="roomBody" data-tab="pool">
+    <section class="pool candidate-vault" aria-labelledby="vaultTitle">
+      <header class="vault-head">
+        <div><span>136 PROGRAMS &middot; ONE FIELD</span><h2 id="vaultTitle">CANDIDATE VAULT</h2></div>
+        <p>Choose a program to place it in the next open decision slot.</p>
+      </header>
+      <div class="pool-bar vault-controls">
+        <label class="vault-search"><span>SEARCH</span><input type="text" id="search" aria-label="Search teams" placeholder="School, mascot or abbreviation&hellip;" autocomplete="off"></label>
+        <label class="vault-filter"><span>CONFERENCE</span><select id="confFilter" aria-label="Filter teams by conference"><option value="">All Conferences</option></select></label>
         <span class="count" id="poolCount"></span>
       </div>
-      <div class="pool-grid" id="poolGrid"></div>
-    </div>
+      <div class="pool-grid candidate-grid" id="poolGrid"></div>
+    </section>
 
-    <div class="board">
-      <div class="board-head">
-        <div><span>OFFICIAL RANKING</span><h2>THE PLAYOFF FIELD</h2></div>
-        <span class="hint">choose a team to seed &middot; drag to reorder</span>
-      </div>
-      <div class="seed-list" id="seedList"></div>
+    <aside class="board field-ledger" aria-labelledby="ledgerTitle">
+      <header class="board-head ledger-head">
+        <div><span>COMPOSITE BALLOT</span><h2 id="ledgerTitle">THE TWELVE</h2></div>
+        <span class="hint"><i></i> drag any team to reorder</span>
+      </header>
+      <div class="seed-list tier-board" id="seedList"></div>
 
       <div class="bid-note" id="bidNote"></div>
 
-      <div class="board-head sub-head">
-        <div><span>ON THE BUBBLE</span><h2 id="outHead">FIRST TWO OUT</h2></div>
-        <span class="hint">the argument starts here</span>
-      </div>
-      <div class="out-list" id="outList"></div>
-    </div>
-  </div>
+      <section class="bubble-desk" aria-labelledby="outHead">
+        <header class="board-head sub-head">
+          <div><span>ROUND FOUR &middot; OUTSIDE THE CUT</span><h2 id="outHead">FIRST TWO OUT</h2></div>
+          <span class="hint">the argument starts here</span>
+        </header>
+        <div class="out-list" id="outList"></div>
+      </section>
+    </aside>
+  </main>
 
-  <div class="room-actions">
-    <div class="go-row">
-          <span class="room-ready"><i></i><b id="roomReadyLabel">FIELD IN PROGRESS</b></span>
-          <button class="btn" id="btnSetup">Production Setup</button>
-          <button class="btn" id="btnShare">Create League Link</button>
-          <button class="btn" id="btnBracket">Preview Bracket</button>
-          <button class="btn primary" id="btnGo">Enter Premiere &#9654;</button>
+  <footer class="room-actions broadcast-runway">
+    <div class="runway-status">
+      <span class="room-ready"><i></i><b id="roomReadyLabel">0/12 &middot; FIELD IN PROGRESS</b></span>
+      <div class="runway-meter" aria-hidden="true"><i id="runwayProgress"></i></div>
     </div>
-  </div>
+    <div class="go-row">
+      <button class="btn runway-btn" id="btnSetup"><span>PRODUCE</span>Show Setup</button>
+      <button class="btn runway-btn" id="btnShare"><span>INVITE</span>League Link</button>
+      <button class="btn runway-btn" id="btnBracket"><span>REVIEW</span>Bracket</button>
+      <button class="btn primary runway-premiere" id="btnGo"><span>FINAL STEP</span>Enter Premiere <i>&#9654;</i></button>
+    </div>
+  </footer>
 </section>
 
 <!-- =====================================================================

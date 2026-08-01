@@ -191,22 +191,34 @@ function renderPool() {
   list.forEach(t => {
     const card = document.createElement('button');
     card.type = 'button';
-    card.className = 'pool-card' + (isSeeded(t.id) ? ' picked' : '');
-    card.disabled = isSeeded(t.id);
+    const picked = isSeeded(t.id);
+    card.className = 'pool-card candidate-card' + (picked ? ' picked' : '');
+    card.disabled = picked;
+    card.dataset.team = t.id;
     card.setAttribute('aria-label', `Add ${t.school} to the next open spot`);
     card.title = `Add ${t.school} · right-click to edit`;
     card.appendChild(bannerEl(t.id, { lazy: true }));
-    const c = document.createElement('div');
-    c.className = 'conf'; c.textContent = t.conf;
-    card.appendChild(c);
+    const identity = document.createElement('span');
+    identity.className = 'candidate-identity';
+    const school = document.createElement('strong');
+    school.textContent = t.school;
+    const detail = document.createElement('small');
+    detail.textContent = `${t.mascot || 'Football'} · ${t.conf || 'Independent'}`;
+    identity.append(school, detail);
+    const action = document.createElement('span');
+    action.className = 'candidate-add';
+    action.innerHTML = `<small>${picked ? 'ON BOARD' : 'ADD TO'}</small><b>${picked ? 'LOCKED' : 'NEXT'}</b>`;
+    card.append(identity, action);
     card.onclick = () => seedNext(t.id);
     card.oncontextmenu = e => { e.preventDefault(); openTeamModal(t.id); };
     grid.appendChild(card);
   });
 
   const filled = STATE.seeds.filter(Boolean).length;
-  $('#poolCount').textContent = `${list.length} TEAMS · ${filled}/12 SEEDED`;
+  grid.dataset.visible = String(list.length);
+  $('#poolCount').textContent = `${list.length} PROGRAM${list.length === 1 ? '' : 'S'} · ${filled}/12 ON BOARD`;
   $('#tabCount').textContent = `${filled}/12`;
+  updatePoolCallouts();
 }
 
 const isSeeded = id => STATE.seeds.some(s => s && s.id === id) ||
@@ -233,23 +245,41 @@ function swapSeeds(a, b) {
 /** Grey out one card instead of rebuilding the whole grid. */
 function markPicked(id) {
   const card = [...document.querySelectorAll('.pool-card')]
-    .find(c => c.querySelector('.banner')?.dataset.team === id);
+    .find(candidate => candidate.dataset.team === id);
   if (card) {
     const picked = isSeeded(id);
     card.classList.toggle('picked', picked);
     card.disabled = picked;
+    const action = card.querySelector('.candidate-add');
+    if (action) action.innerHTML = `<small>${picked ? 'ON BOARD' : 'ADD TO'}</small><b>${picked ? 'LOCKED' : 'NEXT'}</b>`;
   }
   const filled = STATE.seeds.filter(Boolean).length;
+  const visible = Number($('#poolGrid')?.dataset.visible || TEAMS.length);
   $('#poolCount').textContent =
-    `${TEAMS.length} TEAMS · ${filled}/12 SEEDED`;
+    `${visible} PROGRAM${visible === 1 ? '' : 'S'} · ${filled}/12 ON BOARD`;
   $('#tabCount').textContent = `${filled}/12`;
+  updatePoolCallouts();
 }
+
+function updatePoolCallouts() {
+  const next = STATE.seeds.findIndex(seed => !seed);
+  const out = STATE.out.slice(0, STATE.outCount).findIndex(candidate => !candidate);
+  const target = next >= 0 ? `NO. ${next + 1}` : out >= 0 ? `NO. ${out + 13}` : 'FULL';
+  $$('.candidate-card:not(.picked) .candidate-add b').forEach(label => { label.textContent = target; });
+  $$('.candidate-card:not(.picked)').forEach(card => {
+    const school = card.querySelector('.candidate-identity strong')?.textContent || 'team';
+    card.setAttribute('aria-label', `Add ${school} to ${target.toLowerCase()}`);
+  });
+}
+
+let lastPlacedIndex = -1;
 
 function seedNext(id) {
   if (isSeeded(id)) return;
   const i = STATE.seeds.findIndex(s => !s);
   if (i !== -1) {
     STATE.seeds[i] = { id, record: '', champ: false };
+    lastPlacedIndex = i;
     persistFieldChange(); markPicked(id); renderSeeds();
     if (i === 11) toast('That\'s all twelve — now the four who missed');
     return;
@@ -266,16 +296,63 @@ function seedNext(id) {
    ====================================================================== */
 let dragFrom = null;
 
+const SELECTION_TIERS = [
+  { key: 'bye', round: 'ROUND ONE', title: 'BYE LINE', note: 'Seeds 1–4 · straight to the quarterfinals', slot: 'BYE' },
+  { key: 'host', round: 'ROUND TWO', title: 'HOME FIELD', note: 'Seeds 5–8 · first-round campus hosts', slot: 'HOST' },
+  { key: 'road', round: 'ROUND THREE', title: 'ROAD TEAMS', note: 'Seeds 9–12 · first-round visitors', slot: 'ROAD' },
+];
+
+function updateDecisionDeck() {
+  const filled = STATE.seeds.filter(Boolean).length;
+  const champs = Champs.list().length;
+  const nextSeed = STATE.seeds.findIndex(seed => !seed);
+  const nextOut = STATE.out.slice(0, STATE.outCount).findIndex(candidate => !candidate);
+  const tierIndex = nextSeed < 0 ? 3 : Math.floor(nextSeed / 4);
+  const tier = SELECTION_TIERS[Math.min(tierIndex, 2)];
+  const round = nextSeed < 0 ? 'ROUND FOUR' : tier.round;
+  const roundNote = nextSeed < 0
+    ? 'Name the first programs outside the field'
+    : tier.note.split(' · ')[1];
+  const next = nextSeed >= 0
+    ? `NO. ${nextSeed + 1} · ${tier.slot} LINE`
+    : nextOut >= 0 ? `NO. ${nextOut + 13} · BUBBLE` : 'BALLOT COMPLETE';
+  const percent = Math.round((filled / 12) * 100);
+
+  if ($('#decisionRound')) $('#decisionRound').textContent = round;
+  if ($('#decisionRoundNote')) $('#decisionRoundNote').textContent = roundNote;
+  if ($('#decisionFilled')) $('#decisionFilled').innerHTML = `${filled}<small>/12</small>`;
+  if ($('#decisionAqs')) $('#decisionAqs').innerHTML = `${champs}<small>/5</small>`;
+  if ($('#decisionNext')) $('#decisionNext').textContent = next;
+  if ($('#decisionProgress')) $('#decisionProgress').style.width = `${percent}%`;
+  if ($('#runwayProgress')) $('#runwayProgress').style.width = `${percent}%`;
+  $('#room')?.setAttribute('data-decision-round', String(tierIndex + 1));
+  updatePoolCallouts();
+}
+
 function renderSeeds() {
   const list = $('#seedList');
   list.innerHTML = '';
 
+  const tierBodies = SELECTION_TIERS.map((tier, tierIndex) => {
+    const section = document.createElement('section');
+    section.className = `seed-tier tier-${tier.key}`;
+    const selected = STATE.seeds.slice(tierIndex * 4, tierIndex * 4 + 4).filter(Boolean).length;
+    section.innerHTML = `<header><span>${tier.round}</span><b>${tier.title}</b><small>${tier.note}</small><em>${selected}/4</em></header>`;
+    const body = document.createElement('div');
+    body.className = 'seed-tier-body';
+    section.appendChild(body);
+    list.appendChild(section);
+    return body;
+  });
+
   STATE.seeds.forEach((s, i) => {
     const row = document.createElement('div');
-    row.className = 'seedrow' + (i < 4 ? ' bye' : '') + (s ? '' : ' empty');
+    const tier = SELECTION_TIERS[Math.floor(i / 4)];
+    row.className = 'seedrow' + (i < 4 ? ' bye' : '') + (s ? '' : ' empty') +
+      (i === lastPlacedIndex ? ' newly-filled' : '');
     row.draggable = !!s;
     row.dataset.i = i;
-    row.innerHTML = `<span class="grip">&#8942;&#8942;</span><span class="num">${i + 1}</span>`;
+    row.innerHTML = `<span class="grip">&#8942;&#8942;</span><span class="seed-rank"><b class="num">${i + 1}</b><small>${tier.slot}</small></span>`;
 
     if (s) {
       const wrap = document.createElement('div');
@@ -285,21 +362,20 @@ function renderSeeds() {
 
       const meta = document.createElement('div');
       meta.className = 'meta';
+      const recLabel = document.createElement('small');
+      recLabel.textContent = 'RECORD';
       const rec = document.createElement('input');
       rec.name = `seed-${i + 1}-record`;
       rec.autocomplete = 'off';
-      rec.placeholder = 'REC'; rec.value = s.record || '';
+      rec.placeholder = '0-0'; rec.value = s.record || '';
       rec.setAttribute('aria-label', `${team(s.id).school} record`);
       rec.oninput = () => { s.record = rec.value; persist(); };
-      meta.appendChild(rec);
+      meta.append(recLabel, rec);
       row.appendChild(meta);
 
-      /* Conference champion. Five of these hold the automatic bids, which
-         is the single piece of context the real broadcast never leaves off
-         a name — so it is a toggle right on the row, not buried in a modal. */
       const cc = document.createElement('button');
       cc.className = 'ccbtn' + (s.champ ? ' on' : '');
-      cc.textContent = 'CC';
+      cc.textContent = 'AQ';
       cc.title = s.champ
         ? `${team(s.id).conf} champion — click to make at-large`
         : 'Mark as conference champion';
@@ -309,7 +385,6 @@ function renderSeeds() {
       };
       row.appendChild(cc);
 
-      /* where they sat in the last archived field */
       const mv = Movement.of(i);
       if (mv) {
         const m = document.createElement('span');
@@ -323,36 +398,37 @@ function renderSeeds() {
 
       const move = document.createElement('div');
       move.className = 'move';
-      move.innerHTML = `<button title="Move up" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
-                        <button title="Move down" ${i === 11 ? 'disabled' : ''}>&#9660;</button>`;
+      move.innerHTML = `<button aria-label="Move ${team(s.id).school} up" title="Move up" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
+                        <button aria-label="Move ${team(s.id).school} down" title="Move down" ${i === 11 ? 'disabled' : ''}>&#9660;</button>`;
       move.children[0].onclick = () => swapSeeds(i, i - 1);
       move.children[1].onclick = () => swapSeeds(i, i + 1);
       row.appendChild(move);
 
       const acts = document.createElement('div');
       acts.className = 'acts';
-      acts.innerHTML = `<button title="Edit team look">&#9998;</button>
-                        <button title="Remove from field">&times;</button>`;
+      acts.innerHTML = `<button aria-label="Edit ${team(s.id).school} branding" title="Edit team look">&#9998;</button>
+                        <button aria-label="Remove ${team(s.id).school} from the field" title="Remove from field">&times;</button>`;
       acts.children[0].onclick = () => openTeamModal(s.id);
       acts.children[1].onclick = () => {
+        lastPlacedIndex = -1;
         STATE.seeds[i] = null; persistFieldChange(); renderPool(); renderSeeds();
       };
       row.appendChild(acts);
     } else {
       const lbl = document.createElement('div');
       lbl.className = 'slot-lbl';
-      lbl.textContent = i < 4 ? 'open — first-round bye' : 'open';
+      lbl.innerHTML = `<b>OPEN DECISION</b><small>${tier.note}</small>`;
       row.appendChild(lbl);
     }
 
-    row.addEventListener('dragstart', e => {
-      dragFrom = i; e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', String(i));
+    row.addEventListener('dragstart', event => {
+      dragFrom = i; event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(i));
     });
-    row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('dragover'); });
+    row.addEventListener('dragover', event => { event.preventDefault(); row.classList.add('dragover'); });
     row.addEventListener('dragleave', () => row.classList.remove('dragover'));
-    row.addEventListener('drop', e => {
-      e.preventDefault(); row.classList.remove('dragover');
+    row.addEventListener('drop', event => {
+      event.preventDefault(); row.classList.remove('dragover');
       if (dragFrom === null || dragFrom === i) return;
       const moved = STATE.seeds.splice(dragFrom, 1)[0];
       STATE.seeds.splice(i, 0, moved);
@@ -361,9 +437,10 @@ function renderSeeds() {
       dragFrom = null; persistFieldChange(); renderSeeds(); renderPool();
     });
 
-    list.appendChild(row);
+    tierBodies[Math.floor(i / 4)].appendChild(row);
   });
 
+  lastPlacedIndex = -1;
   const filled = STATE.seeds.filter(Boolean).length;
   const ready = filled === 12;
   $('#btnGo').disabled = false;
@@ -374,6 +451,7 @@ function renderSeeds() {
   if ($('#roomReadyLabel')) $('#roomReadyLabel').textContent = ready
     ? 'FIELD READY TO AIR' : `${filled}/12 · FIELD IN PROGRESS`;
   $('#roomReadyLabel')?.parentElement?.classList.toggle('ready', ready);
+  updateDecisionDeck();
   renderBidNote();
   renderOut();
 }
@@ -1219,6 +1297,21 @@ async function boot() {
   /* ---------- pool + settings ---------- */
   $('#search').oninput      = renderPool;
   $('#confFilter').onchange = renderPool;
+  document.addEventListener('keydown', event => {
+    const target = event.target;
+    const typing = target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+    if (event.key === '/' && !typing && document.body.dataset.screen === 'room') {
+      event.preventDefault();
+      const poolTab = $('#roomTabs button[data-tab="pool"]');
+      if (poolTab && !poolTab.classList.contains('on')) poolTab.click();
+      $('#search').focus();
+    }
+    if (event.key === 'Escape' && target === $('#search')) {
+      target.value = '';
+      target.blur();
+      renderPool();
+    }
+  });
 
   /* mobile tabs */
   $$('#roomTabs button').forEach(b => b.onclick = () => {
