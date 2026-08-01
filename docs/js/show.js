@@ -14,8 +14,10 @@ const MUSIC_FILE = 'music.mp3';          // bed under everything
    committee room — 0.22 was technically playing but far too quiet to hear
    under a voice, which reads as "the music stopped". */
 const DUCK_UNDER_VOICE = () => (STATE.musicUnderVoice ?? 55) / 100;
-/* the film carries its own full mix, so the bed sits further back under it */
-const DUCK_UNDER_FILM  = () => DUCK_UNDER_VOICE() * 0.40;
+/* The film carries its own full mix. The bed is stopped outright underneath
+   it — even well down it was fighting the hype video — and starts again from
+   the top when the voices take over. */
+const DUCK_UNDER_FILM  = () => 0;
 /* how far it drops for a beat under each reveal hit */
 const DUCK_UNDER_HIT   = 0.5;
 /* how far it drops while the announcer calls a team */
@@ -677,8 +679,11 @@ const Show = (() => {
     if (!v.getAttribute('src')) v.src = VIDEO_FILE;
 
     el.filmStage.classList.add('on');
-    /* the film carries its own sound — drop the bed right down under it */
-    fadeTo(bedVol() * DUCK_UNDER_FILM(), 900);
+    /* silence underneath, and stop the watchdog putting it back */
+    bedWanted = false;
+    watchBed(false);
+    fadeTo(0, 220);
+    setTimeout(() => { if (phase === 'film') { try { el.music.pause(); } catch (e) {} } }, 260);
 
     let handed = false;
     const go = () => {
@@ -688,6 +693,10 @@ const Show = (() => {
       phase = 'voice';
       el.filmStage.classList.remove('on');
       try { v.pause(); } catch (e) {}
+      /* the bed comes back from the top, so the voices open over its start */
+      bedWanted = true;
+      watchBed(true);
+      try { el.music.currentTime = 0; } catch (e) {}
       runVoiceOpen();
     };
     v.onended = go;
