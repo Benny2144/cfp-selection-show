@@ -11,7 +11,7 @@
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
-<link rel="stylesheet" href="css/broadcast.css?v=3655b036">
+<link rel="stylesheet" href="css/broadcast.css?v=ffb34376">
 </head>
 <body>
 
@@ -19,7 +19,10 @@
      SCREEN 0 — HOME
      ================================================================== -->
 <section id="home" class="screen active">
-  <div class="carbon"></div>
+  <video class="roomfilm" id="homeFilm" muted loop playsinline preload="none"
+         poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+  <div class="roomfilm-scrim"></div>
+  <div class="carbon home-carbon"></div>
   <div class="trophy breathe"></div>
   <div class="grid-floor home-floor"></div>
   <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
@@ -60,6 +63,10 @@
      SCREEN 1 — COMMITTEE ROOM (commissioner only)
      ================================================================== -->
 <section id="room" class="screen">
+  <!-- the intro film, silent, behind the board -->
+  <video class="roomfilm" id="roomFilm" muted loop playsinline preload="none"
+         poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+  <div class="roomfilm-scrim"></div>
   <div class="carbon"></div>
 
   <header class="room-head">
@@ -330,6 +337,14 @@
           </select>
         </div>
         <div class="setting">
+          <label>Room video</label>
+          <select id="optRoomFilm">
+            <option value="on">On &mdash; film playing behind the board</option>
+            <option value="still">Still frame only &mdash; lighter</option>
+            <option value="off">Off &mdash; plain background</option>
+          </select>
+        </div>
+        <div class="setting">
           <label>Audio</label>
           <button class="btn ghost mixbtn" id="btnMix">Open the mix &nbsp;&#9835;</button>
         </div>
@@ -453,7 +468,7 @@
 <script src="js/teams.js?v=37d37716"></script>
 <script src="js/logos.js?v=db37b9ac"></script>
 <script src="js/recorder.js?v=3cbae938"></script>
-<script src="js/app.js?v=44bca4d5"></script>
+<script src="js/app.js?v=ec130a23"></script>
 <script src="js/show.js?v=e2918d52"></script>
 </body>
 </html>

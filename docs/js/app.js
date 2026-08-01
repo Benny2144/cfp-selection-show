@@ -25,6 +25,7 @@ const STATE = {
   record:   false,
   outCount: 2,                         // 13 and 14, the way reveal day does it
   outLabel: '',                        // blank = derive it from the count
+  roomFilm: 'on',                      // silent film behind the board
   logoPattern: '',
   seeds: Array(12).fill(null),         // null | {id, record, champ}
   out:   Array(4).fill(null)           // first four out — shown before the bracket
@@ -354,7 +355,7 @@ function encodeState() {
   const payload = {
     l: STATE.league, y: STATE.season, t: STATE.title, s: STATE.subtitle,
     k: STATE.ticker, ol: STATE.outLabel, oc: STATE.outCount, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
-    n: STATE.calls, mv: STATE.musicUnderVoice, vv: STATE.voiceVol,
+    n: STATE.calls, rf: STATE.roomFilm, mv: STATE.musicUnderVoice, vv: STATE.voiceVol,
     cv: STATE.callVol, fv: STATE.filmVol, g: STATE.logoPattern,
     d: STATE.seeds.map(x => x ? [x.id, x.record || ''] : null),
     u: STATE.out.map(x => x ? [x.id, x.record || ''] : null),
@@ -383,6 +384,7 @@ function decodeState(b64) {
     STATE.cold     = p.c ?? 'full';
     STATE.fx       = p.f ?? 'max';
     STATE.calls    = p.n ?? 'on';
+    STATE.roomFilm = p.rf ?? 'on';
     STATE.musicUnderVoice = p.mv ?? 55;
     STATE.voiceVol = p.vv ?? 100;
     STATE.callVol  = p.cv ?? 100;
@@ -727,6 +729,7 @@ function toast(msg) {
 function showScreen(name) {
   if (VIEWER && (name === 'room' || name === 'home')) name = 'show';
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === name));
+  applyRoomFilm(name);
   if (name === 'final') renderBracket();
   if (name !== 'show') Show.stop();
 }
@@ -779,6 +782,44 @@ function applyOutLabel() {
 }
 
 function applyFx() { document.body.classList.toggle('calm', STATE.fx === 'calm'); }
+
+/* ----------------------------------------------------------------------
+   The silent film behind the home page and the board.
+
+   It is the same file the show opens with, so it is usually already cached.
+   Even so it only loads when it is actually wanted and on screen, it pauses
+   the moment you leave, and it never goes near the audio mixer — it is
+   muted at the element and has no gain node, so it cannot make a sound.
+   ------------------------------------------------------------------- */
+const FILM_SCREENS = { home: 'homeFilm', room: 'roomFilm' };
+
+function applyRoomFilm(active) {
+  const mode = STATE.roomFilm || 'on';
+  Object.entries(FILM_SCREENS).forEach(([screen, id]) => {
+    const sec = document.getElementById(screen);
+    const v = document.getElementById(id);
+    if (!sec || !v) return;
+    sec.classList.toggle('film-off', mode === 'off');
+
+    const wanted = mode === 'on' && screen === active;
+    v.dataset.wanted = wanted ? '1' : '';
+    if (wanted) {
+      v.muted = true; v.volume = 0;       // belt and braces: never audible
+      if (!v.getAttribute('src')) {
+        v.src = VIDEO_FILE;
+        /* play() straight after load() is too early — the media is not ready
+           and the promise rejects, leaving the poster up for good. */
+        v.addEventListener('canplay',
+          () => { if (v.dataset.wanted) v.play().catch(() => {}); },
+          { once: true });
+        v.load();
+      }
+      v.play().catch(() => {});           // poster stays if autoplay is refused
+    } else {
+      try { v.pause(); } catch (e) {}
+    }
+  });
+}
 
 /* ---------------------------------------------------------------- wire */
 async function boot() {
@@ -833,6 +874,7 @@ async function boot() {
   $('#optPace').value  = String(STATE.pace);
   $('#optCold').value  = STATE.cold;
   $('#optCalls').value = STATE.calls;
+  $('#optRoomFilm').value = STATE.roomFilm;
   $('#optOutCount').value = String(STATE.outCount);
   $('#optFx').value    = STATE.fx;
   buildMixer();
@@ -846,6 +888,11 @@ async function boot() {
   };
   $('#optCold').onchange  = e => { STATE.cold  = e.target.value; persist(); };
   $('#optCalls').onchange = e => { STATE.calls = e.target.value; persist(); };
+  $('#optRoomFilm').onchange = e => {
+    STATE.roomFilm = e.target.value;
+    applyRoomFilm(document.querySelector('.screen.active')?.id);
+    persist();
+  };
   $('#optOutCount').onchange = e => {
     STATE.outCount = +e.target.value;
     applyOutLabel(); renderSeeds(); renderPool(); persist();
@@ -1052,6 +1099,13 @@ async function boot() {
   const wake = () => { Show.startBed(); };
   ['pointerdown', 'keydown'].forEach(ev =>
     addEventListener(ev, wake, { once: true, capture: true }));
+
+  applyRoomFilm(document.querySelector('.screen.active')?.id || 'home');
+  /* a browser pauses video on a hidden tab and does not resume it by itself */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible')
+      applyRoomFilm(document.querySelector('.screen.active')?.id);
+  });
 
   if (shared) {
     applyFx();

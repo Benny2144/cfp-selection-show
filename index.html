@@ -19,7 +19,10 @@
      SCREEN 0 — HOME
      ================================================================== -->
 <section id="home" class="screen active">
-  <div class="carbon"></div>
+  <video class="roomfilm" id="homeFilm" muted loop playsinline preload="none"
+         poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+  <div class="roomfilm-scrim"></div>
+  <div class="carbon home-carbon"></div>
   <div class="trophy breathe"></div>
   <div class="grid-floor home-floor"></div>
   <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
@@ -60,6 +63,10 @@
      SCREEN 1 — COMMITTEE ROOM (commissioner only)
      ================================================================== -->
 <section id="room" class="screen">
+  <!-- the intro film, silent, behind the board -->
+  <video class="roomfilm" id="roomFilm" muted loop playsinline preload="none"
+         poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+  <div class="roomfilm-scrim"></div>
   <div class="carbon"></div>
 
   <header class="room-head">
@@ -327,6 +334,14 @@
             <option value="max">Maximum</option>
             <option value="normal">Normal</option>
             <option value="calm">Calm &mdash; no shake or flash</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Room video</label>
+          <select id="optRoomFilm">
+            <option value="on">On &mdash; film playing behind the board</option>
+            <option value="still">Still frame only &mdash; lighter</option>
+            <option value="off">Off &mdash; plain background</option>
           </select>
         </div>
         <div class="setting">

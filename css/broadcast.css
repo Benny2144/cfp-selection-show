@@ -89,6 +89,8 @@ input,select{font-family:inherit}
    0. HOME
    ===================================================================== */
 #home{background:var(--ink);overflow:hidden}
+#home .roomfilm{opacity:.16}
+#home .home-carbon{opacity:.55}
 #home .home-floor{opacity:.5}
 
 .site-nav{
@@ -155,6 +157,28 @@ input,select{font-family:inherit}
    1. COMMITTEE ROOM
    ===================================================================== */
 #room{background:var(--ink)}
+
+/* The film runs silently behind the board. Held well down and softened so a
+   hundred and thirty-six colour plates stay the thing you actually read. */
+.roomfilm{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:.20;filter:blur(2px) saturate(.72) contrast(.92);
+  pointer-events:none;z-index:0;
+}
+.film-off .roomfilm,.film-off .roomfilm-scrim{display:none}
+.roomfilm-scrim{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(7,8,11,.86),rgba(7,8,11,.55) 22%,rgba(7,8,11,.78)),
+    radial-gradient(120% 80% at 50% 0%,transparent,rgba(7,8,11,.6));
+}
+/* the pool lets it through; the board sits on a near-solid panel so the
+   seed list never fights the picture behind it */
+#room .pool{background:transparent}
+#room .board{background:rgba(9,12,17,.90);backdrop-filter:blur(3px)}
+#room .pool-bar{background:rgba(13,17,23,.82);backdrop-filter:blur(3px)}
+#room .board-foot,#room .out-list{background:rgba(9,12,17,.72)}
+#room .pool-card .banner{box-shadow:0 6px 20px rgba(0,0,0,.75)}
 
 .room-head{
   position:relative;z-index:2;display:flex;align-items:center;gap:18px;
