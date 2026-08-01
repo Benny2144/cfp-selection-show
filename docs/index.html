@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="css/broadcast.css?v=e93ce466">
 <link rel="stylesheet" href="css/dynasty.css?v=f693d625">
 <link rel="stylesheet" href="css/espn.css?v=9568c1e2">
+<link rel="stylesheet" href="css/cinematic.css?v=730aa168">
 </head>
 <body>
 
@@ -193,6 +194,9 @@
 <section id="show" class="screen">
   <div class="stage" id="stage">
     <div class="carbon"></div>
+    <div class="stage-depth" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
     <div class="trophy dim breathe" id="showTrophy"></div>
     <div class="grid-floor" id="floor"></div>
     <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
@@ -204,6 +208,8 @@
 
   <!-- corner HUD framing -->
   <div class="hud"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
+  <div class="broadcast-bug" aria-hidden="true"><span>CFP</span><b>SELECTION NIGHT</b></div>
+  <div class="cinema-matte" aria-hidden="true"><i></i><i></i></div>
 
   <!-- the intro film, full bleed -->
   <div class="filmstage" id="filmStage">
@@ -244,6 +250,13 @@
   <!-- reveal -->
   <div class="reveal" id="revealLayer">
     <div class="bloom" id="bloom"></div>
+    <div class="reveal-headline">
+      <span id="revealEyebrow">COMMITTEE SELECTION</span>
+      <i></i>
+      <b id="revealCount">PICK 01 / 12</b>
+    </div>
+    <div class="team-ghost" id="teamGhost" aria-hidden="true"></div>
+    <div class="hero-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <div class="seed-numeral" id="bigNum">1</div>
     <div class="seed-chip" id="seedChip">NO. 1 SEED</div>
     <div class="banner-stage" id="bannerStage"></div>
@@ -712,6 +725,6 @@
 <script src="js/pickem.js?v=57695d46"></script>
 <script src="js/export.js?v=a19034fc"></script>
 <script src="js/ui-dynasty.js?v=1f861994"></script>
-<script src="js/show.js?v=ab178850"></script>
+<script src="js/show.js?v=ff7bbe79"></script>
 </body>
 </html>

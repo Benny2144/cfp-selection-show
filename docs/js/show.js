@@ -118,6 +118,7 @@ const Show = (() => {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 5 + Math.random() * 22;
       parts.push({
+        kind: 'shard',
         x: cx + (Math.random() - .5) * 380, y: cy + (Math.random() - .5) * 140,
         vx: Math.cos(a) * sp * 1.75, vy: Math.sin(a) * sp - 6,
         w: 3 + Math.random() * 10, h: 5 + Math.random() * 16,
@@ -128,9 +129,24 @@ const Show = (() => {
     if (!isCalm()) for (let i = 0; i < (isMax() ? 44 : 22); i++) {
       const left = Math.random() < .5;
       parts.push({
+        kind: 'streak',
         x: left ? -20 : innerWidth + 20, y: Math.random() * innerHeight,
         vx: (left ? 1 : -1) * (26 + Math.random() * 34), vy: (Math.random() - .5) * 5,
         w: 30 + Math.random() * 70, h: 2, rot: 0, vr: 0,
+        c: colors[(Math.random() * colors.length) | 0], life: 1
+      });
+    }
+    /* Fast, short-lived light streaks make the impact read like camera
+       flashes and pyro instead of relying on confetti alone. */
+    if (!isCalm()) for (let i = 0; i < (isMax() ? 58 : 30); i++) {
+      const a = Math.random() * Math.PI * 2, sp = 18 + Math.random() * 34;
+      parts.push({
+        kind: 'spark',
+        x: cx + (Math.random() - .5) * 170,
+        y: cy + (Math.random() - .5) * 80,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        w: 18 + Math.random() * 44, h: .7 + Math.random() * 1.5,
+        rot: a, vr: 0,
         c: colors[(Math.random() * colors.length) | 0], life: 1
       });
     }
@@ -165,20 +181,35 @@ const Show = (() => {
       const r = rings[i];
       r.r += r.sp; r.a -= .022; r.sp *= .985;
       if (r.a <= 0) { rings.splice(i, 1); continue; }
+      ctx.save();
       ctx.globalAlpha = r.a; ctx.strokeStyle = r.c; ctx.lineWidth = Math.max(.5, r.w);
-      ctx.beginPath(); ctx.arc(cx, cy, r.r, 0, 6.284); ctx.stroke();
+      ctx.shadowColor = r.c; ctx.shadowBlur = 16;
+      ctx.translate(cx, cy); ctx.scale(1, .42);
+      ctx.beginPath(); ctx.arc(0, 0, r.r, 0, 6.284); ctx.stroke();
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
 
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
-      p.x += p.vx; p.y += p.vy; p.vy += .58; p.vx *= .985; p.rot += p.vr;
-      p.life -= .0105;
+      p.x += p.vx; p.y += p.vy;
+      if (p.kind === 'spark') {
+        p.vy *= .965; p.vx *= .965; p.life -= .034;
+      } else {
+        p.vy += .58; p.vx *= .985; p.rot += p.vr; p.life -= .0105;
+      }
       if (p.life <= 0 || p.y > innerHeight + 90) { parts.splice(i, 1); continue; }
       ctx.save();
       ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
       ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-      ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      if (p.kind === 'spark') {
+        const g = ctx.createLinearGradient(-p.w, 0, p.w / 2, 0);
+        g.addColorStop(0, 'transparent'); g.addColorStop(.7, p.c); g.addColorStop(1, '#fff');
+        ctx.strokeStyle = g; ctx.lineWidth = p.h; ctx.shadowColor = p.c; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.moveTo(-p.w, 0); ctx.lineTo(0, 0); ctx.stroke();
+      } else {
+        ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      }
       ctx.restore();
     }
 
@@ -681,6 +712,7 @@ const Show = (() => {
       `#liveBracket .bk-seed[data-seed="${i + 1}"]`);
     if (!s || !plate) { then && then(); return; }
 
+    setCinemaPhase('bracket-moment');
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
     showPickArt(null, 'off');          // the card goes with the reveal
@@ -786,6 +818,7 @@ const Show = (() => {
   /* ==================================================== ARM (play gate) */
   function arm() {
     running = false; paused = false; cursor = -1; phase = 'gate';
+    setCinemaPhase(null);
     clearTimeout(timer);
     revealed = [];
 
@@ -1348,6 +1381,13 @@ const Show = (() => {
     el.vig.classList.add('pulse');
   }
 
+  /** One class owns the visual beat so layers never compete for emphasis. */
+  function setCinemaPhase(name) {
+    const show = document.getElementById('show');
+    show.classList.remove('anticipating', 'landing', 'holding', 'bracket-moment');
+    if (name) show.classList.add(name);
+  }
+
   let revealGen = 0;
 
   /* A pick now runs in three beats, the way the broadcast does it: the
@@ -1361,6 +1401,7 @@ const Show = (() => {
     stopCall();
     stopSeedTalk();
 
+    setCinemaPhase('anticipating');
     showLiveBracket(false);
     el.revealLayer.classList.add('on');
     el.bannerStage.innerHTML = '';       // no team yet — that is the point
@@ -1368,11 +1409,19 @@ const Show = (() => {
     el.lower.classList.remove('on');
     el.bloom.classList.remove('go');
     el.glow.style.opacity = '0';
+    if (el.revealEyebrow) el.revealEyebrow.textContent = 'COMMITTEE SELECTION';
+    if (el.revealCount) el.revealCount.textContent =
+      `PICK ${String(i + 1).padStart(2, '0')} / ${String(seq.length).padStart(2, '0')}`;
+    if (el.teamGhost) {
+      el.teamGhost.textContent = '';
+      el.teamGhost.classList.remove('in');
+    }
 
     /* Beat one is the pick card, full bleed and on its own. It already says
        the number in three-foot gold letters, so the stage numeral stands
        down rather than competing with it. */
     showPickArt(i, 'full');
+    el.bigNum.textContent = i + 1;
     el.bigNum.classList.remove('pop', 'show');
     el.seedChip.textContent = `NO. ${i + 1} SEED`;
     el.seedChip.classList.remove('roll'); void el.seedChip.offsetWidth;
@@ -1389,6 +1438,19 @@ const Show = (() => {
     if (!s) return;
     const t = team(s.id);
     const bye = i < 4;
+    const accent = accentOf(t);
+    const show = document.getElementById('show');
+
+    setCinemaPhase('landing');
+    show.style.setProperty('--team-a', t.primary);
+    show.style.setProperty('--team-b', accent);
+    if (el.revealEyebrow)
+      el.revealEyebrow.textContent = bye ? 'TOP FOUR SEED · FIRST-ROUND BYE' : 'COMMITTEE SELECTION';
+    if (el.teamGhost) {
+      el.teamGhost.textContent = t.school;
+      el.teamGhost.classList.remove('in'); void el.teamGhost.offsetWidth;
+      el.teamGhost.classList.add('in');
+    }
 
     /* ---- pre-hit: wipe + glitch, then the banner lands ---- */
     wipe(t.primary);
@@ -1406,6 +1468,7 @@ const Show = (() => {
     el.seedChip.classList.add('roll');
 
     el.bannerStage.innerHTML = '';
+    el.bannerStage.style.setProperty('--team-halo', hexA(accent, .32));
     const b = bannerEl(s.id);
     el.bannerStage.appendChild(b);
     el.bannerStage.classList.remove('slam'); void el.bannerStage.offsetWidth;
@@ -1440,7 +1503,6 @@ const Show = (() => {
     el.teamInfo.classList.add('in');
 
     /* ---- colour the whole stage in the team's palette ---- */
-    const accent = accentOf(t);
     el.bloom.style.setProperty('--bl1', hexA(accent, .45));
     el.bloom.style.setProperty('--bl2', hexA(t.primary, .55));
     el.bloom.classList.remove('go'); void el.bloom.offsetWidth;
@@ -1458,6 +1520,7 @@ const Show = (() => {
     /* ---- the hit ---- */
     setTimeout(() => {
       if (gen !== revealGen) return;
+      setCinemaPhase('holding');
       shakeStage(); pulseVignette();
       impact(); crowd(1.9);
       shockwave(accent, isMax() ? 4 : 2);
@@ -1465,14 +1528,14 @@ const Show = (() => {
       flare();
       fadeTo(bedVol() * DUCK_UNDER_HIT, 180);
       setTimeout(() => { if (gen === revealGen) setBedVolume(); }, 850);
-    }, 250);
+    }, 300);
 
     /* ---- the announcer's call, once the banner has landed ---- */
     stopCall();
     setTimeout(() => {
       if (gen !== revealGen) return;
       playCall(s.id);
-    }, 700);
+    }, 780);
 
     /* ---- lower third ---- */
     el.lower.classList.remove('on');
@@ -1484,7 +1547,7 @@ const Show = (() => {
       el.l3t2.textContent = [s.record, t.conf, bye ? 'First-round bye' : matchupText(i)]
         .filter(Boolean).join('  ·  ');
       el.lower.classList.add('on');
-    }, 640);
+    }, 880);
 
     litRail(i, true);
     pushTickerTeam(i);
@@ -1637,6 +1700,7 @@ const Show = (() => {
   /* ============================================================ FINISH */
   function finish() {
     running = false;
+    setCinemaPhase(null);
     clearTimeout(timer);
     stopCall();
     stopSeedTalk();
@@ -1760,6 +1824,7 @@ const Show = (() => {
      'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub',
      'liveWrap', 'liveBracket', 'lbCount',
      'bidRow', 'bidTag', 'moveTag', 'snubWrap', 'snubIn', 'snubOut', 'pickBack',
+     'revealEyebrow', 'revealCount', 'teamGhost',
      'preCount', 'preClock', 'preWhen',
      'fbFill', 'fbNow', 'fbLeft', 'fbTotal']
       .forEach(id => el[id] = document.getElementById(id));
@@ -1846,6 +1911,7 @@ const Show = (() => {
   /** Leave the show — kill the voice track but keep the bed playing. */
   function stop() {
     running = false; phase = 'idle';
+    setCinemaPhase(null);
     bedWanted = false; watchBed(false);
     clearTimeout(timer); clearTimeout(markTimer);
     [el.intro, el.boone].forEach(a => {
