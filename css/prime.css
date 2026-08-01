@@ -68,6 +68,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 .ss-cell{border-color:rgba(255,255,255,.065);background:linear-gradient(180deg,#0b0f16,#070a10)}
 .ss-cell:hover{background:#121924}
+.ss-cell.field-cell .ss-status{color:#8e99a8;letter-spacing:.7px}
+.ss-cell.field-cell .ss-row.filled .ss-rank{color:var(--prime-gold)}
+.ss-cell.field-cell .ss-row.filled .ss-abbr{color:#f4f6f8;font-weight:850}
+.ss-cell.field-cell.updated{animation:stripFieldUpdate 1.05s var(--prime-ease) both}
+@keyframes stripFieldUpdate{
+  0%{background:linear-gradient(180deg,rgba(245,106,0,.42),rgba(244,194,92,.18));box-shadow:inset 0 0 0 1px var(--prime-gold),0 0 24px rgba(245,106,0,.28)}
+  100%{background:linear-gradient(180deg,#0b0f16,#070a10);box-shadow:none}
+}
 .espn-nav{background:rgba(8,11,17,.97);backdrop-filter:blur(20px)}
 .espn-brand{
   width:76px;background:linear-gradient(135deg,#ff7b16,#d54500);font-size:20px;
@@ -653,7 +661,7 @@ body.screen-shifting .prime-page-wipe{animation:primeWipe .68s cubic-bezier(.76,
   .command-center .hub{grid-template-columns:1fr 1fr;gap:8px}.command-center .hub-card{min-height:222px;padding:19px 16px}.command-center .hub-card b{font-size:23px}.command-center .hub-card>span:not(.hub-num){font-size:10px}.command-center .hub-card::after{right:14px;bottom:14px}
   .prime-process{grid-template-columns:1fr 1fr}.prime-process div{padding:17px 14px}.prime-process b{font-size:17px}
 
-  .ss-league,.espn-brand{width:52px}.en-links button{padding:0 12px;font-size:9.5px}.en-links button::before{display:none}.en-watch{padding:8px 10px;font-size:0}.en-watch::after{content:'WATCH';font-size:9px}
+  .ss-league,.espn-brand{width:52px}.ss-arrow{width:26px}.ss-cell{width:112px;padding:3px 8px;gap:0}.ss-cell .ss-status{display:none}.ss-row{min-height:14px;line-height:1.15;gap:4px}.ss-rank{width:12px;font-size:8.5px}.ss-abbr,.ss-num{font-size:10.5px}.en-links button{padding:0 12px;font-size:9.5px}.en-links button::before{display:none}.en-watch{padding:8px 10px;font-size:0}.en-watch::after{content:'WATCH';font-size:9px}
   .room-head{padding:9px 11px}.room-head h1{font-size:18px}.room-head>div:first-child{min-width:225px}.room-head .btn{min-height:34px;padding:7px 10px}
   .studio-steps{height:45px;padding:0 8px}.studio-steps>div{min-width:150px;padding:5px 9px}.studio-steps>div span{font-size:18px}.studio-steps>div b{font-size:7px}.studio-steps>div small{font-size:7px}
   .room-tabs button{font-size:9px;letter-spacing:1.1px}.pool-grid{padding:10px}.board-head>div>span{display:none}.board-head h2{font-size:21px}.room-actions{padding:7px 9px}.room-actions .btn{min-height:37px;padding:8px 11px;font-size:8px}

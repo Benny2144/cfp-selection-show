@@ -526,16 +526,73 @@ const Dynasty = (() => {
   function renderStrip() {
     const track = $('#ssTrack');
     if (!track) return;
+    const oldScroll = track.scrollLeft;
+    const oldSignature = track.dataset.fieldSignature || '';
+    const fieldSignature = STATE.seeds.map(s => s ? s.id : '-').join('|');
     track.innerHTML = '';
 
     const solved = Bracket.solve();
     const anySeeded = STATE.seeds.some(Boolean);
 
     if (!anySeeded) {
+      track.dataset.fieldSignature = fieldSignature;
       track.innerHTML = '<span class="ss-empty">No field set &mdash; ' +
         'build one in the committee room</span>';
       return;
     }
+
+    /* Until a playoff result exists, this is a live field ribbon—not a list
+       of hypothetical games. Showing seeds in order means a new No. 1, No. 2,
+       etc. appears immediately instead of being buried after the four opening
+       round pairings. Two teams per cell keeps all twelve easy to scan. */
+    if (!Bracket.played()) {
+      let changedSeed = -1;
+      if (oldSignature && oldSignature !== fieldSignature) {
+        const before = oldSignature.split('|');
+        const after = fieldSignature.split('|');
+        changedSeed = after.findIndex((id, i) => id !== before[i]);
+      }
+
+      for (let first = 0; first < 12; first += 2) {
+        const cell = document.createElement('button');
+        cell.className = 'ss-cell field-cell';
+        cell.dataset.firstSeed = first;
+        cell.onclick = () => showScreen('room');
+        cell.innerHTML = `<span class="ss-status">CURRENT FIELD · ${first + 1}—${first + 2}</span>`;
+
+        [first, first + 1].forEach(seedIndex => {
+          const selection = STATE.seeds[seedIndex];
+          const t = selection && team(selection.id);
+          const row = document.createElement('span');
+          row.className = 'ss-row' + (selection ? ' filled' : ' empty');
+          row.innerHTML =
+            `<i class="ss-rank">${seedIndex + 1}</i>` +
+            `<b class="ss-abbr">${t ? esc(t.abbr) : '&mdash;'}</b>` +
+            `<u class="ss-num"></u>`;
+          cell.appendChild(row);
+        });
+        track.appendChild(cell);
+      }
+
+      track.dataset.fieldSignature = fieldSignature;
+      requestAnimationFrame(() => {
+        if (changedSeed >= 0) {
+          const cell = track.querySelector(
+            `.field-cell[data-first-seed="${Math.floor(changedSeed / 2) * 2}"]`);
+          if (cell) {
+            cell.classList.add('updated');
+            const left = cell.offsetLeft - track.offsetLeft -
+              Math.max(0, (track.clientWidth - cell.offsetWidth) / 2);
+            track.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+          }
+        } else {
+          track.scrollLeft = Math.min(oldScroll, Math.max(0, track.scrollWidth - track.clientWidth));
+        }
+      });
+      return;
+    }
+
+    track.dataset.fieldSignature = fieldSignature;
 
     GAMES.forEach(g => {
       const st = solved[g.id];
@@ -562,6 +619,10 @@ const Dynasty = (() => {
       });
 
       track.appendChild(cell);
+    });
+
+    requestAnimationFrame(() => {
+      track.scrollLeft = Math.min(oldScroll, Math.max(0, track.scrollWidth - track.clientWidth));
     });
   }
 
@@ -636,6 +697,11 @@ const Dynasty = (() => {
       const t = $('#ssTrack');
       t.scrollBy({ left: t.clientWidth * 0.8, behavior: 'smooth' });
     };
+
+    /* The strip is fixed above the commissioner room, so it must subscribe
+       to board changes instead of waiting for a page navigation to repaint. */
+    document.addEventListener('cfp:state', renderStrip);
+    renderStrip();
 
     Movement.refresh();
   }

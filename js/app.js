@@ -196,13 +196,21 @@ function renderPool() {
 const isSeeded = id => STATE.seeds.some(s => s && s.id === id) ||
                        STATE.out.some(s => s && s.id === id);
 
+/** Results belong to the exact seed order that produced them. Changing that
+    order makes every stored matchup ambiguous, so clear the old scores before
+    publishing the new field and let the chrome repaint from one state event. */
+function persistFieldChange() {
+  if (STATE.results && Object.keys(STATE.results).length) STATE.results = {};
+  persist();
+}
+
 /** Swap two seed slots — the touch-friendly way to reorder. */
 function swapSeeds(a, b) {
   if (b < 0 || b > 11) return;
   const tmp = STATE.seeds[a];
   STATE.seeds[a] = STATE.seeds[b];
   STATE.seeds[b] = tmp;
-  persist(); renderSeeds();
+  persistFieldChange(); renderSeeds();
 }
 
 /** Click a team: fills the next open seed, then the first four out. */
@@ -222,7 +230,7 @@ function seedNext(id) {
   const i = STATE.seeds.findIndex(s => !s);
   if (i !== -1) {
     STATE.seeds[i] = { id, record: '', champ: false };
-    persist(); markPicked(id); renderSeeds();
+    persistFieldChange(); markPicked(id); renderSeeds();
     if (i === 11) toast('That\'s all twelve — now the four who missed');
     return;
   }
@@ -303,7 +311,7 @@ function renderSeeds() {
                         <button title="Remove from field">&times;</button>`;
       acts.children[0].onclick = () => openTeamModal(s.id);
       acts.children[1].onclick = () => {
-        STATE.seeds[i] = null; persist(); renderPool(); renderSeeds();
+        STATE.seeds[i] = null; persistFieldChange(); renderPool(); renderSeeds();
       };
       row.appendChild(acts);
     } else {
@@ -326,7 +334,7 @@ function renderSeeds() {
       STATE.seeds.splice(i, 0, moved);
       while (STATE.seeds.length < 12) STATE.seeds.push(null);
       STATE.seeds.length = 12;
-      dragFrom = null; persist(); renderSeeds(); renderPool();
+      dragFrom = null; persistFieldChange(); renderSeeds(); renderPool();
     });
 
     list.appendChild(row);
@@ -771,7 +779,7 @@ function saveTeamModal() {
     secondary: normHex($('#fSecHex').value)
   };
   saveOverrides(OVERRIDES);
-  closeTeamModal(); renderPool(); renderSeeds();
+  closeTeamModal(); renderPool(); renderSeeds(); Dynasty.renderStrip();
   toast('Team saved');
 }
 
@@ -1046,7 +1054,7 @@ async function boot() {
 
   $('#btnClear').onclick = () => {
     if (!confirm('Clear all 12 seeds?')) return;
-    STATE.seeds = Array(12).fill(null); persist(); renderPool(); renderSeeds();
+    STATE.seeds = Array(12).fill(null); persistFieldChange(); renderPool(); renderSeeds();
   };
   $('#btnShare').onclick   = openShare;
   $('#fShare').onclick     = openShare;
