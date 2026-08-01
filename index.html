@@ -269,7 +269,15 @@
     <div class="clock" id="tkClock">LIVE</div>
   </div>
 
+  <!-- live mixer, usable while the show is running -->
+  <div class="mixer" id="mixer">
+    <div class="mx-head">AUDIO MIX <i id="mxClose">&times;</i></div>
+    <div class="mx-rows" id="mxRows"></div>
+    <div class="mx-foot">Changes are live &mdash; nothing pauses.</div>
+  </div>
+
   <div class="ctl" id="ctl">
+    <button id="cMix">Mix</button>
     <button id="cPrev">&#9664; Prev</button>
     <button id="cPlay" class="go">Pause</button>
     <button id="cNext">Next &#9654;</button>

@@ -727,6 +727,48 @@ const OUT_WORD = { 2: 'First Two Out', 4: 'First Four Out' };
 const outLabelText = () =>
   STATE.outLabel || OUT_WORD[STATE.outCount] || 'Just Missed';
 
+/* Every channel in the mix, in one place. The committee room and the live
+   mixer both drive these, and both stay in step. */
+const MIX = [
+  { key: 'volume',          label: 'Music',      room: 'optVol',     lbl: 'volLbl' },
+  { key: 'musicUnderVoice', label: 'Under talk', room: 'optDuck',    lbl: 'duckLbl' },
+  { key: 'voiceVol',        label: 'Pat & Boone',room: 'optVoice',   lbl: 'voiceLbl' },
+  { key: 'callVol',         label: 'Team calls', room: 'optCallVol', lbl: 'callVolLbl' },
+  { key: 'filmVol',         label: 'Intro film', room: 'optFilmVol', lbl: 'filmVolLbl' }
+];
+
+function setMix(key, v) {
+  STATE[key] = Math.max(0, Math.min(100, +v));
+  MIX.forEach(c => {
+    if (c.key !== key) return;
+    const r = $('#' + c.room), rl = $('#' + c.lbl);
+    if (r) r.value = STATE[key];
+    if (rl) rl.textContent = STATE[key] + '%';
+    const m = $('#mx_' + key), ml = $('#mxl_' + key);
+    if (m) m.value = STATE[key];
+    if (ml) ml.textContent = STATE[key] + '%';
+  });
+  Show.applyLevels();
+  persist();
+}
+
+/** Build the panel that sits over the show, so levels can be set live. */
+function buildMixer() {
+  const wrap = $('#mxRows');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  MIX.forEach(c => {
+    const row = document.createElement('label');
+    row.className = 'mx-row';
+    row.innerHTML =
+      `<span>${esc(c.label)}</span>` +
+      `<input type="range" id="mx_${c.key}" min="0" max="100" value="${STATE[c.key]}">` +
+      `<b id="mxl_${c.key}">${STATE[c.key]}%</b>`;
+    row.querySelector('input').oninput = e => setMix(c.key, e.target.value);
+    wrap.appendChild(row);
+  });
+}
+
 function applyOutLabel() {
   const t = outLabelText().toUpperCase();
   const a = $('#outHead'), b = $('#foHead');
@@ -795,18 +837,13 @@ async function boot() {
   $('#volLbl').textContent = STATE.volume + '%';
   $('#optDuck').value  = STATE.musicUnderVoice;
   $('#duckLbl').textContent = STATE.musicUnderVoice + '%';
-  [['optVoice','voiceLbl','voiceVol'],
-   ['optCallVol','callVolLbl','callVol'],
-   ['optFilmVol','filmVolLbl','filmVol']].forEach(([sl, lb, key]) => {
-    $('#' + sl).value = STATE[key];
-    $('#' + lb).textContent = STATE[key] + '%';
-    $('#' + sl).oninput = e => {
-      STATE[key] = +e.target.value;
-      $('#' + lb).textContent = STATE[key] + '%';
-      Show.applyLevels();            // hear it while you drag
-      persist();
-    };
+  ['voiceVol', 'callVol', 'filmVol'].forEach(key => {
+    const c = MIX.find(x => x.key === key);
+    $('#' + c.room).value = STATE[key];
+    $('#' + c.lbl).textContent = STATE[key] + '%';
+    $('#' + c.room).oninput = e => setMix(key, e.target.value);
   });
+  buildMixer();
 
   $('#optOrder').onchange = e => { STATE.order = e.target.value; persist(); };
   $('#optPace').onchange  = e => {
@@ -819,18 +856,8 @@ async function boot() {
     applyOutLabel(); renderSeeds(); renderPool(); persist();
   };
   $('#optFx').onchange   = e => { STATE.fx = e.target.value; applyFx(); persist(); };
-  $('#optVol').oninput   = e => {
-    STATE.volume = +e.target.value;
-    $('#volLbl').textContent = STATE.volume + '%';
-    Show.setBedVolume();
-    persist();
-  };
-  $('#optDuck').oninput  = e => {
-    STATE.musicUnderVoice = +e.target.value;
-    $('#duckLbl').textContent = STATE.musicUnderVoice + '%';
-    Show.setBedVolume();          // audible straight away while you drag
-    persist();
-  };
+  $('#optVol').oninput  = e => setMix('volume', e.target.value);
+  $('#optDuck').oninput = e => setMix('musicUnderVoice', e.target.value);
 
   $('#btnClear').onclick = () => {
     if (!confirm('Clear all 12 seeds?')) return;

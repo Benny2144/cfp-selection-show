@@ -632,6 +632,43 @@ input,select{font-family:inherit}
 @keyframes l3wipe{to{transform:scaleX(1)}}
 
 /* =====================================================================
+   LIVE MIXER — sits over the show so nothing has to stop to use it
+   ===================================================================== */
+.mixer{
+  position:absolute;top:50%;right:22px;transform:translateY(-50%) translateX(24px);
+  z-index:22;width:min(300px,86vw);display:none;opacity:0;
+  background:rgba(11,14,20,.94);border:1px solid #2a3340;border-radius:8px;
+  box-shadow:0 26px 70px rgba(0,0,0,.8);backdrop-filter:blur(10px);
+  transition:opacity .25s,transform .25s cubic-bezier(.16,1,.3,1);
+}
+.mixer.on{display:block;opacity:1;transform:translateY(-50%) translateX(0)}
+.mx-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px;border-bottom:1px solid #232b36;
+  font-family:var(--cond);font-size:15px;letter-spacing:3px;color:#aab4c2;
+}
+.mx-head i{font-style:normal;cursor:pointer;font-size:20px;line-height:1;
+  color:#6c7785;padding:0 4px}
+.mx-head i:hover{color:var(--accent)}
+.mx-rows{padding:12px 14px 6px}
+.mx-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.mx-row span{flex:none;width:82px;font-size:10px;letter-spacing:1.6px;
+  text-transform:uppercase;color:#8a94a3;font-weight:800}
+.mx-row input[type=range]{flex:1;accent-color:var(--accent);height:20px}
+.mx-row b{flex:none;width:38px;text-align:right;font-family:var(--cond);
+  font-size:14px;letter-spacing:1px;color:var(--accent2);font-weight:400}
+.mx-foot{padding:0 14px 12px;font-size:10px;letter-spacing:1.4px;color:#5f6a79;
+  text-transform:uppercase}
+
+@media (max-width:720px){
+  .mixer{right:8px;left:8px;width:auto;top:auto;
+    bottom:calc(var(--bottom-rail) + 78px);transform:translateY(16px)}
+  .mixer.on{transform:translateY(0)}
+  .mx-row{margin-bottom:14px}
+  .mx-row input[type=range]{height:28px}     /* easier to grab with a thumb */
+}
+
+/* =====================================================================
    NETWORK BUG — the little permanent mark, top left
    ===================================================================== */
 .bug{

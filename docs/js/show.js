@@ -144,6 +144,91 @@ const Show = (() => {
   const audio = () => (ac ||= new (window.AudioContext || window.webkitAudioContext)());
   const sfxGain = () => .8;
 
+  /* =====================================================================
+     AUDIO BUS
+
+     Phones do not honour HTMLMediaElement.volume — on iOS it is read-only,
+     so every duck and every slider was being silently thrown away — and
+     starting a second element can stop the first, which is why the music
+     died the moment Pat began talking.
+
+     So every source is routed through one AudioContext with its own gain
+     node. Gain is controllable everywhere and the sources genuinely mix.
+     If any of that is unavailable we fall back to element.volume, which is
+     what desktop was already doing successfully.
+     ===================================================================== */
+  const Bus = (() => {
+    const nodes = new Map();          // element -> gain node
+    let ok = true;
+
+    function attach(el) {
+      if (!el || nodes.has(el)) return nodes.get(el);
+      if (!ok) return null;
+      try {
+        const a = audio();
+        wake();
+        /* Once a source is routed through the graph its sound only comes out
+           of the graph. If the context is not running that is silence, which
+           is worse than no ducking — so leave the element alone. */
+        if (a.state !== 'running') return null;
+        const src = a.createMediaElementSource(el);
+        const g = a.createGain();
+        g.gain.value = 1;
+        src.connect(g).connect(a.destination);
+        nodes.set(el, g);
+        return g;
+      } catch (e) {
+        /* already attached elsewhere, or unsupported — element volume it is */
+        ok = false;
+        return null;
+      }
+    }
+
+    /** Set a source's level, ramped so it never clicks. */
+    function set(el, v, ms) {
+      if (!el) return;
+      v = Math.max(0, Math.min(1, v));
+      const g = nodes.get(el) || attach(el);
+      if (g) {
+        try {
+          const a = audio(), t = a.currentTime;
+          g.gain.cancelScheduledValues(t);
+          g.gain.setValueAtTime(g.gain.value, t);
+          g.gain.linearRampToValueAtTime(v, t + Math.max(.01, (ms || 0) / 1000));
+          el.volume = 1;              // ignored on iOS, harmless elsewhere
+          return;
+        } catch (e) { /* fall through */ }
+      }
+      try { el.volume = v; } catch (e) {}
+    }
+
+    const level = el => {
+      const g = nodes.get(el);
+      if (g) return g.gain.value;
+      return el ? el.volume : 1;
+    };
+
+    /** iOS starts the context suspended; only a gesture can wake it. */
+    function wake() {
+      try {
+        const a = audio();
+        if (a.state === 'suspended') a.resume();
+      } catch (e) {}
+    }
+
+    /** Anything already playing on element volume moves onto the graph once
+        the context wakes up, so levels start working mid-show. */
+    function adopt(els, level) {
+      wake();
+      els.forEach(e => { if (e && !nodes.has(e)) { attach(e); } });
+      if (typeof level === 'function') level();
+    }
+
+    return { attach, set, level, wake, adopt,
+             get usingWebAudio() { return ok && nodes.size > 0; },
+             get routed() { return nodes.size; } };
+  })();
+
   function noise(dur, shape) {
     const a = audio(), n = Math.floor(a.sampleRate * dur);
     const buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
@@ -239,8 +324,15 @@ const Show = (() => {
     target = Math.max(0, Math.min(1, target));
     cancelAnimationFrame(fadeRaf);
     clearTimeout(fadeEnd);
-    const mine = ++fadeSeq;
-    const from = m.volume, t0 = performance.now();
+    fadeSeq++;
+
+    if (Bus.usingWebAudio) {          // the graph ramps it for us
+      Bus.set(m, target, ms);
+      return;
+    }
+    /* element-volume fallback: rAF stalls in a hidden tab, so a timer
+       guarantees the level actually lands */
+    const mine = fadeSeq, from = m.volume, t0 = performance.now();
     const step = () => {
       if (mine !== fadeSeq) return;
       const k = Math.min(1, (performance.now() - t0) / ms);
@@ -258,10 +350,10 @@ const Show = (() => {
 
   /** Push the current slider levels at whatever is playing right now. */
   function applyLevels() {
-    if (el.intro) el.intro.volume = voiceVol();
-    if (el.boone) el.boone.volume = voiceVol();
-    if (el.film)  el.film.volume  = filmVol();
-    if (callAudio) callAudio.volume = callVol();
+    Bus.set(el.intro, voiceVol(), 80);
+    Bus.set(el.boone, voiceVol(), 80);
+    Bus.set(el.film,  filmVol(),  80);
+    if (callAudio) Bus.set(callAudio, callVol(), 80);
     setBedVolume();
   }
 
@@ -295,7 +387,7 @@ const Show = (() => {
     if (!a) return false;
     callAudio = a;
     try { a.currentTime = 0; } catch (e) {}
-    a.volume = callVol();
+    Bus.set(a, callVol(), 0);
     const done = () => {
       if (callAudio === a) { callAudio = null; setBedVolume(); }
     };
@@ -310,9 +402,10 @@ const Show = (() => {
   function startBed() {
     const m = el.music;
     if (!m) return;
+    Bus.wake();
     if (!m.getAttribute('src')) m.src = MUSIC_FILE;
     if (bedStarted && !m.paused) return;
-    m.volume = 0;
+    Bus.set(m, 0, 0);
     m.play().then(() => { bedStarted = true; fadeTo(bedVol(), 2500); })
             .catch(() => { bedStarted = false; });
   }
@@ -554,7 +647,7 @@ const Show = (() => {
     if (v.readyState >= 1) watch();
 
     v.currentTime = 0;
-    v.volume = filmVol();
+    Bus.set(v, filmVol(), 0);
     v.play().catch(go);
   }
 
@@ -583,7 +676,7 @@ const Show = (() => {
     /* full: the spoken intro is the clock */
     const a = el.intro;
     a.currentTime = 0;
-    a.volume = voiceVol();
+    Bus.set(a, voiceVol(), 0);
     const started = a.play();
 
     const fallback = () => {
@@ -650,7 +743,7 @@ const Show = (() => {
         if (k >= BOONE_SLATES[i].at) idx = i;
       if (idx >= 0 && idx !== coldBeat) { coldBeat = idx; showSlate(BOONE_SLATES[idx]); }
     };
-    b.currentTime = 0; b.volume = voiceVol();
+    b.currentTime = 0; Bus.set(b, voiceVol(), 0);
     b.play().catch(finish2);
   }
 
@@ -678,6 +771,9 @@ const Show = (() => {
   /* Recording has to be requested straight off the click, before anything
      async happens, or the browser refuses the capture prompt. */
   async function play() {
+    /* A click is the only moment iOS lets the context start, so this is where
+       every source moves onto the mixer. */
+    Bus.adopt([el.music, el.intro, el.boone, el.film], applyLevels);
     if (STATE.record && Recorder.supported() && !Recorder.active) {
       try {
         await Recorder.start(onRecordingDone);
@@ -719,7 +815,7 @@ const Show = (() => {
     const m = el.music;
     if (!m.getAttribute('src')) m.src = MUSIC_FILE;
     try { m.currentTime = 0; } catch (e) {}
-    m.volume = 0;
+    Bus.set(m, 0, 0);
     m.play().then(() => { bedStarted = true; setBedVolume(); }).catch(() => {});
 
     startAmbient();
@@ -1087,6 +1183,9 @@ const Show = (() => {
     document.getElementById('cPrev').onclick = prev;
     document.getElementById('cPlay').onclick = togglePause;
     document.getElementById('cSkip').onclick = () => { if (inColdOpen()) endColdOpen(); };
+    const mx = document.getElementById('mixer');
+    document.getElementById('cMix').onclick = () => mx.classList.toggle('on');
+    document.getElementById('mxClose').onclick = () => mx.classList.remove('on');
     document.getElementById('cRestart').onclick = arm;
     document.getElementById('cBracket').onclick = () => { stop(); showScreen('final'); };
     document.getElementById('cRoom').onclick = () => {
@@ -1129,6 +1228,8 @@ const Show = (() => {
       else if (e.code === 'ArrowLeft')  prev();
       else if (e.key === 's' || e.key === 'S') { if (inColdOpen()) endColdOpen(); }
       else if (e.key === 'p' || e.key === 'P') togglePause();
+      else if (e.key === 'm' || e.key === 'M')
+        document.getElementById('mixer').classList.toggle('on');
       else if (e.key === 'f' || e.key === 'F') toggleFull();
       else if (e.key === 'Escape') {
         if (VIEWER) { stop(); arm(); }      // back to the play button, no further
@@ -1166,5 +1267,7 @@ const Show = (() => {
 
   return { init, arm, play, next, prev, stop, startBed, setBedVolume,
            applyLevels, fadeTo,
+           get usingWebAudio() { return Bus.usingWebAudio; },
+           get routedSources() { return Bus.routed; },
            bedVol, sfx: { stinger, beep, whoosh } };
 })();

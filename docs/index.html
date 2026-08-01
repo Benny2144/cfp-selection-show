@@ -11,7 +11,7 @@
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23F56A00'/><text x='16' y='24' font-size='20' font-family='Impact' text-anchor='middle' fill='%23000'>C</text></svg>">
-<link rel="stylesheet" href="css/broadcast.css?v=cac72fd7">
+<link rel="stylesheet" href="css/broadcast.css?v=a978043a">
 </head>
 <body>
 
@@ -269,7 +269,15 @@
     <div class="clock" id="tkClock">LIVE</div>
   </div>
 
+  <!-- live mixer, usable while the show is running -->
+  <div class="mixer" id="mixer">
+    <div class="mx-head">AUDIO MIX <i id="mxClose">&times;</i></div>
+    <div class="mx-rows" id="mxRows"></div>
+    <div class="mx-foot">Changes are live &mdash; nothing pauses.</div>
+  </div>
+
   <div class="ctl" id="ctl">
+    <button id="cMix">Mix</button>
     <button id="cPrev">&#9664; Prev</button>
     <button id="cPlay" class="go">Pause</button>
     <button id="cNext">Next &#9654;</button>
@@ -458,7 +466,7 @@
 <script src="js/teams.js?v=226ef5bc"></script>
 <script src="js/logos.js?v=db37b9ac"></script>
 <script src="js/recorder.js?v=3cbae938"></script>
-<script src="js/app.js?v=f4dd576a"></script>
-<script src="js/show.js?v=76e40808"></script>
+<script src="js/app.js?v=b07edd03"></script>
+<script src="js/show.js?v=3bd96679"></script>
 </body>
 </html>
