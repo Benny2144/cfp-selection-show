@@ -140,6 +140,14 @@
   <!-- the intro film, full bleed -->
   <div class="filmstage" id="filmStage">
     <video id="film" playsinline preload="auto"></video>
+    <div class="film-bar">
+      <div class="fb-track"><i id="fbFill"></i></div>
+      <div class="fb-times">
+        <span id="fbNow">0:00</span>
+        <span id="fbLeft">Intro film</span>
+        <span id="fbTotal">--:--</span>
+      </div>
+    </div>
     <div class="film-skip" id="filmSkip">Skip intro &nbsp;&rsaquo;</div>
   </div>
 
@@ -247,9 +255,6 @@
   <!-- recording indicator -->
   <div class="reclamp" id="recLamp"><i></i>REC</div>
 
-  <!-- tap zones for phones -->
-  <button class="tapzone left"  id="tapPrev" aria-label="Previous"></button>
-  <button class="tapzone right" id="tapNext" aria-label="Next"></button>
 </section>
 
 <!-- =====================================================================

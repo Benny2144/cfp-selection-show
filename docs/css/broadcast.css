@@ -1113,11 +1113,28 @@ body.calm .scan{display:none}
   animation:recblink 1.4s infinite}
 @keyframes recblink{0%,100%{opacity:1}50%{opacity:.15}}
 
-/* tap zones — phones only */
-.tapzone{position:absolute;top:0;bottom:var(--bottom-rail);width:32%;z-index:19;display:none;
-  background:transparent;-webkit-tap-highlight-color:transparent}
-.tapzone.left{left:0}
-.tapzone.right{right:0;width:68%}
+/* the intro film's clock, so nobody is guessing how long it runs */
+.film-bar{
+  position:absolute;left:0;right:0;bottom:0;z-index:2;
+  padding:0 22px calc(14px + var(--safe-b));
+  background:linear-gradient(180deg,transparent,rgba(4,6,9,.85) 55%);
+  pointer-events:none;
+}
+.fb-track{height:4px;border-radius:2px;background:rgba(255,255,255,.16);
+  overflow:hidden;margin-bottom:8px}
+.fb-track i{display:block;height:100%;width:0;border-radius:2px;
+  background:linear-gradient(90deg,#ff8a2b,var(--accent));
+  transition:width .25s linear}
+.fb-times{display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;letter-spacing:2.4px;text-transform:uppercase;font-weight:800;
+  color:#9aa5b4;font-variant-numeric:tabular-nums}
+.fb-times span:nth-child(2){color:var(--accent)}
+
+@media (max-width:720px){
+  .film-bar{padding:0 12px calc(10px + var(--safe-b))}
+  .fb-times{font-size:9.5px;letter-spacing:1.4px}
+}
+
 
 /* =====================================================================
    MOBILE FIELD LIST — the bracket, readable on a phone
@@ -1228,7 +1245,6 @@ body.calm .scan{display:none}
   .go-row .btn.primary{flex-basis:100%;min-width:0;padding:13px 6px;font-size:12px}
 
   /* the show */
-  .tapzone{display:block}
   /* one compact strip that scrolls sideways, instead of three stacked rows
      piling up on top of the lower third */
   /* sits above the lower third, which is itself above the ticker */

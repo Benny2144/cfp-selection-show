@@ -11,7 +11,7 @@
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
-<link rel="stylesheet" href="css/broadcast.css?v=3f4cf2e7">
+<link rel="stylesheet" href="css/broadcast.css?v=e93ce466">
 </head>
 <body>
 
@@ -140,6 +140,14 @@
   <!-- the intro film, full bleed -->
   <div class="filmstage" id="filmStage">
     <video id="film" playsinline preload="auto"></video>
+    <div class="film-bar">
+      <div class="fb-track"><i id="fbFill"></i></div>
+      <div class="fb-times">
+        <span id="fbNow">0:00</span>
+        <span id="fbLeft">Intro film</span>
+        <span id="fbTotal">--:--</span>
+      </div>
+    </div>
     <div class="film-skip" id="filmSkip">Skip intro &nbsp;&rsaquo;</div>
   </div>
 
@@ -247,9 +255,6 @@
   <!-- recording indicator -->
   <div class="reclamp" id="recLamp"><i></i>REC</div>
 
-  <!-- tap zones for phones -->
-  <button class="tapzone left"  id="tapPrev" aria-label="Previous"></button>
-  <button class="tapzone right" id="tapNext" aria-label="Next"></button>
 </section>
 
 <!-- =====================================================================
@@ -485,6 +490,6 @@
 <script src="js/logos.js?v=d49e9f30"></script>
 <script src="js/recorder.js?v=3cbae938"></script>
 <script src="js/app.js?v=0beac5df"></script>
-<script src="js/show.js?v=21cb8ba8"></script>
+<script src="js/show.js?v=fa9ed0e7"></script>
 </body>
 </html>

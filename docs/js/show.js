@@ -858,7 +858,7 @@ const Show = (() => {
       clearTimeout(filmGuard);
       phase = 'voice';
       el.filmStage.classList.remove('on');
-      try { v.pause(); } catch (e) {}
+      try { v.pause(); v.ontimeupdate = null; } catch (e) {}
       /* the bed comes back from the top, so the voices open over its start */
       bedWanted = true;
       watchBed(true);
@@ -880,8 +880,24 @@ const Show = (() => {
         else watch();
       }, Math.max(1200, (isFinite(left) ? left * 1000 : 5000) + 1500));
     };
-    v.onloadedmetadata = watch;
-    if (v.readyState >= 1) watch();
+    const fmt = t => {
+      if (!isFinite(t) || t < 0) t = 0;
+      const m = Math.floor(t / 60), s2 = Math.floor(t % 60);
+      return m + ':' + String(s2).padStart(2, '0');
+    };
+    const paintBar = () => {
+      const d = v.duration;
+      if (!isFinite(d) || d <= 0) return;
+      const k = Math.min(1, v.currentTime / d);
+      if (el.fbFill)  el.fbFill.style.width = (k * 100).toFixed(2) + '%';
+      if (el.fbNow)   el.fbNow.textContent = fmt(v.currentTime);
+      if (el.fbTotal) el.fbTotal.textContent = fmt(d);
+      if (el.fbLeft)  el.fbLeft.textContent = fmt(d - v.currentTime) + ' left';
+    };
+    v.ontimeupdate = paintBar;
+
+    v.onloadedmetadata = () => { paintBar(); watch(); };
+    if (v.readyState >= 1) { paintBar(); watch(); }
 
     v.currentTime = 0;
     Bus.set(v, filmVol(), 0);
@@ -1551,7 +1567,8 @@ const Show = (() => {
      'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap',
      'bloom', 'l3bar', 'foHead',
      'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub',
-     'liveWrap', 'liveBracket', 'lbCount']
+     'liveWrap', 'liveBracket', 'lbCount',
+     'fbFill', 'fbNow', 'fbLeft', 'fbTotal']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');
 
@@ -1589,16 +1606,13 @@ const Show = (() => {
     const showEl = document.getElementById('show');
     showEl.addEventListener('mousemove', nudgeCtl);
 
-    /* phones: tap the right side to advance, left to go back, long-press
-       anywhere brings up the toolbar */
-    document.getElementById('tapNext').onclick = () => {
-      if (el.gate.style.display !== 'none') return;
-      nudgeCtl(); next();
-    };
-    document.getElementById('tapPrev').onclick = () => {
-      if (el.gate.style.display !== 'none') return;
-      nudgeCtl(); prev();
-    };
+    /* A tap anywhere used to advance. With a pick now running as three
+       timed beats, that lands mid-sequence and leaves the show in a mess —
+       so advancing is the toolbar or the keyboard, deliberately. Touching
+       the screen just brings the toolbar up. */
+    showEl.addEventListener('pointerdown', () => {
+      if (el.gate.style.display === 'none') nudgeCtl();
+    });
 
     setInterval(() => {
       el.tkClock.textContent = new Date()
