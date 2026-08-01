@@ -27,6 +27,10 @@ const DUCK_UNDER_CALL  = 0.3;
    tools/cut_voice.py. Missing file = that team just gets the sound effects. */
 const VOICE_DIR = 'voice/';
 
+/* Per-seed commentary, cut by tools/cut_seeds.py. Each seed has a build-up
+   played before the team is shown and a reaction played after it lands. */
+const SEED_DIR = 'seedcall/';
+
 const Show = (() => {
 
   let seq = [], cursor = -1, timer = null;
@@ -441,6 +445,7 @@ const Show = (() => {
     Bus.set(el.boone, booneVol(), 80);
     Bus.set(el.film,  filmVol(),  80);
     if (callAudio) Bus.set(callAudio, callVol(), 80);
+    if (seedAudio) Bus.set(seedAudio, voiceVol(), 80);
     setBedVolume();
   }
 
@@ -464,6 +469,66 @@ const Show = (() => {
     try { callAudio.pause(); callAudio.currentTime = 0; } catch (e) {}
     callAudio.onended = null;
     callAudio = null;
+  }
+
+  /* ------------------------------------------- the per-seed commentary */
+  const seedCache = {};                 // 's01-before' -> Audio | false
+  let seedAudio = null;
+
+  function seedClip(i, half) {
+    if (STATE.seedTalk === 'off') return null;
+    const key = 's' + String(i + 1).padStart(2, '0') + '-' + half;
+    if (seedCache[key] === false) return null;
+    if (!seedCache[key]) {
+      const a = new Audio(SEED_DIR + key + '.mp3');
+      a.preload = 'auto';
+      a.onerror = () => { seedCache[key] = false; };
+      seedCache[key] = a;
+    }
+    return seedCache[key];
+  }
+
+  /** Warm the clips for the seeds in this show. */
+  function primeSeedTalk() {
+    STATE.seeds.forEach((s, i) => { if (s) { seedClip(i, 'before'); seedClip(i, 'after'); } });
+  }
+
+  function stopSeedTalk() {
+    if (!seedAudio) return;
+    try { seedAudio.pause(); seedAudio.currentTime = 0; } catch (e) {}
+    seedAudio.onended = null;
+    seedAudio = null;
+  }
+
+  /** Play one half and call `then` when it finishes — or straight away if
+      there is no clip, so the show never stalls waiting on a missing file. */
+  function playSeedTalk(clip, gen, then) {
+    stopSeedTalk();
+    if (!clip) { then(); return; }
+    seedAudio = clip;
+    try { clip.currentTime = 0; } catch (e) {}
+    Bus.set(clip, voiceVol(), 0);
+
+    let done = false;
+    const finish = () => {
+      if (done || gen !== revealGen) return;
+      done = true;
+      if (seedAudio === clip) { seedAudio = null; setBedVolume(); }
+      then();
+    };
+    clip.onended = finish;
+    clip.onerror = finish;
+    clip.play().then(() => fadeTo(bedVol() * DUCK_UNDER_CALL, 200))
+               .catch(finish);
+    /* if the file never fires 'ended' the sequence still moves on */
+    const wait = () => {
+      const left = (clip.duration || 0) - clip.currentTime;
+      if (!isFinite(left) || left <= 0) { setTimeout(finish, 400); return; }
+      setTimeout(() => { if (!done) (clip.ended || clip.paused ? finish() : wait()); },
+                 left * 1000 + 700);
+    };
+    if (clip.readyState >= 1) wait();
+    else clip.addEventListener('loadedmetadata', wait, { once: true });
   }
 
   /** Play a team's call, ducking the bed underneath it. */
@@ -621,7 +686,9 @@ const Show = (() => {
     el.filmStage.classList.remove('on');
     try { el.film.pause(); el.film.currentTime = 0; } catch (e) {}
     stopCall();
+    stopSeedTalk();
     primeCalls();
+    primeSeedTalk();
     startBed();
     setBedVolume();
     startAmbient();
@@ -1050,8 +1117,7 @@ const Show = (() => {
       for (let k = 0; k <= cursor; k++) { litRail(seq[k], false); pushTickerTeam(seq[k]); }
     }
 
-    if (STATE.pace !== 'manual' && !paused)
-      timer = setTimeout(next, +STATE.pace);
+    /* the sequence itself schedules the next pick when the reaction ends */
   }
 
   /** Auto-advance must never talk over the announcer. */
@@ -1106,14 +1172,42 @@ const Show = (() => {
 
   let revealGen = 0;
 
+  /* A pick now runs in three beats, the way the broadcast does it: the
+     build-up with only the seed number on screen, the team landing, then
+     the reaction over the celebration. */
   function reveal(i) {
     const s = STATE.seeds[i];
     if (!s) { next(); return; }
-    const t = team(s.id);
-    const bye = i < 4;
-    const gen = ++revealGen;          // stale timers from a skipped pick bail out
+    const gen = ++revealGen;
+    clearTimeout(timer);
+    stopCall();
+    stopSeedTalk();
 
     el.revealLayer.classList.add('on');
+    el.bannerStage.innerHTML = '';       // no team yet — that is the point
+    el.teamInfo.innerHTML = '';
+    el.lower.classList.remove('on');
+    el.bloom.classList.remove('go');
+    el.glow.style.opacity = '0';
+
+    el.bigNum.textContent = i + 1;
+    el.bigNum.classList.remove('pop'); void el.bigNum.offsetWidth;
+    el.bigNum.classList.add('pop');
+    el.seedChip.textContent = `NO. ${i + 1} SEED`;
+    el.seedChip.classList.remove('roll'); void el.seedChip.offsetWidth;
+    el.seedChip.classList.add('roll');
+    whoosh();
+
+    playSeedTalk(seedClip(i, 'before'), gen, () => landTeam(i, gen));
+  }
+
+  /** The name drops. Everything that used to be the whole reveal. */
+  function landTeam(i, gen) {
+    if (gen !== revealGen) return;
+    const s = STATE.seeds[i];
+    if (!s) return;
+    const t = team(s.id);
+    const bye = i < 4;
 
     /* ---- pre-hit: wipe + glitch, then the banner lands ---- */
     wipe(t.primary);
@@ -1176,7 +1270,7 @@ const Show = (() => {
     stopCall();
     setTimeout(() => {
       if (gen !== revealGen) return;
-      if (playCall(s.id)) holdForCall(gen);
+      playCall(s.id);
     }, 700);
 
     /* ---- lower third ---- */
@@ -1193,6 +1287,19 @@ const Show = (() => {
 
     litRail(i, true);
     pushTickerTeam(i);
+
+    /* ---- the reaction, once the announcer has named them ---- */
+    const after = seedClip(i, 'after');
+    const runAfter = () => {
+      if (gen !== revealGen) return;
+      playSeedTalk(after, gen, () => {
+        if (gen !== revealGen) return;
+        if (STATE.pace !== 'manual' && !paused) timer = setTimeout(next, 900);
+      });
+    };
+    const call = callCache[s.id];
+    const callLen = (call && isFinite(call.duration)) ? call.duration * 1000 : 0;
+    setTimeout(runAfter, 700 + (STATE.calls === 'off' ? 300 : callLen + 500));
   }
 
   function opponentTag(i) {
@@ -1271,6 +1378,7 @@ const Show = (() => {
     running = false;
     clearTimeout(timer);
     stopCall();
+    stopSeedTalk();
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
 
@@ -1355,6 +1463,7 @@ const Show = (() => {
       el.music.pause();
       try { el.intro.pause(); el.boone.pause(); el.film.pause(); } catch (e) {}
       if (callAudio) try { callAudio.pause(); } catch (e) {}
+      if (seedAudio) try { seedAudio.pause(); } catch (e) {}
     } else {
       bedWanted = true; watchBed(true);
       el.music.play().catch(() => {});
@@ -1363,6 +1472,7 @@ const Show = (() => {
       else if (phase === 'boone') el.boone.play().catch(() => {});
       else {
         if (callAudio) callAudio.play().catch(() => {});
+        if (seedAudio) seedAudio.play().catch(() => {});
         if (STATE.pace !== 'manual') timer = setTimeout(next, +STATE.pace);
       }
     }
@@ -1470,11 +1580,13 @@ const Show = (() => {
     [el.intro, el.boone].forEach(a => {
       try { a.pause(); a.ontimeupdate = null; a.onended = null; } catch (e) {}
     });
+    stopSeedTalk();
     clearTimeout(filmGuard);
     try { el.film.pause(); el.film.onended = null; el.film.onloadedmetadata = null; }
     catch (e) {}
     el.filmStage.classList.remove('on');
     stopCall();
+    stopSeedTalk();
     hideCold();
     stopAmbient();
     setBedVolume();

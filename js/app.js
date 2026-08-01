@@ -16,6 +16,7 @@ const STATE = {
   pace:     10000,
   cold:     'full',
   calls:    'on',
+  seedTalk: 'on',                      // the per-seed build-up and reaction
   fx:       'max',
   volume:   55,
   musicUnderVoice: 55,                 // bed level while Pat or Boone talk
@@ -378,7 +379,7 @@ function encodeState() {
   const payload = {
     l: STATE.league, y: STATE.season, t: STATE.title, s: STATE.subtitle,
     k: STATE.ticker, ol: STATE.outLabel, oc: STATE.outCount, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
-    n: STATE.calls, rf: STATE.roomFilm, mv: STATE.musicUnderVoice, vv: STATE.voiceVol,
+    n: STATE.calls, st: STATE.seedTalk, rf: STATE.roomFilm, mv: STATE.musicUnderVoice, vv: STATE.voiceVol,
     cv: STATE.callVol, fv: STATE.filmVol, bv: STATE.booneVol,
     g: STATE.logoPattern,
     d: STATE.seeds.map(x => x ? [x.id, x.record || ''] : null),
@@ -408,6 +409,7 @@ function decodeState(b64) {
     STATE.cold     = p.c ?? 'full';
     STATE.fx       = p.f ?? 'max';
     STATE.calls    = p.n ?? 'on';
+    STATE.seedTalk = p.st ?? 'on';
     STATE.roomFilm = p.rf ?? 'on';
     STATE.musicUnderVoice = p.mv ?? 55;
     STATE.voiceVol = p.vv ?? 100;
@@ -903,6 +905,7 @@ async function boot() {
   $('#optPace').value  = String(STATE.pace);
   $('#optCold').value  = STATE.cold;
   $('#optCalls').value = STATE.calls;
+  $('#optSeedTalk').value = STATE.seedTalk;
   $('#optRoomFilm').value = STATE.roomFilm;
   $('#optOutCount').value = String(STATE.outCount);
   $('#optFx').value    = STATE.fx;
@@ -917,6 +920,7 @@ async function boot() {
   };
   $('#optCold').onchange  = e => { STATE.cold  = e.target.value; persist(); };
   $('#optCalls').onchange = e => { STATE.calls = e.target.value; persist(); };
+  $('#optSeedTalk').onchange = e => { STATE.seedTalk = e.target.value; persist(); };
   $('#optRoomFilm').onchange = e => {
     STATE.roomFilm = e.target.value;
     applyRoomFilm(document.querySelector('.screen.active')?.id);

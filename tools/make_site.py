@@ -17,7 +17,7 @@ OUT = os.path.join(ROOT, 'docs')
 
 FILES = ['index.html', 'netlify.toml', '.nojekyll', 'music.mp3',
          'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4']
-DIRS = ['css', 'js', 'assets', 'logos', 'voice']
+DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
 
 # never ship these
 SKIP_EXT = {'.avif', '.py', '.md'}
