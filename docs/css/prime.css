@@ -382,6 +382,111 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @keyframes lockCharge{0%{transform:scaleX(0)}100%{transform:scaleX(1)}}
 @keyframes liveBlink{50%{opacity:.25}}
 
+/* ---------------------------------------------------------------------
+   TWELVE-PICK DIRECTOR SYSTEM
+   Every pick keeps the same broadcast grammar while the framing, editorial
+   story and light plot evolve through the bye, host and road-team acts.
+   --------------------------------------------------------------------- */
+.pick-main{
+  position:relative;z-index:4;width:min(70vw,1080px);display:flex;
+  flex-direction:column;align-items:center;transition:transform .95s var(--prime-ease),width .7s var(--prime-ease)
+}
+.reveal .pick-main .banner-stage{width:100%}
+#show.camera-left .pick-main{transform:translateX(-9vw);width:min(62vw,940px)}
+#show.camera-right .pick-main{transform:translateX(9vw);width:min(62vw,940px)}
+#show.camera-center .pick-main{transform:none;width:min(72vw,1100px)}
+
+.reveal::before{
+  content:'';position:absolute;z-index:0;inset:0;pointer-events:none;opacity:.85;
+  background:radial-gradient(42% 54% at var(--director-x,50%) 49%,var(--director-light,rgba(244,194,92,.14)),transparent 72%),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px) 0 0/8.333% 100%;
+  transition:background .8s,opacity .8s
+}
+#show.camera-left{--director-x:32%}#show.camera-right{--director-x:68%}#show.camera-center{--director-x:50%}
+#show.tier-bye{--director-tone:#f4c25c;--director-light:rgba(244,194,92,.18)}
+#show.tier-host{--director-tone:#f57b22;--director-light:rgba(245,106,0,.2)}
+#show.tier-road{--director-tone:#ef3824;--director-light:rgba(239,56,36,.18)}
+#show.tier-bye .pick-lock>span,#show.tier-bye .pick-lock>em{color:#f7d986}
+#show.tier-host .pick-lock>span,#show.tier-host .pick-lock>em{color:#ff9a4e}
+#show.tier-road .pick-lock>span,#show.tier-road .pick-lock>em{color:#ff7567}
+#show .pick-lock>div i::after{background:var(--director-tone,var(--prime-gold));animation-duration:.95s}
+#show .pick-lock>div i:nth-child(2)::after{animation-delay:.55s}
+#show .pick-lock>div i:nth-child(3)::after{animation-delay:1.1s}
+#show.is-milestone.anticipating .pick-lock>b{animation:milestoneLock 1.8s ease-in-out infinite alternate}
+@keyframes milestoneLock{from{color:rgba(255,255,255,.055);text-shadow:0 20px 80px #000}to{color:rgba(255,255,255,.105);text-shadow:0 20px 80px #000,0 0 70px color-mix(in srgb,var(--director-tone) 34%,transparent)}}
+
+.director-rundown{
+  position:absolute;left:0;right:0;top:23px;display:flex;align-items:center;gap:15px;
+  opacity:.78;transition:opacity .35s
+}
+.director-rundown>span{
+  flex:none;min-width:174px;color:var(--director-tone,var(--prime-gold))!important;
+  font-size:6.5px!important;font-weight:900!important;letter-spacing:2.2px!important
+}
+.director-track{display:flex;align-items:center;gap:5px;flex:1}
+.director-track i{
+  position:relative;display:block;flex:1!important;height:3px!important;min-width:10px;
+  background:rgba(255,255,255,.1)!important;overflow:visible;transition:.45s
+}
+.director-track i::after{content:'';position:absolute;inset:0;background:var(--director-tone,var(--prime-gold));transform:scaleX(0);transform-origin:left;transition:transform .55s var(--prime-ease),box-shadow .4s}
+.director-track i.done::after{transform:scaleX(1)}
+.director-track i.current{height:5px!important;background:rgba(255,255,255,.2)!important}
+.director-track i.current::after{transform:scaleX(.32);box-shadow:0 0 16px var(--director-tone,var(--prime-gold))}
+.director-track i.current.locked::after{transform:scaleX(1)}
+.director-track i b{
+  position:absolute;left:0;top:7px;color:#626d7b!important;font-size:5.5px!important;
+  font-weight:850!important;letter-spacing:.5px!important;transition:.35s
+}
+.director-track i.current b{color:#fff!important}.director-track i.done b{color:var(--director-tone,var(--prime-gold))!important}
+
+.hero-crest{
+  position:absolute;z-index:1;top:50%;width:min(30vw,430px);aspect-ratio:1;display:grid;
+  place-items:center;pointer-events:none;opacity:0;filter:blur(18px) saturate(.75);
+  transform:translateY(-48%) scale(.72) rotate(-5deg);transition:opacity .8s,filter 1s,transform 1.25s var(--prime-ease)
+}
+.hero-crest img{display:block;max-width:86%;max-height:86%;object-fit:contain;filter:drop-shadow(0 28px 70px rgba(0,0,0,.74)) drop-shadow(0 0 28px var(--team-a,transparent))}
+.hero-crest span{font-family:var(--cond);font-size:clamp(82px,13vw,190px);line-height:.8;color:rgba(255,255,255,.12);-webkit-text-stroke:1px rgba(255,255,255,.35);text-shadow:0 30px 80px #000}
+#show.camera-left .hero-crest{right:2.7vw}
+#show.camera-right .hero-crest{left:2.7vw;transform:translateY(-48%) scale(.72) rotate(5deg)}
+#show.camera-left .hero-crest.in{opacity:.38;filter:blur(0) saturate(.9);transform:translateY(-50%) scale(1) rotate(-2deg)}
+#show.camera-right .hero-crest.in{opacity:.38;filter:blur(0) saturate(.9);transform:translateY(-50%) scale(1) rotate(2deg)}
+#show.camera-center .hero-crest{left:50%;width:min(38vw,560px);transform:translate(-50%,-48%) scale(.7);mix-blend-mode:screen}
+#show.camera-center .hero-crest.in{opacity:.18;filter:blur(1px) saturate(.7);transform:translate(-50%,-50%) scale(1)}
+
+.pick-story{
+  position:absolute;z-index:6;top:51%;width:min(250px,19vw);padding:17px 17px 19px;
+  border-top:1px solid color-mix(in srgb,var(--director-tone) 62%,transparent);
+  border-bottom:1px solid rgba(255,255,255,.1);background:linear-gradient(100deg,rgba(3,6,10,.88),rgba(9,14,21,.55));
+  backdrop-filter:blur(15px);opacity:0;pointer-events:none;transition:opacity .65s .2s,transform .85s var(--prime-ease) .12s
+}
+.pick-story::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--director-tone,var(--prime-gold));box-shadow:0 0 22px var(--director-tone,var(--prime-gold))}
+.pick-story>span{display:block;font-size:6.5px;font-weight:950;letter-spacing:3px;color:var(--director-tone,var(--prime-gold))}
+.pick-story>b{display:block;margin-top:9px;font-family:var(--cond);font-size:clamp(25px,2.5vw,40px);font-weight:400;line-height:.82;letter-spacing:.3px;color:#fff;text-wrap:balance}
+.pick-story>p{margin-top:12px;font-size:9px;line-height:1.55;color:#8f9aaa;letter-spacing:.35px}
+.pick-story>i{display:block;width:34px;height:2px;margin-top:14px;background:var(--director-tone,var(--prime-gold))}
+#show.camera-left .pick-story{right:2.2vw;transform:translate(28px,-50%)}
+#show.camera-right .pick-story{left:2.2vw;transform:translate(-28px,-50%)}
+#show.camera-left .pick-story.in,#show.camera-right .pick-story.in{opacity:1;transform:translate(0,-50%)}
+#show.camera-center .pick-story{
+  left:50%;top:auto;bottom:calc(var(--above-ticker) + 94px);width:min(660px,58vw);
+  padding:12px 19px 13px;text-align:center;transform:translate(-50%,22px)
+}
+#show.camera-center .pick-story>p{margin-top:7px}#show.camera-center .pick-story>i{margin:10px auto 0}
+#show.camera-center .pick-story.in{opacity:1;transform:translate(-50%,0)}
+
+.milestone-stamp{
+  position:absolute;z-index:7;top:17.5vh;left:50%;display:flex;align-items:center;gap:13px;
+  padding:7px 13px 7px 8px;border:1px solid color-mix(in srgb,var(--director-tone) 55%,transparent);
+  background:rgba(3,6,10,.74);backdrop-filter:blur(14px);opacity:0;pointer-events:none;
+  transform:translate(-50%,-22px) scale(.94)
+}
+.milestone-stamp span{display:grid;place-items:center;min-width:35px;height:31px;background:var(--director-tone,var(--prime-gold));font-family:var(--cond);font-size:22px;color:#090603}
+.milestone-stamp b{font-size:7px;letter-spacing:3.2px;color:#fff;white-space:nowrap}
+.milestone-stamp.on{animation:milestoneStamp 2.2s var(--prime-ease) both}
+@keyframes milestoneStamp{0%{opacity:0;transform:translate(-50%,-35px) scale(.88);filter:blur(7px)}30%{opacity:1;transform:translate(-50%,0) scale(1);filter:none}72%{opacity:1}100%{opacity:.52;transform:translate(-50%,0) scale(1)}}
+
+#show.anticipating .rail,#show.landing .rail,#show.holding .rail{opacity:.13!important}
+#show.anticipating .hero-crest,#show.anticipating .pick-story,#show.anticipating .milestone-stamp{opacity:0}
+
 .matchmoment{display:grid;place-items:center;padding:9vh 5vw calc(var(--bottom-rail) + 6vh);background:radial-gradient(44% 70% at 15% 50%,var(--mm-left,rgba(244,194,92,.19)),transparent 74%),radial-gradient(44% 70% at 85% 50%,var(--mm-right,rgba(239,56,36,.16)),transparent 74%),linear-gradient(180deg,rgba(3,5,9,.96),rgba(3,6,10,.99));transition:opacity .42s,visibility .42s}
 .matchmoment::before{content:'';position:absolute;left:50%;top:-10%;bottom:-10%;width:1px;background:linear-gradient(180deg,transparent,rgba(244,194,92,.48),transparent);box-shadow:0 0 45px rgba(244,194,92,.28)}
 .mm-kicker{position:absolute;top:10vh;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:15px;font-size:8px;font-weight:900;letter-spacing:4.5px;color:var(--prime-gold);white-space:nowrap}.mm-kicker i{width:44px;height:1px;background:linear-gradient(90deg,transparent,var(--prime-gold))}.mm-kicker i:last-child{transform:scaleX(-1)}
@@ -561,6 +666,12 @@ body.screen-shifting .prime-page-wipe{animation:primeWipe .68s cubic-bezier(.76,
   .film-credit{left:7vw;top:48%}.film-credit>span{font-size:5.5px;letter-spacing:2px}.film-credit>span i{width:16px}.film-credit>b{font-size:clamp(54px,18vw,82px)}.film-credit>em{margin-top:17px;font-size:6px;letter-spacing:3px}.film-livebug{top:50px;right:10px;height:25px}.film-livebug b{display:none}
   .pickchapter{padding:11vw 7vw}.pickchapter h2{font-size:clamp(62px,21vw,102px)}.pickchapter p{max-width:88vw;font-size:10px}.pc-index{right:-4vw;font-size:42vw}.pc-track{width:70vw}
   .pick-lock{top:48%;width:92vw}.pick-lock>span{font-size:6px;letter-spacing:3px}.pick-lock>b{font-size:40vw}.pick-lock>em{font-size:7px;letter-spacing:2px}.pick-lock>div i{width:44px}
+  #show.camera-left .pick-main,#show.camera-right .pick-main,#show.camera-center .pick-main{width:91vw;transform:none}
+  .director-rundown{top:18px;gap:7px}.director-rundown>span{min-width:113px;font-size:5px!important;letter-spacing:1px!important}.director-track{gap:3px}.director-track i{min-width:4px}.director-track i b{display:none}
+  .hero-crest,#show.camera-left .hero-crest,#show.camera-right .hero-crest,#show.camera-center .hero-crest{left:50%;right:auto;top:47%;width:48vw;transform:translate(-50%,-50%) scale(.72);mix-blend-mode:screen}
+  #show.camera-left .hero-crest.in,#show.camera-right .hero-crest.in,#show.camera-center .hero-crest.in{opacity:.13;filter:blur(1px) saturate(.65);transform:translate(-50%,-50%) scale(1)}
+  .pick-story,#show.camera-left .pick-story,#show.camera-right .pick-story,#show.camera-center .pick-story{display:none}
+  .milestone-stamp{top:15.5vh;max-width:86vw}.milestone-stamp span{min-width:29px;height:27px;font-size:18px}.milestone-stamp b{overflow:hidden;text-overflow:ellipsis;font-size:5.5px;letter-spacing:1.8px}
   .matchmoment{padding:12vh 4vw calc(var(--bottom-rail) + 3vh)}.mm-kicker{top:9vh;font-size:6px;letter-spacing:2px}.mm-kicker i{width:20px}.mm-grid{width:94vw;grid-template-columns:1fr 62px 1fr;gap:8px}.mm-team{gap:8px}.mm-team .banner{--bh:66px}.mm-team .banner .tag{min-width:58px;--tagsize:20px}.mm-team strong{font-size:24px}.mm-team small{font-size:6px;letter-spacing:1px}.mm-vs span{width:52px;height:52px;font-size:28px}.mm-vs b{font-size:5px;letter-spacing:.8px}
   .fieldwall{padding:10vh 3vw calc(var(--bottom-rail) + 3vh)}.fw-head{margin-bottom:16px}.fw-head b{font-size:52px}.fw-grid{width:96vw;grid-template-columns:repeat(3,1fr);gap:5px}.fw-team{grid-template-columns:22px 1fr;gap:3px;padding:4px}.fw-team>span{font-size:18px}.fw-team .banner{--bh:39px}.fw-team .banner .tag{min-width:42px;padding:0 4px;--tagsize:15px}.fw-team .banner .crest img{max-width:68%}
 
@@ -584,5 +695,6 @@ body.screen-shifting .prime-page-wipe{animation:primeWipe .68s cubic-bezier(.76,
   html{scroll-behavior:auto}.roomfilm,.gate-film{display:none!important}
   .btn,.hub-card,.pool-card,.seedrow,.gcard,.pk-card,.ctl{transition:none!important;transform:none!important}
   .playbtn,.prime-page-wipe,.screen.prime-enter,.film-credit,.pickchapter *,
-  .pick-lock,.pick-lock *,.matchmoment *,.fieldwall *{animation:none!important;transition:none!important}
+  .pick-lock,.pick-lock *,.matchmoment *,.fieldwall *,.hero-crest,.pick-story,
+  .milestone-stamp,.director-track *{animation:none!important;transition:none!important}
 }

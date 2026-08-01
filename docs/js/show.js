@@ -74,7 +74,7 @@ const SEED_DIR = 'seedcall/';
 
 const Show = (() => {
 
-  let seq = [], cursor = -1, timer = null;
+  let seq = [], cursor = -1, timer = null, suspenseTimer = null;
   let paused = false, running = false, phase = 'idle', filmGuard = null;
   let ctlHide = null, revealed = [];
   let chapterAdvance = null;
@@ -89,6 +89,36 @@ const Show = (() => {
     8: { kick: 'Chapter three', index: '09—12', title: 'THE CUT LINE',
          sub: 'The final four invitations. The bubble closes one name at a time.' }
   };
+
+  /* Every selection has its own editorial role and camera language. The
+     show still feels like one package, but it no longer repeats the same
+     centered card twelve times. */
+  const DIRECTOR_PICKS = [
+    { camera: 'center', tier: 'bye', kicker: 'The standard',
+      title: 'No. 1 in the nation', milestone: 'THE STANDARD' },
+    { camera: 'left', tier: 'bye', kicker: 'Bye secured',
+      title: 'Quarterfinal bound' },
+    { camera: 'right', tier: 'bye', kicker: 'Championship position',
+      title: 'A direct road forward' },
+    { camera: 'center', tier: 'bye', kicker: 'The bye line closes',
+      title: 'The final direct ticket', milestone: 'BYE LINE CLOSED' },
+    { camera: 'center', tier: 'host', kicker: 'Opening weekend',
+      title: 'The top campus host', milestone: 'CAMPUS LIGHTS ON' },
+    { camera: 'right', tier: 'host', kicker: 'Home field',
+      title: 'Protect this house' },
+    { camera: 'left', tier: 'host', kicker: 'December football',
+      title: 'One more game at home' },
+    { camera: 'center', tier: 'host', kicker: 'The host line closes',
+      title: 'The final home game', milestone: 'FINAL CAMPUS HOST' },
+    { camera: 'center', tier: 'road', kicker: 'The cut line',
+      title: 'The first road team', milestone: 'THE BUBBLE BREAKS' },
+    { camera: 'right', tier: 'road', kicker: 'On the road',
+      title: 'No easy way in' },
+    { camera: 'left', tier: 'road', kicker: 'One win away',
+      title: 'The road test' },
+    { camera: 'center', tier: 'road', kicker: 'Last team in',
+      title: 'The final invitation', milestone: 'THE FIELD IS COMPLETE' }
+  ];
 
   const fxLevel = () => STATE.fx || 'max';
   const isMax   = () => fxLevel() === 'max';
@@ -831,6 +861,7 @@ const Show = (() => {
     running = false; paused = false; cursor = -1; phase = 'gate';
     setCinemaPhase(null);
     clearTimeout(timer);
+    clearTimeout(suspenseTimer);
     revealed = [];
     chaptersPlayed.clear();
     hideStoryLayers();
@@ -839,6 +870,8 @@ const Show = (() => {
     if (STATE.order === 'desc') seq.reverse();
 
     buildRail(); clearRail(); paintTicker();
+    buildDirectorRundown();
+    resetDirectorReveal();
     buildLiveBracket(); showLiveBracket(false);
 
     hideCold();
@@ -1411,6 +1444,141 @@ const Show = (() => {
     return i === 11 ? 'WHO GETS THE FINAL INVITATION?' : 'WHO SURVIVES THE CUT LINE?';
   }
 
+  function directorAct(i) {
+    if (i < 4) return 'ACT I · THE FOUR BYES';
+    if (i < 8) return 'ACT II · CAMPUS LIGHTS';
+    return 'ACT III · THE CUT LINE';
+  }
+
+  function buildDirectorRundown() {
+    if (!el.directorTrack) return;
+    el.directorTrack.innerHTML = '';
+    seq.forEach((seedIndex, orderIndex) => {
+      const dot = document.createElement('i');
+      dot.dataset.seed = seedIndex;
+      dot.dataset.order = orderIndex;
+      dot.innerHTML = `<b>${String(seedIndex + 1).padStart(2, '0')}</b>`;
+      el.directorTrack.appendChild(dot);
+    });
+  }
+
+  function updateDirectorRundown(i, landed) {
+    if (el.directorAct) el.directorAct.textContent = directorAct(i);
+    if (!el.directorTrack) return;
+    [...el.directorTrack.children].forEach((dot, orderIndex) => {
+      const seedIndex = +dot.dataset.seed;
+      dot.classList.toggle('done', orderIndex < cursor ||
+        (seedIndex === i && !!landed));
+      dot.classList.toggle('current', seedIndex === i);
+      dot.classList.toggle('locked', seedIndex === i && !!landed);
+    });
+  }
+
+  function setDirectorTreatment(i) {
+    const show = document.getElementById('show');
+    const d = DIRECTOR_PICKS[i] || DIRECTOR_PICKS[0];
+    show.classList.remove('camera-left', 'camera-right', 'camera-center',
+      'tier-bye', 'tier-host', 'tier-road', 'is-milestone');
+    show.classList.add(`camera-${d.camera}`, `tier-${d.tier}`);
+    if (d.milestone) show.classList.add('is-milestone');
+  }
+
+  function resetDirectorReveal() {
+    if (el.pickStory) el.pickStory.classList.remove('in');
+    if (el.milestoneStamp) el.milestoneStamp.classList.remove('on');
+    if (el.heroCrest) {
+      el.heroCrest.classList.remove('in');
+      el.heroCrest.removeAttribute('data-team');
+      el.heroCrest.innerHTML = '';
+    }
+  }
+
+  function directorStory(i, t) {
+    const route = matchupText(i);
+    switch (i) {
+      case 0: return `${t.school} owns the top line and the shortest road to the championship.`;
+      case 1: return `${t.school} skips opening weekend and enters on the quarterfinal stage.`;
+      case 2: return `${t.school} has earned a bye. Two wins now separate this team from the title game.`;
+      case 3: return `${t.school} takes the last first-round bye. Every direct ticket is now gone.`;
+      case 4: return `${t.school} leads opening weekend. The playoff begins in front of its own crowd.`;
+      case 5: return `${t.school} brings December football home with the season on the line.`;
+      case 6: return `${t.school} gets one more night on its own field and one chance to defend it.`;
+      case 7: return `${t.school} claims the final campus site. Every remaining team must travel.`;
+      case 8: return `${t.school} is the first road invitation. ${route || 'The margin for error is gone.'}`;
+      case 9: return `${t.school} is in, and the path starts away from home. ${route || 'Win or the season ends.'}`;
+      case 10: return `${t.school} survived the room. ${route || 'The road is the only way forward.'}`;
+      case 11: return `${t.school} takes the twelfth and final chair. The playoff field is complete.`;
+      default: return `${t.school} is officially in the College Football Playoff.`;
+    }
+  }
+
+  function paintHeroCrest(t) {
+    if (!el.heroCrest) return;
+    const host = el.heroCrest;
+    host.dataset.team = t.id;
+    host.innerHTML = `<span>${esc(t.mark || t.abbr || t.school.slice(0, 2))}</span>`;
+
+    const install = img => {
+      if (!img || host.dataset.team !== t.id) return;
+      img.alt = '';
+      host.innerHTML = '';
+      host.appendChild(img);
+    };
+    const ready = LogoStore.imageFor(t.id);
+    if (ready) install(ready);
+    else LogoStore.get(t.id, url => {
+      const img = new Image();
+      img.onload = () => install(img);
+      img.src = url;
+    });
+    host.classList.remove('in');
+    void host.offsetWidth;
+    host.classList.add('in');
+  }
+
+  function populateDirectorStory(i, t, gen) {
+    const d = DIRECTOR_PICKS[i] || DIRECTOR_PICKS[0];
+    if (el.pickStory) {
+      el.pickStoryKicker.textContent = d.kicker.toUpperCase();
+      el.pickStoryTitle.textContent = d.title.toUpperCase();
+      el.pickStoryBody.textContent = directorStory(i, t);
+      el.pickStory.classList.remove('in');
+      void el.pickStory.offsetWidth;
+      el.pickStory.classList.add('in');
+    }
+    if (!el.milestoneStamp) return;
+    el.milestoneStamp.classList.remove('on');
+    if (!d.milestone) return;
+    el.milestoneNumber.textContent = String(i + 1).padStart(2, '0');
+    el.milestoneText.textContent = d.milestone;
+    setTimeout(() => {
+      if (gen !== revealGen) return;
+      el.milestoneStamp.classList.remove('on');
+      void el.milestoneStamp.offsetWidth;
+      el.milestoneStamp.classList.add('on');
+    }, 920);
+  }
+
+  function minimumSuspense(i) {
+    const milestone = !!(DIRECTOR_PICKS[i] && DIRECTOR_PICKS[i].milestone);
+    if (isCalm()) return milestone ? 1500 : 1150;
+    if (i === 11) return 2900;
+    if (milestone) return 2450;
+    return i >= 8 ? 2200 : 1950;
+  }
+
+  function runSuspense(i, gen, clip) {
+    let voiceDone = false, clockDone = false, landed = false;
+    const finish = () => {
+      if (landed || !voiceDone || !clockDone || gen !== revealGen) return;
+      landed = true;
+      clearTimeout(suspenseTimer);
+      landTeam(i, gen);
+    };
+    suspenseTimer = setTimeout(() => { clockDone = true; finish(); }, minimumSuspense(i));
+    playSeedTalk(clip, gen, () => { voiceDone = true; finish(); });
+  }
+
   /* ============================================================= PLAY */
   /* Recording has to be requested straight off the click, before anything
      async happens, or the browser refuses the capture prompt. */
@@ -1499,6 +1667,7 @@ const Show = (() => {
 
   function goto(pos, rebuild) {
     clearTimeout(timer);
+    clearTimeout(suspenseTimer);
     hideStoryLayers();
     phase = 'reveal';
     cursor = pos;
@@ -1588,14 +1757,21 @@ const Show = (() => {
     if (!s) { next(); return; }
     const gen = ++revealGen;
     clearTimeout(timer);
+    clearTimeout(suspenseTimer);
     stopCall();
     stopSeedTalk();
 
+    setDirectorTreatment(i);
+    resetDirectorReveal();
+    updateDirectorRundown(i, false);
     setCinemaPhase('anticipating');
     showLiveBracket(false);
     el.revealLayer.classList.add('on');
     el.bannerStage.innerHTML = '';       // no team yet — that is the point
     el.teamInfo.innerHTML = '';
+    if (el.bidRow) el.bidRow.classList.remove('in');
+    if (el.bidTag) el.bidTag.textContent = '';
+    if (el.moveTag) { el.moveTag.textContent = ''; el.moveTag.hidden = true; }
     el.lower.classList.remove('on');
     el.bloom.classList.remove('go');
     el.glow.style.opacity = '0';
@@ -1625,7 +1801,7 @@ const Show = (() => {
     el.seedChip.classList.add('roll');
     whoosh();
 
-    playSeedTalk(seedClip(i, 'before'), gen, () => landTeam(i, gen));
+    runSuspense(i, gen, seedClip(i, 'before'));
   }
 
   /** The name drops. Everything that used to be the whole reveal. */
@@ -1639,6 +1815,7 @@ const Show = (() => {
     const show = document.getElementById('show');
 
     setCinemaPhase('landing');
+    clearTimeout(suspenseTimer);
     if (el.pickLock) el.pickLock.classList.remove('on');
     show.style.setProperty('--team-a', t.primary);
     show.style.setProperty('--team-b', accent);
@@ -1649,6 +1826,9 @@ const Show = (() => {
       el.teamGhost.classList.remove('in'); void el.teamGhost.offsetWidth;
       el.teamGhost.classList.add('in');
     }
+    paintHeroCrest(t);
+    populateDirectorStory(i, t, gen);
+    updateDirectorRundown(i, true);
 
     /* ---- pre-hit: wipe + glitch, then the banner lands ---- */
     wipe(t.primary);
@@ -1904,6 +2084,7 @@ const Show = (() => {
     running = false;
     setCinemaPhase(null);
     clearTimeout(timer);
+    clearTimeout(suspenseTimer);
     stopCall();
     stopSeedTalk();
     el.revealLayer.classList.remove('on');
@@ -2032,6 +2213,9 @@ const Show = (() => {
      'pickLockPrompt', 'pickChapter', 'pcKicker', 'pcIndex', 'pcTitle', 'pcSub',
      'matchMoment', 'mmLeft', 'mmRight', 'mmSite',
      'fieldWall', 'fieldWallGrid', 'fwMeta',
+     'directorRundown', 'directorAct', 'directorTrack', 'pickMain',
+     'heroCrest', 'pickStory', 'pickStoryKicker', 'pickStoryTitle', 'pickStoryBody',
+     'milestoneStamp', 'milestoneNumber', 'milestoneText',
      'preCount', 'preClock', 'preWhen',
      'fbFill', 'fbNow', 'fbLeft', 'fbTotal']
       .forEach(id => el[id] = document.getElementById(id));
@@ -2120,7 +2304,7 @@ const Show = (() => {
     running = false; phase = 'idle';
     setCinemaPhase(null);
     bedWanted = false; watchBed(false);
-    clearTimeout(timer); clearTimeout(markTimer);
+    clearTimeout(timer); clearTimeout(markTimer); clearTimeout(suspenseTimer);
     [el.intro, el.boone].forEach(a => {
       try { a.pause(); a.ontimeupdate = null; a.onended = null; } catch (e) {}
     });
@@ -2134,6 +2318,7 @@ const Show = (() => {
     showPickArt(null, 'off');
     showLiveBracket(false);
     hideStoryLayers();
+    resetDirectorReveal();
     if (el.pickLock) el.pickLock.classList.remove('on');
     hideCold();
     stopAmbient();
