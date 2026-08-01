@@ -708,6 +708,11 @@ function restore() {
   try {
     const s = JSON.parse(localStorage.getItem('cfp27.state') || 'null');
     if (s) Object.assign(STATE, s);
+    /* Older saves stored the heading as text. If it is just one of the names
+       we generate anyway, treat it as automatic so it follows the count. */
+    if (STATE.outLabel &&
+        ['first two out', 'first four out'].includes(STATE.outLabel.toLowerCase()))
+      STATE.outLabel = '';
     if (!Array.isArray(STATE.seeds) || STATE.seeds.length !== 12)
       STATE.seeds = Array(12).fill(null);
   } catch (e) {}
@@ -733,24 +738,18 @@ const outLabelText = () =>
 /* Every channel in the mix, in one place. The committee room and the live
    mixer both drive these, and both stay in step. */
 const MIX = [
-  { key: 'volume',          label: 'Music',      room: 'optVol',     lbl: 'volLbl' },
-  { key: 'musicUnderVoice', label: 'Under talk', room: 'optDuck',    lbl: 'duckLbl' },
-  { key: 'voiceVol',        label: 'Pat & Boone',room: 'optVoice',   lbl: 'voiceLbl' },
-  { key: 'callVol',         label: 'Team calls', room: 'optCallVol', lbl: 'callVolLbl' },
-  { key: 'filmVol',         label: 'Intro film', room: 'optFilmVol', lbl: 'filmVolLbl' }
+  { key: 'volume',          label: 'Music' },
+  { key: 'musicUnderVoice', label: 'Under talk' },
+  { key: 'voiceVol',        label: 'Pat & Boone' },
+  { key: 'callVol',         label: 'Team calls' },
+  { key: 'filmVol',         label: 'Intro film' }
 ];
 
 function setMix(key, v) {
   STATE[key] = Math.max(0, Math.min(100, +v));
-  MIX.forEach(c => {
-    if (c.key !== key) return;
-    const r = $('#' + c.room), rl = $('#' + c.lbl);
-    if (r) r.value = STATE[key];
-    if (rl) rl.textContent = STATE[key] + '%';
-    const m = $('#mx_' + key), ml = $('#mxl_' + key);
-    if (m) m.value = STATE[key];
-    if (ml) ml.textContent = STATE[key] + '%';
-  });
+  const m = $('#mx_' + key), ml = $('#mxl_' + key);
+  if (m) m.value = STATE[key];
+  if (ml) ml.textContent = STATE[key] + '%';
   Show.applyLevels();
   persist();
 }
@@ -836,17 +835,10 @@ async function boot() {
   $('#optCalls').value = STATE.calls;
   $('#optOutCount').value = String(STATE.outCount);
   $('#optFx').value    = STATE.fx;
-  $('#optVol').value   = STATE.volume;
-  $('#volLbl').textContent = STATE.volume + '%';
-  $('#optDuck').value  = STATE.musicUnderVoice;
-  $('#duckLbl').textContent = STATE.musicUnderVoice + '%';
-  ['voiceVol', 'callVol', 'filmVol'].forEach(key => {
-    const c = MIX.find(x => x.key === key);
-    $('#' + c.room).value = STATE[key];
-    $('#' + c.lbl).textContent = STATE[key] + '%';
-    $('#' + c.room).oninput = e => setMix(key, e.target.value);
-  });
   buildMixer();
+  $('#btnMix').onclick = () => $('#mixer').classList.add('on');
+  $('#btnSetup').onclick = () => $('#mSetup').classList.add('on');
+  $('#mSetupClose').onclick = () => $('#mSetup').classList.remove('on');
 
   $('#optOrder').onchange = e => { STATE.order = e.target.value; persist(); };
   $('#optPace').onchange  = e => {
@@ -859,8 +851,7 @@ async function boot() {
     applyOutLabel(); renderSeeds(); renderPool(); persist();
   };
   $('#optFx').onchange   = e => { STATE.fx = e.target.value; applyFx(); persist(); };
-  $('#optVol').oninput  = e => setMix('volume', e.target.value);
-  $('#optDuck').oninput = e => setMix('musicUnderVoice', e.target.value);
+
 
   $('#btnClear').onclick = () => {
     if (!confirm('Clear all 12 seeds?')) return;

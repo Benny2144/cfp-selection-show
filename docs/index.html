@@ -10,8 +10,8 @@
 <meta name="description" content="Run a broadcast-style College Football Playoff selection show for your online dynasty. Set the 12-team field, hit play, reveal it like TV.">
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23F56A00'/><text x='16' y='24' font-size='20' font-family='Impact' text-anchor='middle' fill='%23000'>C</text></svg>">
-<link rel="stylesheet" href="css/broadcast.css?v=bfd95633">
+<link rel="icon" type="image/png" href="assets/cfp-icon.png">
+<link rel="stylesheet" href="css/broadcast.css?v=3655b036">
 </head>
 <body>
 
@@ -26,7 +26,7 @@
   <div class="vignette"></div>
 
   <nav class="site-nav">
-    <div class="mark">CFP</div>
+    <div class="mark"><img src="assets/cfp-mark.webp" alt="College Football Playoff"></div>
     <span class="nm">Selection Show</span>
     <div class="spacer"></div>
     <button class="btn ghost" id="navHowTo">How it works</button>
@@ -63,7 +63,7 @@
   <div class="carbon"></div>
 
   <header class="room-head">
-    <div class="mark" id="roomHome" title="Home">CFP</div>
+    <div class="mark" id="roomHome" title="Home"><img src="assets/cfp-mark.webp" alt="Home"></div>
     <div>
       <h1>SELECTION COMMITTEE</h1>
       <div class="sub">Commissioner control &mdash; not shared until you say so</div>
@@ -104,80 +104,8 @@
       <div class="out-list" id="outList"></div>
 
       <div class="board-foot">
-        <div class="setting">
-          <label>Reveal order</label>
-          <select id="optOrder">
-            <option value="asc">No. 1 &rarr; No. 12</option>
-            <option value="desc">No. 12 &rarr; No. 1 (countdown)</option>
-          </select>
-        </div>
-        <div class="setting">
-          <label>Pace</label>
-          <select id="optPace">
-            <option value="manual">Manual &mdash; I advance each pick</option>
-            <option value="7000">Auto &mdash; 7s per team</option>
-            <option value="10000" selected>Auto &mdash; 10s per team</option>
-            <option value="14000">Auto &mdash; 14s per team</option>
-            <option value="20000">Auto &mdash; 20s per team</option>
-          </select>
-        </div>
-        <div class="setting">
-          <label>Cold open</label>
-          <select id="optCold">
-            <option value="full">Full &mdash; play the intro audio</option>
-            <option value="short">Short &mdash; title card only</option>
-            <option value="off">Off &mdash; straight to the picks</option>
-          </select>
-        </div>
-        <div class="setting">
-          <label>Just missed</label>
-          <select id="optOutCount">
-            <option value="2">First two out &mdash; seeds 13 and 14</option>
-            <option value="4">First four out &mdash; seeds 13 to 16</option>
-            <option value="0">Don't show it</option>
-          </select>
-        </div>
-        <div class="setting">
-          <label>Team calls</label>
-          <select id="optCalls">
-            <option value="on">On &mdash; announcer calls each team</option>
-            <option value="off">Off &mdash; sound effects only</option>
-          </select>
-        </div>
-        <div class="setting">
-          <label>Effects</label>
-          <select id="optFx">
-            <option value="max">Maximum</option>
-            <option value="normal">Normal</option>
-            <option value="calm">Calm &mdash; no shake or flash</option>
-          </select>
-        </div>
-        <div class="setting">
-          <label>Music</label>
-          <input type="range" id="optVol" min="0" max="100" value="55">
-          <span class="count" id="volLbl">55%</span>
-        </div>
-        <div class="setting">
-          <label>Under talking</label>
-          <input type="range" id="optDuck" min="0" max="100" value="55">
-          <span class="count" id="duckLbl">55%</span>
-        </div>
-        <div class="setting">
-          <label>Pat &amp; Boone</label>
-          <input type="range" id="optVoice" min="0" max="100" value="100">
-          <span class="count" id="voiceLbl">100%</span>
-        </div>
-        <div class="setting">
-          <label>Call volume</label>
-          <input type="range" id="optCallVol" min="0" max="100" value="100">
-          <span class="count" id="callVolLbl">100%</span>
-        </div>
-        <div class="setting">
-          <label>Intro film</label>
-          <input type="range" id="optFilmVol" min="0" max="100" value="100">
-          <span class="count" id="filmVolLbl">100%</span>
-        </div>
         <div class="go-row">
+          <button class="btn" id="btnSetup">Show Setup</button>
           <button class="btn" id="btnShare">Copy Share Link</button>
           <button class="btn" id="btnBracket">Bracket</button>
           <button class="btn primary" id="btnGo">Go To Show &#9654;</button>
@@ -213,7 +141,7 @@
 
   <!-- cold open -->
   <div class="cold" id="cold">
-    <div class="cold-mark" id="coldMark"><span>CFP</span></div>
+    <div class="cold-mark" id="coldMark"><span><img src="assets/cfp-lockup.webp" alt="College Football Playoff"></span></div>
     <div class="cold-slate" id="coldSlate">
       <div class="cs-kick" id="csKick"></div>
       <div class="cs-big"  id="csBig"></div>
@@ -235,7 +163,7 @@
 
   <!-- network bug, top-left, always on during the show -->
   <div class="bug" id="showBug">
-    <b>CFP</b><span id="bugText">Selection Show</span>
+    <b><img src="assets/cfp-mark.webp" alt=""></b><span id="bugText">Selection Show</span>
   </div>
 
   <!-- first four out -->
@@ -267,13 +195,6 @@
     <div class="badge" id="tkBadge">CFP</div>
     <div class="track"><div class="run" id="tkRun"></div></div>
     <div class="clock" id="tkClock">LIVE</div>
-  </div>
-
-  <!-- live mixer, usable while the show is running -->
-  <div class="mixer" id="mixer">
-    <div class="mx-head">AUDIO MIX <i id="mxClose">&times;</i></div>
-    <div class="mx-rows" id="mxRows"></div>
-    <div class="mx-foot">Changes are live &mdash; nothing pauses.</div>
   </div>
 
   <div class="ctl" id="ctl">
@@ -354,6 +275,65 @@
       <button class="btn ghost" id="mTeamCancel">Cancel</button>
       <button class="btn primary" id="mTeamSave">Save</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="mSetup">
+  <div class="card">
+    <h3>SHOW SETUP</h3>
+        <div class="setting">
+          <label>Reveal order</label>
+          <select id="optOrder">
+            <option value="asc">No. 1 &rarr; No. 12</option>
+            <option value="desc">No. 12 &rarr; No. 1 (countdown)</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Pace</label>
+          <select id="optPace">
+            <option value="manual">Manual &mdash; I advance each pick</option>
+            <option value="7000">Auto &mdash; 7s per team</option>
+            <option value="10000" selected>Auto &mdash; 10s per team</option>
+            <option value="14000">Auto &mdash; 14s per team</option>
+            <option value="20000">Auto &mdash; 20s per team</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Cold open</label>
+          <select id="optCold">
+            <option value="full">Full &mdash; play the intro audio</option>
+            <option value="short">Short &mdash; title card only</option>
+            <option value="off">Off &mdash; straight to the picks</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Just missed</label>
+          <select id="optOutCount">
+            <option value="2">First two out &mdash; seeds 13 and 14</option>
+            <option value="4">First four out &mdash; seeds 13 to 16</option>
+            <option value="0">Don't show it</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Team calls</label>
+          <select id="optCalls">
+            <option value="on">On &mdash; announcer calls each team</option>
+            <option value="off">Off &mdash; sound effects only</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Effects</label>
+          <select id="optFx">
+            <option value="max">Maximum</option>
+            <option value="normal">Normal</option>
+            <option value="calm">Calm &mdash; no shake or flash</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Audio</label>
+          <button class="btn ghost mixbtn" id="btnMix">Open the mix &nbsp;&#9835;</button>
+        </div>
+    <div class="row"><button class="btn primary" id="mSetupClose">Done</button></div>
   </div>
 </div>
 
@@ -457,6 +437,13 @@
   </div>
 </div>
 
+<!-- live mixer, usable while the show is running -->
+  <div class="mixer" id="mixer">
+    <div class="mx-head">AUDIO MIX <i id="mxClose">&times;</i></div>
+    <div class="mx-rows" id="mxRows"></div>
+    <div class="mx-foot">Changes are live &mdash; nothing pauses.</div>
+  </div>
+
 <div class="toast" id="toast"></div>
 
 <audio id="intro" preload="auto"></audio>
@@ -466,7 +453,7 @@
 <script src="js/teams.js?v=37d37716"></script>
 <script src="js/logos.js?v=db37b9ac"></script>
 <script src="js/recorder.js?v=3cbae938"></script>
-<script src="js/app.js?v=9abe8cb3"></script>
+<script src="js/app.js?v=44bca4d5"></script>
 <script src="js/show.js?v=e2918d52"></script>
 </body>
 </html>
