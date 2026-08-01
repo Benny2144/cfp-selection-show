@@ -98,7 +98,7 @@
       <div class="seed-list" id="seedList"></div>
 
       <div class="board-head sub-head">
-        <h2>FIRST FOUR OUT</h2>
+        <h2 id="outHead">FIRST FOUR OUT</h2>
         <span class="hint">the ones who just missed</span>
       </div>
       <div class="out-list" id="outList"></div>
@@ -198,15 +198,21 @@
 
   <!-- reveal -->
   <div class="reveal" id="revealLayer">
+    <div class="bloom" id="bloom"></div>
     <div class="seed-numeral" id="bigNum">1</div>
     <div class="seed-chip" id="seedChip">NO. 1 SEED</div>
     <div class="banner-stage" id="bannerStage"></div>
     <div class="info" id="teamInfo"></div>
   </div>
 
+  <!-- network bug, top-left, always on during the show -->
+  <div class="bug" id="showBug">
+    <b>CFP</b><span id="bugText">Selection Show</span>
+  </div>
+
   <!-- first four out -->
   <div class="fourout" id="fourOutWrap">
-    <div class="fo-head"><b>FIRST FOUR OUT</b><span>Just missed the field</span></div>
+    <div class="fo-head"><b id="foHead">FIRST FOUR OUT</b><span>Just missed the field</span></div>
     <div class="fo-list" id="fourOut"></div>
   </div>
 
@@ -220,11 +226,12 @@
 
   <div class="lower" id="lower">
     <div class="l3">
-      <div class="cap" id="l3cap">1</div>
+      <div class="cap"><i id="l3cap">1</i><em>SEED</em></div>
       <div class="body">
         <div class="t1" id="l3t1">&nbsp;</div>
         <div class="t2" id="l3t2">&nbsp;</div>
       </div>
+      <div class="l3bar" id="l3bar"></div>
     </div>
   </div>
 
@@ -322,6 +329,7 @@
     <div class="field"><label>Show title</label><input type="text" id="fTitle" placeholder="College Football Playoff"></div>
     <div class="field"><label>Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
     <div class="field"><label>Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
+    <div class="field"><label>Just-missed</label><input type="text" id="fOutLabel" placeholder="First Four Out"></div>
     <p class="note">Two audio files drive the show: the spoken intro during the cold open,
       then the music bed under the picks. Swap them by replacing the mp3s in this folder
       and updating INTRO_FILE / MUSIC_FILE at the top of <b>js/show.js</b>.</p>

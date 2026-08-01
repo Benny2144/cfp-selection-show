@@ -10,7 +10,7 @@ The folder is called `docs` because GitHub Pages can serve a site straight
 out of it (Settings -> Pages -> deploy from branch -> main -> /docs).
 It works just as well dragged onto https://app.netlify.com/drop
 """
-import os, shutil, sys
+import os, re, shutil, sys, hashlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
@@ -29,6 +29,32 @@ def keep(name):
     if name in SKIP_NAMES:
         return False
     return os.path.splitext(name)[1].lower() not in SKIP_EXT
+
+
+def stamp_assets():
+    """Append a content hash to the css/js URLs in the published index.html.
+
+    Without this a browser that already has the old js keeps using it after
+    an update, which is how you end up debugging a bug you already fixed.
+    """
+    idx = os.path.join(OUT, 'index.html')
+    if not os.path.exists(idx):
+        return
+    html = open(idx, encoding='utf-8').read()
+
+    def digest(rel):
+        f = os.path.join(OUT, rel)
+        if not os.path.exists(f):
+            return None
+        return hashlib.sha1(open(f, 'rb').read()).hexdigest()[:8]
+
+    def sub(m):
+        attr, rel = m.group(1), m.group(2)
+        d = digest(rel)
+        return m.group(0) if not d else '%s="%s?v=%s"' % (attr, rel, d)
+
+    html = re.sub(r'(src|href)="((?:js|css)/[^"?]+)"', sub, html)
+    open(idx, 'w', encoding='utf-8').write(html)
 
 
 def main():
@@ -65,6 +91,7 @@ def main():
                 shutil.copy2(p, os.path.join(dst, name))
                 total += os.path.getsize(p)
 
+    stamp_assets()
     print('Built %s' % OUT)
     print('%.1f MB, ready to publish.' % (total / 1e6))
     print('\nGitHub Pages: commit and push, then Settings -> Pages -> main -> /docs')

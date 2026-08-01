@@ -19,6 +19,7 @@ const STATE = {
   fx:       'max',
   volume:   55,
   record:   false,
+  outLabel: 'First Four Out',
   logoPattern: '',
   seeds: Array(12).fill(null),         // null | {id, record, champ}
   out:   Array(4).fill(null)           // first four out — shown before the bracket
@@ -49,11 +50,27 @@ function bannerEl(id, opts = {}) {
   crest.className = 'crest';
   crest.style.background = t.primary;
 
+  /* A school's own logo is usually its initials, so the fallback draws a
+     monogram in the team's second colour rather than spelling the name out.
+     It reads far closer to the real plate. */
+  const ink = readable(t.primary, t.secondary);
   const mono = document.createElement('div');
   mono.className = 'mono';
-  mono.style.color = readable(t.primary, t.secondary);
-  mono.innerHTML = `${esc(t.school.toUpperCase())}<small>${esc(t.mascot.toUpperCase())}</small>`;
+  const markText = (OVERRIDES[id] && OVERRIDES[id].mark) || t.mark || t.abbr;
+  mono.style.color = ink;
+  mono.style.setProperty('--edge', contrast(ink, t.primary) < 3
+    ? (luma(t.primary) > .45 ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.5)')
+    : 'transparent');
+  mono.innerHTML =
+    `<b class="mk mk-${Math.min(4, markText.replace(/[^A-Za-z0-9&]/g, '').length)}">` +
+    `${esc(markText)}</b>` +
+    `<small>${esc(t.school.toUpperCase())}</small>`;
   crest.appendChild(mono);
+
+  /* thin second-colour rule where the two panels meet, like the real plate */
+  const seam = document.createElement('i');
+  seam.className = 'seam';
+  seam.style.background = t.secondary;
 
   LogoStore.get(id, src => {
     const img = new Image();
@@ -65,7 +82,7 @@ function bannerEl(id, opts = {}) {
   const sheen = document.createElement('div');
   sheen.className = 'sheen';
 
-  el.append(tag, crest, sheen);
+  el.append(tag, seam, crest, sheen);
   return el;
 }
 
@@ -91,6 +108,28 @@ function contrast(a, b) {
 }
 const esc = s => String(s).replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* Plenty of schools list grey, white or black as a colour. Those are right
+   on a jersey and dead on a lighting rig, so anything that tints the stage
+   asks for the livelier of the two and falls back to the show's orange. */
+function saturation(hex) {
+  const [r, g, b] = hex2rgb(hex).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  const l = (mx + mn) / 2;
+  if (mx === mn) return { s: 0, l };
+  const d = mx - mn;
+  return { s: l > .5 ? d / (2 - mx - mn) : d / (mx + mn), l };
+}
+function vividness(hex) {
+  const { s, l } = saturation(hex);
+  if (l < .10 || l > .93) return 0;          // near black / near white
+  return s * (1 - Math.abs(l - .52) * .7);
+}
+function accentOf(t) {
+  const a = vividness(t.primary), b = vividness(t.secondary);
+  const best = b > a ? t.secondary : t.primary;
+  return Math.max(a, b) < .18 ? '#F56A00' : best;
+}
 
 /* ======================================================================
    TEAM POOL
@@ -301,9 +340,10 @@ function firstRound() {
 function encodeState() {
   const payload = {
     l: STATE.league, y: STATE.season, t: STATE.title, s: STATE.subtitle,
-    k: STATE.ticker, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
+    k: STATE.ticker, ol: STATE.outLabel, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
     n: STATE.calls, g: STATE.logoPattern,
     d: STATE.seeds.map(x => x ? [x.id, x.record || ''] : null),
+    u: STATE.out.map(x => x ? [x.id, x.record || ''] : null),
     v: Object.fromEntries(
       Object.entries(OVERRIDES).filter(([id]) => isSeeded(id))
         .map(([id, o]) => [id, { a: o.abbr, sc: o.school, m: o.mascot,
@@ -322,6 +362,7 @@ function decodeState(b64) {
     STATE.title    = p.t ?? STATE.title;
     STATE.subtitle = p.s ?? STATE.subtitle;
     STATE.ticker   = p.k ?? '';
+    STATE.outLabel = p.ol ?? 'First Four Out';
     STATE.order    = p.o ?? 'asc';
     STATE.pace     = p.p ?? 10000;
     STATE.cold     = p.c ?? 'full';
@@ -331,6 +372,8 @@ function decodeState(b64) {
     STATE.seeds = (p.d || []).map((x, i) =>
       x ? { id: x[0], record: x[1], champ: i < 4 } : null);
     while (STATE.seeds.length < 12) STATE.seeds.push(null);
+    STATE.out = (p.u || []).map(x => x ? { id: x[0], record: x[1] } : null);
+    while (STATE.out.length < 4) STATE.out.push(null);
 
     Object.entries(p.v || {}).forEach(([id, o]) => {
       if (!TEAM_BY_ID[id]) {
@@ -632,12 +675,20 @@ function showScreen(name) {
   if (name !== 'show') Show.stop();
 }
 
+function applyOutLabel() {
+  const t = (STATE.outLabel || 'First Four Out').toUpperCase();
+  const a = $('#outHead'), b = $('#foHead');
+  if (a) a.textContent = t;
+  if (b) b.textContent = t;
+}
+
 function applyFx() { document.body.classList.toggle('calm', STATE.fx === 'calm'); }
 
 /* ---------------------------------------------------------------- wire */
 async function boot() {
   restore();
   applyFx();
+  applyOutLabel();
 
   await LogoStore.hydrate();
 
@@ -754,6 +805,7 @@ async function boot() {
     $('#fLeague').value = STATE.league; $('#fSeason').value = STATE.season;
     $('#fTitle').value = STATE.title;   $('#fSubtitle').value = STATE.subtitle;
     $('#fTicker').value = STATE.ticker;
+    $('#fOutLabel').value = STATE.outLabel;
     $('#mLeague').classList.add('on');
   };
   $('#mLeagueCancel').onclick = () => $('#mLeague').classList.remove('on');
@@ -763,6 +815,8 @@ async function boot() {
     STATE.title    = $('#fTitle').value.trim()    || 'College Football Playoff';
     STATE.subtitle = $('#fSubtitle').value.trim() || 'Selection Show';
     STATE.ticker   = $('#fTicker').value.trim();
+    STATE.outLabel = $('#fOutLabel').value.trim() || 'First Four Out';
+    applyOutLabel();
     persist(); $('#mLeague').classList.remove('on'); toast('League saved');
   };
 

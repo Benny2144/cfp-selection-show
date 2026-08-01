@@ -11,7 +11,7 @@
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23F56A00'/><text x='16' y='24' font-size='20' font-family='Impact' text-anchor='middle' fill='%23000'>C</text></svg>">
-<link rel="stylesheet" href="css/broadcast.css">
+<link rel="stylesheet" href="css/broadcast.css?v=786b185d">
 </head>
 <body>
 
@@ -98,7 +98,7 @@
       <div class="seed-list" id="seedList"></div>
 
       <div class="board-head sub-head">
-        <h2>FIRST FOUR OUT</h2>
+        <h2 id="outHead">FIRST FOUR OUT</h2>
         <span class="hint">the ones who just missed</span>
       </div>
       <div class="out-list" id="outList"></div>
@@ -198,15 +198,21 @@
 
   <!-- reveal -->
   <div class="reveal" id="revealLayer">
+    <div class="bloom" id="bloom"></div>
     <div class="seed-numeral" id="bigNum">1</div>
     <div class="seed-chip" id="seedChip">NO. 1 SEED</div>
     <div class="banner-stage" id="bannerStage"></div>
     <div class="info" id="teamInfo"></div>
   </div>
 
+  <!-- network bug, top-left, always on during the show -->
+  <div class="bug" id="showBug">
+    <b>CFP</b><span id="bugText">Selection Show</span>
+  </div>
+
   <!-- first four out -->
   <div class="fourout" id="fourOutWrap">
-    <div class="fo-head"><b>FIRST FOUR OUT</b><span>Just missed the field</span></div>
+    <div class="fo-head"><b id="foHead">FIRST FOUR OUT</b><span>Just missed the field</span></div>
     <div class="fo-list" id="fourOut"></div>
   </div>
 
@@ -220,11 +226,12 @@
 
   <div class="lower" id="lower">
     <div class="l3">
-      <div class="cap" id="l3cap">1</div>
+      <div class="cap"><i id="l3cap">1</i><em>SEED</em></div>
       <div class="body">
         <div class="t1" id="l3t1">&nbsp;</div>
         <div class="t2" id="l3t2">&nbsp;</div>
       </div>
+      <div class="l3bar" id="l3bar"></div>
     </div>
   </div>
 
@@ -322,6 +329,7 @@
     <div class="field"><label>Show title</label><input type="text" id="fTitle" placeholder="College Football Playoff"></div>
     <div class="field"><label>Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
     <div class="field"><label>Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
+    <div class="field"><label>Just-missed</label><input type="text" id="fOutLabel" placeholder="First Four Out"></div>
     <p class="note">Two audio files drive the show: the spoken intro during the cold open,
       then the music bed under the picks. Swap them by replacing the mp3s in this folder
       and updating INTRO_FILE / MUSIC_FILE at the top of <b>js/show.js</b>.</p>
@@ -397,10 +405,10 @@
 <audio id="boone" preload="auto"></audio>
 <audio id="music" preload="auto" loop></audio>
 
-<script src="js/teams.js"></script>
-<script src="js/logos.js"></script>
-<script src="js/recorder.js"></script>
-<script src="js/app.js"></script>
-<script src="js/show.js"></script>
+<script src="js/teams.js?v=226ef5bc"></script>
+<script src="js/logos.js?v=db37b9ac"></script>
+<script src="js/recorder.js?v=3cbae938"></script>
+<script src="js/app.js?v=5f82a727"></script>
+<script src="js/show.js?v=b0f8af4f"></script>
 </body>
 </html>

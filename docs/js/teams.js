@@ -153,14 +153,70 @@ texasstate|Texas State|Bobcats|TXST|Pac-12|#501214|#AE9142
 troy|Troy|Trojans|TROY|Sun Belt|#8A2432|#FFFFFF
 `;
 
+/* ---------------------------------------------------------------------
+   MARKS — the letters a school's own logo actually uses.
+   Without a logo file the crest draws this as a monogram, which is much
+   closer to the real plate than spelling the school out. Anything not
+   listed falls back to its abbreviation.
+   ------------------------------------------------------------------- */
+const TEAM_MARK = {
+  alabama:'A', georgia:'G', ohiostate:'O', michigan:'M', oregon:'O',
+  texas:'T', texasam:'A&M', oklahoma:'OU', indiana:'IU', lsu:'LSU',
+  notredame:'ND', miami:'U', florida:'F', tennessee:'T', clemson:'C',
+  auburn:'AU', arkansas:'A', kentucky:'UK', missouri:'M', vanderbilt:'V',
+  olemiss:'M', missstate:'M', southcarolina:'C', pennstate:'PS',
+  michiganstate:'S', wisconsin:'W', iowa:'I', nebraska:'N', minnesota:'M',
+  illinois:'I', maryland:'M', northwestern:'N', purdue:'P', rutgers:'R',
+  ucla:'UCLA', usc:'SC', washington:'W', arizona:'A', arizonastate:'ASU',
+  baylor:'BU', byu:'Y', cincinnati:'C', colorado:'CU', houston:'UH',
+  iowastate:'ISU', kansas:'KU', kansasstate:'K', oklahomastate:'OSU',
+  tcu:'TCU', texastech:'TT', ucf:'UCF', utah:'U', westvirginia:'WV',
+  bostoncollege:'BC', california:'CAL', duke:'D', floridastate:'FSU',
+  georgiatech:'GT', louisville:'L', ncstate:'S', northcarolina:'NC',
+  pittsburgh:'P', smu:'SMU', stanford:'S', syracuse:'S', virginia:'V',
+  virginiatech:'VT', wakeforest:'WF', oregonstate:'OS', washingtonstate:'WS',
+  uconn:'C', army:'A', navy:'N', charlotte:'C', eastcarolina:'ECU',
+  fau:'FAU', memphis:'M', northtexas:'NT', rice:'R', southflorida:'USF',
+  temple:'T', tulane:'T', tulsa:'TU', uab:'UAB', utsa:'UTSA',
+  delaware:'D', fiu:'FIU', jacksonvillestate:'JSU', kennesawstate:'KSU',
+  liberty:'L', louisianatech:'LA', middletennessee:'MT', missouristate:'MS',
+  newmexicostate:'NM', samhouston:'SH', westernkentucky:'WKU',
+  akron:'A', ballstate:'BS', bowlinggreen:'BG', buffalo:'UB',
+  centralmichigan:'CM', easternmichigan:'EMU', kentstate:'K', miamioh:'M',
+  ohio:'O', toledo:'T', umass:'UM', westernmichigan:'W',
+  airforce:'AF', boisestate:'B', coloradostate:'CSU', fresnostate:'F',
+  hawaii:'H', nevada:'N', newmexico:'NM', northernillinois:'NIU',
+  sandiegostate:'SD', sanjosestate:'SJ', unlv:'UNLV', utahstate:'USU',
+  utep:'UTEP', wyoming:'W',
+  appstate:'APP', arkansasstate:'A', coastalcarolina:'CCU',
+  georgiasouthern:'GS', georgiastate:'GS', jamesmadison:'JMU',
+  louisiana:'UL', ulmonroe:'ULM', marshall:'M', olddominion:'ODU',
+  southalabama:'S', southernmiss:'M', texasstate:'TXST', troy:'T'
+};
+
 /** Parsed master list. */
 const TEAMS = TEAM_RAW.trim().split('\n')
   .map(l => l.trim())
   .filter(Boolean)
   .map(line => {
     const [id, school, mascot, abbr, conf, primary, secondary] = line.split('|');
-    return { id, school, mascot, abbr, conf, primary, secondary };
+    return { id, school, mascot, abbr, conf, primary, secondary,
+             mark: TEAM_MARK[id] || initials(school) };
   });
+
+/** Fallback monogram: first letter of each real word in the school name.
+    Deliberately not the abbreviation — the plate already carries that on
+    the black panel, and printing it twice looks like a mistake. */
+function initials(school) {
+  const skip = new Set(['of', 'the', 'at', 'and']);
+  const words = String(school).replace(/[().]/g, ' ').split(/\s+/)
+    .filter(w => w && !skip.has(w.toLowerCase()));
+  if (words.length === 1) {
+    const w = words[0];
+    return /^[A-Z0-9&]{2,5}$/.test(w) ? w : w[0].toUpperCase();
+  }
+  return words.slice(0, 3).map(w => w[0].toUpperCase()).join('');
+}
 
 const TEAM_BY_ID = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 

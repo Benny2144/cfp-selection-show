@@ -410,6 +410,8 @@ const Show = (() => {
     el.glow.style.opacity = '0';
     el.floor.style.removeProperty('--floorc');
     el.gate.style.display = 'grid';
+    el.showBug.classList.remove('on');
+    el.bloom.classList.remove('go');
 
     const n = seq.length;
     el.gateKick.textContent = n === 12 ? 'The field is set'
@@ -694,6 +696,9 @@ const Show = (() => {
     revealed = []; cursor = -1;
     paintTicker();
 
+    el.bugText.textContent = `${STATE.league} · ${STATE.season}`;
+    el.showBug.classList.add('on');
+
     /* restart the bed from the top for the show */
     const m = el.music;
     if (!m.getAttribute('src')) m.src = MUSIC_FILE;
@@ -826,11 +831,17 @@ const Show = (() => {
     el.teamInfo.classList.add('in');
 
     /* ---- colour the whole stage in the team's palette ---- */
+    const accent = accentOf(t);
+    el.bloom.style.setProperty('--bl1', hexA(accent, .45));
+    el.bloom.style.setProperty('--bl2', hexA(t.primary, .55));
+    el.bloom.classList.remove('go'); void el.bloom.offsetWidth;
+    el.bloom.classList.add('go');
+
     el.glow.style.setProperty('--tglow', hexA(t.primary, .5));
     el.glow.style.opacity = '1';
-    el.floor.style.setProperty('--floorc', hexA(t.secondary, .3));
+    el.floor.style.setProperty('--floorc', hexA(accent, .32));
     el.flash.style.background =
-      `radial-gradient(60% 60% at 50% 50%, ${hexA(t.secondary, .95)}, ` +
+      `radial-gradient(60% 60% at 50% 50%, ${hexA(accent, .95)}, ` +
       `${hexA(t.primary, .55)} 60%, transparent 78%)`;
     el.flash.classList.remove('go'); void el.flash.offsetWidth;
     el.flash.classList.add('go');
@@ -840,8 +851,8 @@ const Show = (() => {
       if (gen !== revealGen) return;
       shakeStage(); pulseVignette();
       impact(); crowd(1.9);
-      shockwave(t.secondary, isMax() ? 4 : 2);
-      burst([t.primary, t.secondary, '#ffffff', t.primary, '#F56A00']);
+      shockwave(accent, isMax() ? 4 : 2);
+      burst([t.primary, accent, '#ffffff', t.primary, '#F56A00']);
       flare();
       fadeTo(bedVol() * DUCK_UNDER_HIT, 180);
       setTimeout(() => { if (gen === revealGen) setBedVolume(); }, 850);
@@ -859,6 +870,7 @@ const Show = (() => {
     setTimeout(() => {
       if (gen !== revealGen) return;
       el.l3cap.textContent = i + 1;
+      el.lower.querySelector('.l3').style.setProperty('--l3c', accentOf(t));
       el.l3t1.textContent = `${t.school}${t.mascot ? ' ' + t.mascot : ''}`;
       el.l3t2.textContent = [s.record, t.conf, bye ? 'First-round bye' : matchupText(i)]
         .filter(Boolean).join('  ·  ');
@@ -901,7 +913,8 @@ const Show = (() => {
     el.floor.style.removeProperty('--floorc');
 
     el.cold.classList.add('on');
-    showSlate({ kick: () => 'So close', big: () => 'FIRST FOUR OUT',
+    showSlate({ kick: () => 'So close',
+                big: () => esc((STATE.outLabel || 'First Four Out').toUpperCase()),
                 small: () => 'The ones who just missed' });
     stinger(392); crowd(2);
 
@@ -924,7 +937,7 @@ const Show = (() => {
           row.appendChild(r);
         }
         el.fourOut.appendChild(row);
-        setTimeout(() => { whoosh(); if (!isCalm()) shockwave(t.primary, 1); },
+        setTimeout(() => { whoosh(); if (!isCalm()) shockwave(accentOf(t), 1); },
                    i * 420 + 120);
       });
       el.fourOutWrap.classList.add('on');
@@ -1040,7 +1053,8 @@ const Show = (() => {
      'flash', 'wipe', 'glitch', 'flare', 'vig', 'floor', 'stage', 'rail', 'lower',
      'l3cap', 'l3t1', 'l3t2', 'tkRun', 'tkBadge', 'tkClock', 'gate', 'gateKick',
      'gateTitle', 'gateSub', 'music', 'intro', 'boone', 'ctl', 'cPlay',
-     'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap']
+     'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap',
+     'bloom', 'showBug', 'bugText', 'l3bar']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');
 
