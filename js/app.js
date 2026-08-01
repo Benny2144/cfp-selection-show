@@ -731,12 +731,12 @@ function applyFx() { document.body.classList.toggle('calm', STATE.fx === 'calm')
 async function boot() {
   restore();
   applyFx();
-  applyOutLabel();
 
   await LogoStore.hydrate();
 
   const hash = location.hash.match(/^#show=(.+)$/);
   const shared = !!(hash && decodeState(hash[1]));
+  applyOutLabel();               // after decode — the count comes from the link
   VIEWER = shared;
   if (VIEWER) document.body.classList.add('viewer');
 

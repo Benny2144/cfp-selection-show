@@ -912,9 +912,12 @@ const Show = (() => {
     el.glow.style.opacity = '0';
     el.floor.style.removeProperty('--floorc');
 
+    const heading = outLabelText().toUpperCase();
+    if (el.foHead) el.foHead.textContent = heading;
+
     el.cold.classList.add('on');
     showSlate({ kick: () => 'So close',
-                big: () => esc(outLabelText().toUpperCase()),
+                big: () => esc(heading),
                 small: () => 'The ones who just missed' });
     stinger(392); crowd(2);
 
@@ -1054,7 +1057,7 @@ const Show = (() => {
      'l3cap', 'l3t1', 'l3t2', 'tkRun', 'tkBadge', 'tkClock', 'gate', 'gateKick',
      'gateTitle', 'gateSub', 'music', 'intro', 'boone', 'ctl', 'cPlay',
      'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap',
-     'bloom', 'showBug', 'bugText', 'l3bar']
+     'bloom', 'showBug', 'bugText', 'l3bar', 'foHead']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');
 
