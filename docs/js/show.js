@@ -318,16 +318,48 @@ const Show = (() => {
     } catch (e) {}
   }
 
-  function beep(f = 880, len = .16) {
+  /* A square-wave bleep sounded like a games console and every one was the
+     same. These are percussive instead: a woody transient over a short pitched
+     body, with the pitch and colour moved slightly each time so a run of them
+     does not turn into a drone. */
+  function tick(pitch = 190, level = .10, len = .12) {
     try {
       const a = audio(), t = a.currentTime;
+
+      const n = noise(.05, k => Math.pow(1 - k, 6));
+      const bp = a.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.value = 1400 + Math.random() * 900; bp.Q.value = .8;
+      const ng = a.createGain(); ng.gain.value = level * 1.5 * sfxGain();
+      n.connect(bp).connect(ng).connect(a.destination); n.start(t);
+
       const o = a.createOscillator(), g = a.createGain();
-      o.type = 'square'; o.frequency.value = f;
-      g.gain.setValueAtTime(.09 * sfxGain(), t);
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(pitch * 1.5, t);
+      o.frequency.exponentialRampToValueAtTime(pitch, t + len * .7);
+      g.gain.setValueAtTime(level * sfxGain(), t);
       g.gain.exponentialRampToValueAtTime(.0001, t + len);
       o.connect(g).connect(a.destination); o.start(t); o.stop(t + len + .02);
     } catch (e) {}
   }
+
+  /** The countdown: a deep hit rather than a chirp, and the last one lands. */
+  function countHit(last) {
+    try {
+      const a = audio(), t = a.currentTime;
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(last ? 320 : 190, t);
+      o.frequency.exponentialRampToValueAtTime(last ? 70 : 60, t + (last ? .5 : .28));
+      g.gain.setValueAtTime((last ? .62 : .38) * sfxGain(), t);
+      g.gain.exponentialRampToValueAtTime(.0001, t + (last ? .6 : .34));
+      o.connect(g).connect(a.destination); o.start(t); o.stop(t + .65);
+      tick(last ? 520 : 300, last ? .12 : .07, .1);
+      if (last) crowd(1.6);
+    } catch (e) {}
+  }
+
+  /* kept so nothing else breaks if it is still referenced */
+  const beep = (f, len) => tick(Math.max(90, (f || 440) / 3), .08, len || .12);
 
   /* ================================================== music bed control */
   let bedStarted = false, fadeRaf = null, fadeEnd = null, fadeSeq = 0;
@@ -550,6 +582,7 @@ const Show = (() => {
     buildRail(); clearRail(); paintTicker();
 
     hideCold();
+    hidePops();
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
     el.rail.style.opacity = '0';
@@ -636,7 +669,7 @@ const Show = (() => {
         el.coldGrid.appendChild(d);
       }
       el.coldGrid.classList.add('on');
-      beep(660, .1);
+      tick(150, .09, .16);
       return;
     }
 
@@ -655,7 +688,7 @@ const Show = (() => {
     el.coldGrid.classList.remove('on');
     el.coldCount.classList.add('on');
     el.coldCount.innerHTML = `<span>${n}</span>`;
-    beep(n === 1 ? 1320 : 760, .18);
+    countHit(n === 1);
     if (isMax()) pushStage();
   }
 
@@ -758,11 +791,15 @@ const Show = (() => {
     if (started && started.catch) started.catch(fallback);
     a.onerror = fallback;
 
+    popDone.clear();
+    showNameBar('Pat McAfee', 'Selection Show');
+
     a.ontimeupdate = () => {
       if (a.currentTime > 0.4) hideMark();   // Pat is audibly under way
       const d = a.duration;
       if (!isFinite(d) || d <= 0) return;
       const k = a.currentTime / d, left = d - a.currentTime;
+      if (left > 6) runPops(POPS_PAT, k, 'p');
 
       if (left <= 5.4) {
         const n = Math.max(1, Math.ceil(left - .4));
@@ -774,6 +811,70 @@ const Show = (() => {
       if (idx >= 0 && idx !== coldBeat) { coldBeat = idx; showSlate(SLATES[idx]); }
     };
     a.onended = () => runBoone();
+  }
+
+  /* =====================================================================
+     Graphics for the monologues. A broadcast never leaves someone talking
+     over a still frame — a name bar wipes in, then cards punch in and out
+     across the speech. Each is placed as a fraction of the track, so they
+     stay in step whatever length you swap in.
+     ===================================================================== */
+  const POPS_PAT = [
+    { at: .16, kick: 'The field', big: '12 TEAMS',
+      sub: () => `From ${TEAMS.length} programmes` },
+    { at: .38, kick: 'Seeds one to four', big: 'FIRST-ROUND<br>BYES',
+      sub: () => 'Straight to the quarter-finals' },
+    { at: .60, kick: 'Seeds five to twelve', big: 'CAMPUS SITES',
+      sub: () => 'The higher seed hosts' },
+    { at: .82, kick: 'The road', big: 'SIX BOWLS',
+      sub: () => 'Rose · Sugar · Fiesta · Peach · Orange · Cotton' }
+  ];
+  const POPS_BOONE = [
+    { at: .20, kick: 'On the line', big: 'ONE TROPHY',
+      sub: () => `${STATE.season} National Championship` },
+    { at: .48, kick: 'The committee', big: 'THE FIELD<br>IS SET',
+      sub: () => STATE.league },
+    { at: .74, kick: 'Coming up', big: 'THE PICKS',
+      sub: () => 'One at a time, in order' }
+  ];
+
+  let popTimer = null, popDone = new Set();
+
+  function showNameBar(who, role) {
+    el.nameWho.textContent = who;
+    el.nameRole.textContent = role;
+    el.nameBar.classList.add('on');
+    setTimeout(() => el.nameBar.classList.remove('on'), 6500);
+  }
+
+  function showPop(p) {
+    clearTimeout(popTimer);
+    el.vpKick.textContent = p.kick;
+    el.vpBig.innerHTML = p.big;
+    el.vpSub.textContent = typeof p.sub === 'function' ? p.sub() : (p.sub || '');
+    el.vPop.classList.remove('on');
+    void el.vPop.offsetWidth;
+    el.vPop.classList.add('on');
+    tick(230, .07, .14);
+    if (!isCalm()) flare();
+    popTimer = setTimeout(() => el.vPop.classList.remove('on'), 5200);
+  }
+
+  function hidePops() {
+    clearTimeout(popTimer);
+    if (el.vPop) el.vPop.classList.remove('on');
+    if (el.nameBar) el.nameBar.classList.remove('on');
+  }
+
+  /** Fire whichever card this point in the track has reached. */
+  function runPops(list, k, tag) {
+    for (let i = 0; i < list.length; i++) {
+      const key = tag + i;
+      if (k >= list[i].at && !popDone.has(key)) {
+        popDone.add(key);
+        showPop(list[i]);
+      }
+    }
   }
 
   /* ------------------------------------------------- Coach Boone's turn */
@@ -804,11 +905,16 @@ const Show = (() => {
     const finish2 = () => endColdOpen();
     b.onerror = finish2;
     b.onended = finish2;
+    popDone.clear();
+    hidePops();
+    showNameBar('Coach Boone', STATE.league);
+
     b.ontimeupdate = () => {
       if (b.currentTime > 0.4) hideMark();
       const d = b.duration;
       if (!isFinite(d) || d <= 0) return;
       const k = b.currentTime / d, left = d - b.currentTime;
+      if (left > 6) runPops(POPS_BOONE, k, 'b');
       if (left <= 5.4) {
         const n = Math.max(1, Math.ceil(left - .4));
         if (n !== countAt && n <= 5) { countAt = n; showCount(n); }
@@ -835,6 +941,7 @@ const Show = (() => {
     try { el.film.pause(); el.film.onended = null; } catch (e) {}
     el.filmStage.classList.remove('on');
     clearTimeout(timer);
+    hidePops();
     hideCold();
     phase = 'reveal';
     ensureBed('reveals');
@@ -1205,7 +1312,7 @@ const Show = (() => {
         if (!p) return;
         p.classList.remove('pending');
         p.classList.add('drop');
-        beep(520 + i * 18, .07);
+        tick(120 + i * 9, .06, .13);   // walks up, never the same twice
       }, 260 + i * 190);
     });
     setTimeout(() => {
@@ -1251,7 +1358,8 @@ const Show = (() => {
      'l3cap', 'l3t1', 'l3t2', 'tkRun', 'tkBadge', 'tkClock', 'gate', 'gateKick',
      'gateTitle', 'gateSub', 'music', 'intro', 'boone', 'ctl', 'cPlay',
      'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap',
-     'bloom', 'l3bar', 'foHead']
+     'bloom', 'l3bar', 'foHead',
+     'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');
 
