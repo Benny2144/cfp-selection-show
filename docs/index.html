@@ -97,6 +97,12 @@
       </div>
       <div class="seed-list" id="seedList"></div>
 
+      <div class="board-head sub-head">
+        <h2>FIRST FOUR OUT</h2>
+        <span class="hint">the ones who just missed</span>
+      </div>
+      <div class="out-list" id="outList"></div>
+
       <div class="board-foot">
         <div class="setting">
           <label>Reveal order</label>
@@ -171,6 +177,12 @@
   <!-- corner HUD framing -->
   <div class="hud"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
 
+  <!-- the intro film, full bleed -->
+  <div class="filmstage" id="filmStage">
+    <video id="film" playsinline preload="auto"></video>
+    <div class="film-skip" id="filmSkip">Skip intro &nbsp;&rsaquo;</div>
+  </div>
+
   <!-- cold open -->
   <div class="cold" id="cold">
     <div class="cold-mark" id="coldMark"><span>CFP</span></div>
@@ -190,6 +202,12 @@
     <div class="seed-chip" id="seedChip">NO. 1 SEED</div>
     <div class="banner-stage" id="bannerStage"></div>
     <div class="info" id="teamInfo"></div>
+  </div>
+
+  <!-- first four out -->
+  <div class="fourout" id="fourOutWrap">
+    <div class="fo-head"><b>FIRST FOUR OUT</b><span>Just missed the field</span></div>
+    <div class="fo-list" id="fourOut"></div>
   </div>
 
   <!-- effect layers -->
@@ -376,6 +394,7 @@
 <div class="toast" id="toast"></div>
 
 <audio id="intro" preload="auto"></audio>
+<audio id="boone" preload="auto"></audio>
 <audio id="music" preload="auto" loop></audio>
 
 <script src="js/teams.js"></script>

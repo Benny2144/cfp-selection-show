@@ -2,10 +2,13 @@
    THE SHOW — cold open, reveal engine, effects
    ===================================================================== */
 
-/* The two audio beds. Drop replacements next to index.html and rename here.
-   Both are trimmed copies made by tools/trim_music.py — small enough to host. */
-const INTRO_FILE = 'intro.mp3';
-const MUSIC_FILE = 'music.mp3';
+/* The cold open, in order. Drop replacements next to index.html and rename
+   here. The mp3s are trimmed copies made by tools/trim_music.py, and the
+   video is shrunk by tools/shrink_video.py — small enough to host. */
+const VIDEO_FILE = 'intro-video.mp4';    // rolls first, full screen
+const INTRO_FILE = 'patmac.mp3';         // then Pat
+const BOONE_FILE = 'coachboone.mp3';     // then Coach Boone
+const MUSIC_FILE = 'music.mp3';          // bed under everything
 
 /* how far the music drops under the spoken intro */
 const DUCK_UNDER_VOICE = 0.22;
@@ -21,7 +24,7 @@ const VOICE_DIR = 'voice/';
 const Show = (() => {
 
   let seq = [], cursor = -1, timer = null;
-  let paused = false, running = false, phase = 'idle';
+  let paused = false, running = false, phase = 'idle', filmGuard = null;
   let ctlHide = null, revealed = [];
   const el = {};
 
@@ -299,7 +302,9 @@ const Show = (() => {
   }
 
   function setBedVolume() {
-    if (phase === 'intro') fadeTo(bedVol() * DUCK_UNDER_VOICE, 260);
+    if (phase === 'film') fadeTo(bedVol() * 0.10, 260);
+    else if (phase === 'intro' || phase === 'boone')
+      fadeTo(bedVol() * DUCK_UNDER_VOICE, 260);
     else if (callAudio) fadeTo(bedVol() * DUCK_UNDER_CALL, 260);
     else fadeTo(bedVol(), 260);
   }
@@ -414,6 +419,9 @@ const Show = (() => {
       ` &nbsp;&middot;&nbsp; press play when everyone is watching`;
 
     el.intro.src ||= INTRO_FILE;
+    el.boone.src ||= BOONE_FILE;
+    el.filmStage.classList.remove('on');
+    try { el.film.pause(); el.film.currentTime = 0; } catch (e) {}
     stopCall();
     primeCalls();
     startBed();
@@ -486,7 +494,53 @@ const Show = (() => {
     coldBeat = -1; countAt = -1;
   }
 
-  function runColdOpen() {
+  /* ---------------------------------------------------------- the film */
+  function runFilm() {
+    const mode = STATE.cold || 'full';
+    if (mode !== 'full') { runVoiceOpen(); return; }
+
+    phase = 'film';
+    const v = el.film;
+    if (!v.getAttribute('src')) v.src = VIDEO_FILE;
+
+    el.filmStage.classList.add('on');
+    /* the film carries its own sound — drop the bed right down under it */
+    fadeTo(bedVol() * 0.10, 900);
+
+    let handed = false;
+    const go = () => {
+      if (handed) return;
+      handed = true;
+      clearTimeout(filmGuard);
+      phase = 'voice';
+      el.filmStage.classList.remove('on');
+      try { v.pause(); } catch (e) {}
+      runVoiceOpen();
+    };
+    v.onended = go;
+    v.onerror = go;
+    el.filmSkip.onclick = e => { e.stopPropagation(); go(); };
+
+    /* If 'ended' never arrives — a stalled download, a codec quirk — the show
+       must not sit on a frozen frame. Watch the clock and hand off anyway. */
+    const watch = () => {
+      clearTimeout(filmGuard);
+      const left = (v.duration || 0) - v.currentTime;
+      filmGuard = setTimeout(() => {
+        if (!handed && (v.ended || v.paused || v.currentTime >= (v.duration || 0) - 0.4))
+          go();
+        else watch();
+      }, Math.max(1200, (isFinite(left) ? left * 1000 : 5000) + 1500));
+    };
+    v.onloadedmetadata = watch;
+    if (v.readyState >= 1) watch();
+
+    v.currentTime = 0;
+    v.volume = 1;
+    v.play().catch(go);
+  }
+
+  function runVoiceOpen() {
     phase = 'intro';
     el.cold.classList.add('on');
     el.coldMark.classList.add('on');
@@ -535,14 +589,64 @@ const Show = (() => {
       for (let i = 0; i < SLATES.length; i++) if (k >= SLATES[i].at) idx = i;
       if (idx >= 0 && idx !== coldBeat) { coldBeat = idx; showSlate(SLATES[idx]); }
     };
-    a.onended = endColdOpen;
+    a.onended = () => runBoone();
   }
 
-  function endColdOpen() {
+  /* ------------------------------------------------- Coach Boone's turn */
+  const BOONE_SLATES = [
+    { at: .00, kick: () => 'A word before we begin',
+      big: () => 'THE COMMITTEE<br>HAS SPOKEN', small: () => STATE.league },
+    { at: .34, kick: () => 'Twelve teams left standing',
+      big: () => 'EARN IT', small: () => STATE.season + ' Playoff' },
+    { at: .68, kick: () => 'Here we go', big: () => 'LET&rsquo;S<br>FIND OUT',
+      small: () => STATE.title }
+  ];
+
+  function runBoone() {
     if (phase !== 'intro') return;
     const a = el.intro;
     a.ontimeupdate = null; a.onended = null; a.onerror = null;
     try { a.pause(); } catch (e) {}
+
+    const b = el.boone;
+    if (!b.getAttribute('src')) b.src = BOONE_FILE;
+
+    phase = 'boone';
+    coldBeat = -1; countAt = -1;
+    setBedVolume();
+
+    const finish2 = () => endColdOpen();
+    b.onerror = finish2;
+    b.onended = finish2;
+    b.ontimeupdate = () => {
+      const d = b.duration;
+      if (!isFinite(d) || d <= 0) return;
+      const k = b.currentTime / d, left = d - b.currentTime;
+      if (left <= 5.4) {
+        const n = Math.max(1, Math.ceil(left - .4));
+        if (n !== countAt && n <= 5) { countAt = n; showCount(n); }
+        return;
+      }
+      let idx = -1;
+      for (let i = 0; i < BOONE_SLATES.length; i++)
+        if (k >= BOONE_SLATES[i].at) idx = i;
+      if (idx >= 0 && idx !== coldBeat) { coldBeat = idx; showSlate(BOONE_SLATES[idx]); }
+    };
+    b.currentTime = 0; b.volume = 1;
+    b.play().catch(finish2);
+  }
+
+  function endColdOpen() {
+    if (phase !== 'intro' && phase !== 'boone' && phase !== 'film' &&
+        phase !== 'voice') return;
+    [el.intro, el.boone].forEach(a => {
+      if (!a) return;
+      a.ontimeupdate = null; a.onended = null; a.onerror = null;
+      try { a.pause(); } catch (e) {}
+    });
+    clearTimeout(filmGuard);
+    try { el.film.pause(); el.film.onended = null; } catch (e) {}
+    el.filmStage.classList.remove('on');
     clearTimeout(timer);
     hideCold();
     phase = 'reveal';
@@ -598,17 +702,20 @@ const Show = (() => {
     m.play().then(() => { bedStarted = true; setBedVolume(); }).catch(() => {});
 
     startAmbient();
-    runColdOpen();
+    runFilm();
   }
 
   /* ========================================================== REVEALS */
+  const inColdOpen = () =>
+    phase === 'film' || phase === 'voice' || phase === 'intro' || phase === 'boone';
+
   function next() {
-    if (phase === 'intro') { endColdOpen(); return; }
+    if (inColdOpen()) { endColdOpen(); return; }
     if (cursor >= seq.length - 1) { finish(); return; }
     goto(cursor + 1);
   }
   function prev() {
-    if (phase === 'intro') return;
+    if (inColdOpen()) return;
     if (cursor <= 0) return;
     goto(cursor - 1, true);
   }
@@ -782,16 +889,69 @@ const Show = (() => {
 
   function hexA(h, a) { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; }
 
-  /* ============================================================ FINISH */
-  function finish() {
-    running = false; phase = 'outro';
-    clearTimeout(timer);
+  /* ================================================== FIRST FOUR OUT */
+  function runFourOut(then) {
+    const outs = STATE.out.filter(Boolean);
+    if (!outs.length || STATE.showOut === 'off') { then(); return; }
+
+    phase = 'fourout';
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
     el.glow.style.opacity = '0';
     el.floor.style.removeProperty('--floorc');
 
+    el.cold.classList.add('on');
+    showSlate({ kick: () => 'So close', big: () => 'FIRST FOUR OUT',
+                small: () => 'The ones who just missed' });
+    stinger(392); crowd(2);
+
+    timer = setTimeout(() => {
+      hideCold();
+      el.fourOut.innerHTML = '';
+      outs.forEach((s, i) => {
+        const t = team(s.id);
+        const row = document.createElement('div');
+        row.className = 'fo-row';
+        row.style.animationDelay = (i * 0.42) + 's';
+        row.innerHTML = `<span class="fo-n">${13 + i}</span>`;
+        const w = document.createElement('div');
+        w.className = 'fo-banner';
+        w.appendChild(bannerEl(s.id));
+        row.appendChild(w);
+        if (s.record) {
+          const r = document.createElement('span');
+          r.className = 'fo-rec'; r.textContent = s.record;
+          row.appendChild(r);
+        }
+        el.fourOut.appendChild(row);
+        setTimeout(() => { whoosh(); if (!isCalm()) shockwave(t.primary, 1); },
+                   i * 420 + 120);
+      });
+      el.fourOutWrap.classList.add('on');
+
+      timer = setTimeout(() => {
+        el.fourOutWrap.classList.remove('on');
+        setTimeout(then, 700);
+      }, 2200 + outs.length * 900);
+    }, 3200);
+  }
+
+  /* ============================================================ FINISH */
+  function finish() {
+    running = false;
+    clearTimeout(timer);
+    stopCall();
+    el.revealLayer.classList.remove('on');
+    el.lower.classList.remove('on');
+
     fullTicker();
+    runFourOut(closingCard);
+  }
+
+  function closingCard() {
+    phase = 'outro';
+    el.glow.style.opacity = '0';
+    el.floor.style.removeProperty('--floorc');
 
     el.cold.classList.add('on');
     showSlate({ kick: () => `${STATE.league} — ${STATE.season}`,
@@ -804,13 +964,52 @@ const Show = (() => {
 
     timer = setTimeout(() => {
       hideCold();
-      fadeTo(0, 2600);
-      setTimeout(() => { el.music.pause(); bedStarted = false; }, 2700);
+      fadeTo(bedVol() * 0.55, 1800);
       stopAmbient();
       showScreen('final');
-      /* hold a couple of seconds on the bracket, then close the file */
-      if (Recorder.active) setTimeout(() => Recorder.stop(), 4000);
+      buildBracket();                    // the plates fly in one at a time
+      /* let the bracket breathe, then close the recording and the music */
+      timer = setTimeout(() => {
+        fadeTo(0, 3000);
+        setTimeout(() => { el.music.pause(); bedStarted = false; }, 3100);
+        if (Recorder.active) Recorder.stop();
+      }, 11000);
     }, 5000);
+  }
+
+  /** Animate the finished bracket together, seed by seed. */
+  function buildBracket() {
+    const bk = document.getElementById('bracket');
+    if (!bk) return;
+    bk.classList.add('building');
+    const order = [1, 2, 3, 4, 5, 12, 6, 11, 7, 10, 8, 9];
+    const plates = [...bk.querySelectorAll('.bk-seed')];
+    const bySeed = {};
+    plates.forEach(p => { bySeed[p.dataset.seed] = p; });
+
+    plates.forEach(p => p.classList.add('pending'));
+    bk.querySelectorAll('.bk-line').forEach(l => l.classList.add('pending'));
+    bk.querySelectorAll('.bk-box,.bk-bowl,.bk-natty').forEach(l => l.classList.add('pending'));
+
+    order.forEach((seed, i) => {
+      setTimeout(() => {
+        const p = bySeed[seed];
+        if (!p) return;
+        p.classList.remove('pending');
+        p.classList.add('drop');
+        beep(520 + i * 18, .07);
+      }, 260 + i * 190);
+    });
+    setTimeout(() => {
+      bk.querySelectorAll('.bk-line').forEach((l, i) =>
+        setTimeout(() => l.classList.remove('pending'), i * 26));
+    }, 260 + order.length * 190);
+    setTimeout(() => {
+      bk.querySelectorAll('.bk-box,.bk-bowl,.bk-natty')
+        .forEach(l => l.classList.remove('pending'));
+      stinger(523.25); crowd(2.4);
+      if (!isCalm()) shockwave('#FFB300', 3);
+    }, 700 + order.length * 190);
   }
 
   function togglePause() {
@@ -820,11 +1019,13 @@ const Show = (() => {
     if (paused) {
       clearTimeout(timer);
       el.music.pause();
-      try { el.intro.pause(); } catch (e) {}
+      try { el.intro.pause(); el.boone.pause(); el.film.pause(); } catch (e) {}
       if (callAudio) try { callAudio.pause(); } catch (e) {}
     } else {
       el.music.play().catch(() => {});
-      if (phase === 'intro') el.intro.play().catch(() => {});
+      if (phase === 'film')  el.film.play().catch(() => {});
+      else if (phase === 'intro') el.intro.play().catch(() => {});
+      else if (phase === 'boone') el.boone.play().catch(() => {});
       else {
         if (callAudio) callAudio.play().catch(() => {});
         if (STATE.pace !== 'manual') timer = setTimeout(next, +STATE.pace);
@@ -838,7 +1039,8 @@ const Show = (() => {
      'coldCount', 'revealLayer', 'bigNum', 'seedChip', 'bannerStage', 'teamInfo',
      'flash', 'wipe', 'glitch', 'flare', 'vig', 'floor', 'stage', 'rail', 'lower',
      'l3cap', 'l3t1', 'l3t2', 'tkRun', 'tkBadge', 'tkClock', 'gate', 'gateKick',
-     'gateTitle', 'gateSub', 'music', 'intro', 'ctl', 'cPlay', 'recLamp']
+     'gateTitle', 'gateSub', 'music', 'intro', 'boone', 'ctl', 'cPlay',
+     'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');
 
@@ -851,7 +1053,7 @@ const Show = (() => {
     document.getElementById('cNext').onclick = next;
     document.getElementById('cPrev').onclick = prev;
     document.getElementById('cPlay').onclick = togglePause;
-    document.getElementById('cSkip').onclick = () => { if (phase === 'intro') endColdOpen(); };
+    document.getElementById('cSkip').onclick = () => { if (inColdOpen()) endColdOpen(); };
     document.getElementById('cRestart').onclick = arm;
     document.getElementById('cBracket').onclick = () => { stop(); showScreen('final'); };
     document.getElementById('cRoom').onclick = () => { stop(); showScreen('room'); };
@@ -890,7 +1092,7 @@ const Show = (() => {
       }
       else if (e.code === 'ArrowRight') next();
       else if (e.code === 'ArrowLeft')  prev();
-      else if (e.key === 's' || e.key === 'S') { if (phase === 'intro') endColdOpen(); }
+      else if (e.key === 's' || e.key === 'S') { if (inColdOpen()) endColdOpen(); }
       else if (e.key === 'p' || e.key === 'P') togglePause();
       else if (e.key === 'f' || e.key === 'F') toggleFull();
       else if (e.key === 'Escape') { stop(); showScreen('room'); }
@@ -911,7 +1113,13 @@ const Show = (() => {
   function stop() {
     running = false; phase = 'idle';
     clearTimeout(timer);
-    try { el.intro.pause(); el.intro.ontimeupdate = null; el.intro.onended = null; } catch (e) {}
+    [el.intro, el.boone].forEach(a => {
+      try { a.pause(); a.ontimeupdate = null; a.onended = null; } catch (e) {}
+    });
+    clearTimeout(filmGuard);
+    try { el.film.pause(); el.film.onended = null; el.film.onloadedmetadata = null; }
+    catch (e) {}
+    el.filmStage.classList.remove('on');
     stopCall();
     hideCold();
     stopAmbient();

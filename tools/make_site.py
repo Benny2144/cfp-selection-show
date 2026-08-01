@@ -15,7 +15,8 @@ import os, shutil, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
 
-FILES = ['index.html', 'netlify.toml', '.nojekyll', 'music.mp3', 'intro.mp3']
+FILES = ['index.html', 'netlify.toml', '.nojekyll', 'music.mp3',
+         'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4']
 DIRS = ['css', 'js', 'assets', 'logos', 'voice']
 
 # never ship these

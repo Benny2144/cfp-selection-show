@@ -20,7 +20,8 @@ const STATE = {
   volume:   55,
   record:   false,
   logoPattern: '',
-  seeds: Array(12).fill(null)          // null | {id, record, champ}
+  seeds: Array(12).fill(null),         // null | {id, record, champ}
+  out:   Array(4).fill(null)           // first four out — shown before the bracket
 };
 
 let OVERRIDES = loadOverrides();
@@ -123,7 +124,8 @@ function renderPool() {
   $('#tabCount').textContent = `${filled}/12`;
 }
 
-const isSeeded = id => STATE.seeds.some(s => s && s.id === id);
+const isSeeded = id => STATE.seeds.some(s => s && s.id === id) ||
+                       STATE.out.some(s => s && s.id === id);
 
 /** Swap two seed slots — the touch-friendly way to reorder. */
 function swapSeeds(a, b) {
@@ -134,13 +136,21 @@ function swapSeeds(a, b) {
   persist(); renderSeeds();
 }
 
+/** Click a team: fills the next open seed, then the first four out. */
 function seedNext(id) {
   if (isSeeded(id)) return;
   const i = STATE.seeds.findIndex(s => !s);
-  if (i === -1) { toast('All 12 seeds are filled'); return; }
-  STATE.seeds[i] = { id, record: '', champ: i < 4 };
+  if (i !== -1) {
+    STATE.seeds[i] = { id, record: '', champ: i < 4 };
+    persist(); renderPool(); renderSeeds();
+    if (i === 11) toast('That\'s all twelve — now the four who missed');
+    return;
+  }
+  const o = STATE.out.findIndex(s => !s);
+  if (o === -1) { toast('Field and first four out are both full'); return; }
+  STATE.out[o] = { id, record: '' };
   persist(); renderPool(); renderSeeds();
-  if (i === 11) toast('That\'s all twelve — check the field');
+  if (o === 3) toast('Board complete');
 }
 
 /* ======================================================================
@@ -217,6 +227,65 @@ function renderSeeds() {
   });
 
   $('#btnGo').disabled = STATE.seeds.filter(Boolean).length === 0;
+  renderOut();
+}
+
+/* ---- first four out ------------------------------------------------- */
+function renderOut() {
+  const list = $('#outList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  STATE.out.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'seedrow out' + (s ? '' : ' empty');
+    row.innerHTML = `<span class="num">${i + 13}</span>`;
+
+    if (s) {
+      const wrap = document.createElement('div');
+      wrap.className = 'banner-wrap';
+      wrap.appendChild(bannerEl(s.id));
+      row.appendChild(wrap);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const rec = document.createElement('input');
+      rec.placeholder = 'REC'; rec.value = s.record || '';
+      rec.oninput = () => { s.record = rec.value; persist(); };
+      meta.appendChild(rec);
+      row.appendChild(meta);
+
+      const move = document.createElement('div');
+      move.className = 'move';
+      move.innerHTML = `<button title="Move up" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
+                        <button title="Move down" ${i === 3 ? 'disabled' : ''}>&#9660;</button>`;
+      move.children[0].onclick = () => swapOut(i, i - 1);
+      move.children[1].onclick = () => swapOut(i, i + 1);
+      row.appendChild(move);
+
+      const acts = document.createElement('div');
+      acts.className = 'acts';
+      acts.innerHTML = `<button title="Edit team look">&#9998;</button>
+                        <button title="Remove">&times;</button>`;
+      acts.children[0].onclick = () => openTeamModal(s.id);
+      acts.children[1].onclick = () => {
+        STATE.out[i] = null; persist(); renderPool(); renderSeeds();
+      };
+      row.appendChild(acts);
+    } else {
+      const lbl = document.createElement('div');
+      lbl.className = 'slot-lbl';
+      lbl.textContent = 'open — just missed';
+      row.appendChild(lbl);
+    }
+    list.appendChild(row);
+  });
+}
+
+function swapOut(a, b) {
+  if (b < 0 || b > 3) return;
+  const t = STATE.out[a]; STATE.out[a] = STATE.out[b]; STATE.out[b] = t;
+  persist(); renderOut();
 }
 
 /* 12-team CFP structure */
@@ -364,6 +433,7 @@ function renderBracket() {
     const s = STATE.seeds[seed - 1];
     const row = document.createElement('div');
     row.className = 'bk-seed' + (side === 'R' ? ' right' : '');
+    row.dataset.seed = seed;
     row.style.top = y + '%';
     row.style[side === 'L' ? 'left' : 'right'] = '1.5%';
     row.style.transform = 'translateY(-50%)';

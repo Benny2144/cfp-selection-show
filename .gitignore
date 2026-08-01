@@ -30,3 +30,8 @@ voice_check.log
 # New announcer recordings (voice/ holds the cut clips that ship)
 new team mp3/
 newvoice.log
+
+# raw intro video (intro-video.mp4 is the hosted encode)
+intro when pushing play. after pat, and boone talk.mp4
+shrink.log
+intro.mp3
