@@ -570,6 +570,53 @@ const Show = (() => {
     else fadeTo(bedVol(), 260);
   }
 
+  /* ================================================= the live bracket */
+  let liveReady = false;
+
+  function buildLiveBracket() {
+    renderBracket(document.getElementById('liveBracket'));
+    liveReady = true;
+    document.querySelectorAll('#liveBracket .bk-seed')
+      .forEach(p => p.classList.remove('placed', 'landing'));
+    updateLiveCount();
+  }
+
+  function updateLiveCount() {
+    const placed = document.querySelectorAll('#liveBracket .bk-seed.placed').length;
+    if (el.lbCount) el.lbCount.textContent = placed + ' of ' + seq.length + ' in';
+  }
+
+  function showLiveBracket(on) {
+    if (!el.liveWrap) return;
+    el.liveWrap.classList.toggle('on', !!on);
+  }
+
+  /** Walk the team over to its slot and drop it in. */
+  function placeOnBracket(i, gen, then) {
+    if (!liveReady) buildLiveBracket();
+    const s = STATE.seeds[i];
+    const plate = document.querySelector(
+      `#liveBracket .bk-seed[data-seed="${i + 1}"]`);
+    if (!s || !plate) { then && then(); return; }
+
+    el.revealLayer.classList.remove('on');
+    el.lower.classList.remove('on');
+    showLiveBracket(true);
+
+    setTimeout(() => {
+      if (gen !== revealGen) return;
+      const t = team(s.id);
+      plate.style.setProperty('--land', accentOf(t));
+      plate.classList.add('placed');
+      plate.classList.remove('landing'); void plate.offsetWidth;
+      plate.classList.add('landing');
+      updateLiveCount();
+      impact();
+      if (!isCalm()) { shockwave(accentOf(t), 2); flare(); }
+      then && then();
+    }, 480);
+  }
+
   /* ========================================================== the rail */
   function buildRail() {
     const wrap = document.getElementById('railRows');
@@ -663,6 +710,7 @@ const Show = (() => {
     if (STATE.order === 'desc') seq.reverse();
 
     buildRail(); clearRail(); paintTicker();
+    buildLiveBracket(); showLiveBracket(false);
 
     hideCold();
     hidePops();
@@ -1114,7 +1162,15 @@ const Show = (() => {
 
     if (rebuild) {
       clearRail(); revealed = [];
-      for (let k = 0; k <= cursor; k++) { litRail(seq[k], false); pushTickerTeam(seq[k]); }
+      buildLiveBracket();
+      for (let k = 0; k <= cursor; k++) {
+        litRail(seq[k], false);
+        pushTickerTeam(seq[k]);
+        const p = document.querySelector(
+          `#liveBracket .bk-seed[data-seed="${seq[k] + 1}"]`);
+        if (p && k < cursor) p.classList.add('placed');
+      }
+      updateLiveCount();
     }
 
     /* the sequence itself schedules the next pick when the reaction ends */
@@ -1183,6 +1239,7 @@ const Show = (() => {
     stopCall();
     stopSeedTalk();
 
+    showLiveBracket(false);
     el.revealLayer.classList.add('on');
     el.bannerStage.innerHTML = '';       // no team yet — that is the point
     el.teamInfo.innerHTML = '';
@@ -1288,13 +1345,18 @@ const Show = (() => {
     litRail(i, true);
     pushTickerTeam(i);
 
-    /* ---- the reaction, once the announcer has named them ---- */
+    /* ---- the reaction, then over to the bracket ---- */
     const after = seedClip(i, 'after');
     const runAfter = () => {
       if (gen !== revealGen) return;
       playSeedTalk(after, gen, () => {
         if (gen !== revealGen) return;
-        if (STATE.pace !== 'manual' && !paused) timer = setTimeout(next, 900);
+        /* the pick is done: put them on the board, hold, then move on */
+        placeOnBracket(i, gen, () => {
+          if (gen !== revealGen) return;
+          if (STATE.pace !== 'manual' && !paused)
+            timer = setTimeout(next, 1900);
+        });
       });
     };
     const call = callCache[s.id];
@@ -1382,6 +1444,7 @@ const Show = (() => {
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
 
+    showLiveBracket(false);
     fullTicker();
     runFourOut(closingCard);
   }
@@ -1487,7 +1550,8 @@ const Show = (() => {
      'gateTitle', 'gateSub', 'music', 'intro', 'boone', 'ctl', 'cPlay',
      'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap',
      'bloom', 'l3bar', 'foHead',
-     'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub']
+     'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub',
+     'liveWrap', 'liveBracket', 'lbCount']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');
 
@@ -1587,6 +1651,7 @@ const Show = (() => {
     el.filmStage.classList.remove('on');
     stopCall();
     stopSeedTalk();
+    showLiveBracket(false);
     hideCold();
     stopAmbient();
     setBedVolume();

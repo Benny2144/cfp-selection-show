@@ -621,6 +621,48 @@ input,select{font-family:inherit}
 
 #fx{position:absolute;inset:0;z-index:9;pointer-events:none}
 
+/* =====================================================================
+   THE LIVE BRACKET — on screen through the picks, filling as they land
+   ===================================================================== */
+.livebracket{
+  position:absolute;inset:0;z-index:6;display:none;
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:5vh 3vw calc(var(--bottom-rail) + 46px);
+  opacity:0;transition:opacity .55s ease;
+  background:radial-gradient(70% 60% at 50% 45%,rgba(8,11,16,.72),rgba(4,6,9,.93));
+}
+.livebracket.on{display:flex;opacity:1}
+.lb-head{text-align:center;margin-bottom:2vh}
+.lb-head b{display:block;font-family:var(--cond);font-size:clamp(18px,2.4vw,34px);
+  letter-spacing:6px;color:#97a2b1;font-weight:400}
+.lb-head span{font-size:10px;letter-spacing:4px;color:var(--accent);font-weight:900}
+.livebracket .bracket{
+  width:min(100%,1500px);border:0;background:transparent;
+}
+/* every plate is hidden until its pick lands */
+.livebracket .bk-seed{opacity:0;transition:opacity .3s}
+.livebracket .bk-seed.placed{opacity:1}
+.livebracket .bk-seed.landing{animation:lbDrop .8s cubic-bezier(.18,1.25,.35,1) both}
+@keyframes lbDrop{
+  0%{opacity:0;transform:translateY(-50%) scale(1.9);filter:blur(16px)}
+  55%{opacity:1;filter:blur(0)}
+  75%{transform:translateY(-50%) scale(.97)}
+  100%{opacity:1;transform:translateY(-50%) scale(1)}
+}
+.livebracket .bk-seed.landing .banner{
+  box-shadow:0 0 0 3px var(--land,var(--accent)),0 18px 50px rgba(0,0,0,.8);
+}
+.livebracket .bk-line,.livebracket .bk-box,
+.livebracket .bk-bowl,.livebracket .bk-natty{opacity:.28}
+.livebracket .bk-title{display:none}
+
+@media (max-width:720px){
+  .livebracket{padding:2vh 2vw calc(var(--bottom-rail) + 30px)}
+  .lb-head{margin-bottom:1vh}
+  .lb-head b{letter-spacing:3px}
+  .livebracket .bracket{width:100%}
+}
+
 /* ---- live bracket rail ---- */
 .rail{
   position:absolute;top:0;right:0;bottom:var(--above-ticker);width:274px;z-index:11;

@@ -490,8 +490,11 @@ const BK = {
   boxW: 9.5
 };
 
-function renderBracket() {
-  const bk = $('#bracket');
+/** Draw the bracket into any container — the final screen uses one, the
+    show keeps a second that fills in as the picks land. */
+function renderBracket(target) {
+  const bk = target || $('#bracket');
+  if (!bk) return;
   bk.innerHTML = '';
   const R = BK.rows, X = BK.x;
 
@@ -593,7 +596,7 @@ function renderBracket() {
   nat.innerHTML = 'NATIONAL<br>CHAMPIONSHIP';
   bk.appendChild(nat);
 
-  renderFieldList();
+  if (bk.id === 'bracket') renderFieldList();
 }
 
 /* ---- the phone-friendly version of the same information ------------- */
