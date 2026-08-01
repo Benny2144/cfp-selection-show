@@ -10,6 +10,18 @@ const INTRO_FILE = 'patmac.mp3';         // then Pat
 const BOONE_FILE = 'coachboone.mp3';     // then Coach Boone
 const MUSIC_FILE = 'music.mp3';          // bed under everything
 
+/* The committee room, looping silently behind the home page and the board.
+   This used to be the intro film, which is 55 MB — an enormous download for
+   something that is only ever wallpaper. This one is 1.4 MB and is actually
+   a picture of a selection committee, which is the point. */
+const ROOM_FILM_FILE = 'committee.mp4';
+
+/* One card per seed: "PICK 5 — THE PICK IS IN". These carry the build-up
+   beat on their own, so the reveal shows the card first and only brings the
+   team in once it has landed. */
+const PICK_DIR = 'assets/pick/';
+const pickArt = i => PICK_DIR + String(i + 1).padStart(2, '0') + '.webp';
+
 /* How much of the bed stays up while somebody is talking. Adjustable in the
    committee room — 0.22 was technically playing but far too quiet to hear
    under a voice, which reads as "the music stopped". */
@@ -574,6 +586,43 @@ const Show = (() => {
     else fadeTo(bedVol(), 260);
   }
 
+  /* ====================================================== the pick cards
+
+     Twelve 1600x900 stills, one per seed. They are the build-up beat: the
+     card owns the screen while the commentary runs, then falls back and
+     blurs when the team lands on top of it.
+     ==================================================================== */
+  const pickWarm = {};                 // seed index -> Image, once decoded
+
+  /** Pull the next few cards down early so a reveal never waits on one. */
+  function primePickArt() {
+    seq.slice(0, 3).forEach(warmPick);
+  }
+  function warmPick(i) {
+    if (pickWarm[i]) return;
+    const img = new Image();
+    img.onload = () => { pickWarm[i] = img; };
+    img.onerror = () => { pickWarm[i] = false; };
+    img.src = pickArt(i);
+    pickWarm[i] = pickWarm[i] || img;
+  }
+
+  /** mode: 'full' (the card is the shot) | 'back' (behind the team) | 'off' */
+  function showPickArt(i, mode) {
+    const el2 = el.pickBack;
+    if (!el2) return;
+    if (mode === 'off') { el2.classList.remove('on', 'back'); return; }
+
+    if (i != null) {
+      el2.style.backgroundImage = `url("${pickArt(i)}")`;
+      /* keep the next one warm while this one is on screen */
+      const at = seq.indexOf(i);
+      if (at >= 0 && seq[at + 1] != null) warmPick(seq[at + 1]);
+    }
+    el2.classList.add('on');
+    el2.classList.toggle('back', mode === 'back');
+  }
+
   /* ================================================= the live bracket */
   let liveReady = false;
 
@@ -605,6 +654,7 @@ const Show = (() => {
 
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
+    showPickArt(null, 'off');          // the card goes with the reveal
     showLiveBracket(true);
 
     setTimeout(() => {
@@ -742,6 +792,8 @@ const Show = (() => {
     stopSeedTalk();
     primeCalls();
     primeSeedTalk();
+    primePickArt();
+    showPickArt(null, 'off');
     startBed();
     setBedVolume();
     startAmbient();
@@ -1278,9 +1330,11 @@ const Show = (() => {
     el.bloom.classList.remove('go');
     el.glow.style.opacity = '0';
 
-    el.bigNum.textContent = i + 1;
-    el.bigNum.classList.remove('pop'); void el.bigNum.offsetWidth;
-    el.bigNum.classList.add('pop');
+    /* Beat one is the pick card, full bleed and on its own. It already says
+       the number in three-foot gold letters, so the stage numeral stands
+       down rather than competing with it. */
+    showPickArt(i, 'full');
+    el.bigNum.classList.remove('pop', 'show');
     el.seedChip.textContent = `NO. ${i + 1} SEED`;
     el.seedChip.classList.remove('roll'); void el.seedChip.offsetWidth;
     el.seedChip.classList.add('roll');
@@ -1303,9 +1357,10 @@ const Show = (() => {
     whoosh();
     if (isMax()) pushStage();
 
-    el.bigNum.textContent = i + 1;
-    el.bigNum.classList.remove('pop'); void el.bigNum.offsetWidth;
-    el.bigNum.classList.add('pop');
+    /* The card drops back and blurs so the team owns the frame — the number
+       is still legible behind it, which is what the broadcast does too. */
+    showPickArt(i, 'back');
+    el.bigNum.classList.remove('pop', 'show');
 
     el.seedChip.textContent = `NO. ${i + 1} SEED`;
     el.seedChip.classList.remove('roll'); void el.seedChip.offsetWidth;
@@ -1470,6 +1525,7 @@ const Show = (() => {
     phase = 'snub';
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
+    showPickArt(null, 'off');
     showLiveBracket(false);
     el.glow.style.opacity = '0';
 
@@ -1664,7 +1720,7 @@ const Show = (() => {
      'bloom', 'l3bar', 'foHead',
      'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub',
      'liveWrap', 'liveBracket', 'lbCount',
-     'bidRow', 'bidTag', 'moveTag', 'snubWrap', 'snubIn', 'snubOut',
+     'bidRow', 'bidTag', 'moveTag', 'snubWrap', 'snubIn', 'snubOut', 'pickBack',
      'preCount', 'preClock', 'preWhen',
      'fbFill', 'fbNow', 'fbLeft', 'fbTotal']
       .forEach(id => el[id] = document.getElementById(id));
@@ -1763,6 +1819,7 @@ const Show = (() => {
     el.filmStage.classList.remove('on');
     stopCall();
     stopSeedTalk();
+    showPickArt(null, 'off');
     showLiveBracket(false);
     hideCold();
     stopAmbient();

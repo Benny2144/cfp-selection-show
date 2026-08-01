@@ -515,6 +515,64 @@ const Dynasty = (() => {
   }
 
   /* ======================================================================
+     THE CHROME — ESPN's scores strip and nav
+
+     Their strip is a horizontal rail of small cells, each one two team
+     rows with an abbreviation and a number, under a status line. Before
+     anything has kicked off it carries the fixtures; afterwards it carries
+     the scores. Ours does the same thing with the eleven playoff games,
+     and falls back to the seeded field when the bracket is still empty.
+     ====================================================================== */
+
+  function renderStrip() {
+    const track = $('#ssTrack');
+    if (!track) return;
+    track.innerHTML = '';
+
+    const solved = Bracket.solve();
+    const anySeeded = STATE.seeds.some(Boolean);
+
+    if (!anySeeded) {
+      track.innerHTML = '<span class="ss-empty">No field set &mdash; ' +
+        'build one in the committee room</span>';
+      return;
+    }
+
+    GAMES.forEach(g => {
+      const st = solved[g.id];
+      const cell = document.createElement('button');
+      cell.className = 'ss-cell' + (st.winner ? ' final' : st.a && st.b ? ' ready' : '');
+      cell.onclick = () => showScreen('results');
+
+      const status = st.winner ? 'Final'
+        : (st.a && st.b) ? ROUND_INFO[g.round].label
+        : g.name;
+      cell.innerHTML = `<span class="ss-status">${esc(status)}</span>`;
+
+      ['a', 'b'].forEach(side => {
+        const seedNo = st[side];
+        const row = document.createElement('span');
+        row.className = 'ss-row' +
+          (st.winner ? (st.winner === seedNo ? ' w' : ' l') : '');
+        const t = seedNo && seedTeam(seedNo);
+        row.innerHTML =
+          `<i class="ss-rank">${seedNo || ''}</i>` +
+          `<b class="ss-abbr">${t ? esc(t.abbr) : '&mdash;'}</b>` +
+          `<u class="ss-num">${st[side === 'a' ? 'sa' : 'sb'] ?? ''}</u>`;
+        cell.appendChild(row);
+      });
+
+      track.appendChild(cell);
+    });
+  }
+
+  /** Which nav item is lit. */
+  function markNav(name) {
+    $$('#enLinks button').forEach(b =>
+      b.classList.toggle('on', b.dataset.go === name));
+  }
+
+  /* ======================================================================
      WIRING
      ====================================================================== */
 
@@ -570,9 +628,20 @@ const Dynasty = (() => {
     $('#fPremiere').onchange = savePremiere;
     $('#preClearBtn').onclick = () => { $('#fPremiere').value = ''; savePremiere(); };
 
+    /* ---- chrome ---- */
+    $$('#enLinks button').forEach(b => b.onclick = () => showScreen(b.dataset.go));
+    $('#navBrand').onclick = () => showScreen('home');
+    $('#ssLeague').onclick = () => showScreen('final');
+    $('#navShow').onclick = () => { showScreen('show'); Show.arm(); };
+    $('#ssNext').onclick = () => {
+      const t = $('#ssTrack');
+      t.scrollBy({ left: t.clientWidth * 0.8, behavior: 'smooth' });
+    };
+
     Movement.refresh();
   }
 
   return { init, renderResults, renderPickem, renderHistory, renderBoard,
-           openExport, watchPremiere, untilPremiere, fmtLeft };
+           openExport, watchPremiere, untilPremiere, fmtLeft,
+           renderStrip, markNav };
 })();

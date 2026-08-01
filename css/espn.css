@@ -1,0 +1,454 @@
+/* =====================================================================
+   ESPN GRAMMAR
+
+   Measured off espn.com/college-football/playoff-bracket rather than
+   guessed at. What their pages actually do:
+
+     page          #EDEEF0        cards #FFFFFF, radius 10px, NO shadow
+     text          #2B2C2D body, #151617 emphasis, #999 faint
+     team name     11px / 600 / no tracking
+     round label   12px / 500  (BentonSans)
+     page heading  20px / 700  (PlayoffProCondensed)
+     matchup cell  200 x 96 — two 48px team rows
+     row anatomy   [logo 24px] [rank] [name .............] [score]
+
+   Their site is light grey. This is a broadcast, and the artwork is black
+   and gold, so the palette is inverted while every proportion, weight and
+   piece of component anatomy above is kept exactly. Flat cards with a
+   10px radius and no shadow is the single most ESPN thing here — it is
+   what stops a sports page looking like a dashboard.
+
+   Loaded last, so it wins where it overlaps.
+   ===================================================================== */
+
+:root{
+  /* ESPN's greys, inverted for a dark surface */
+  --e-page:#0a0d13;
+  --e-card:#151a22;
+  --e-card2:#1b212b;
+  --e-line:#252c38;
+  --e-line2:#323b4a;
+
+  --e-txt:#f1f3f7;        /* == their #151617 emphasis */
+  --e-body:#c8cdd6;       /* == their #2B2C2D          */
+  --e-mut:#8f98a6;        /* == their #48494A          */
+  --e-faint:#5f6874;      /* == their #999999          */
+
+  --e-live:#D50A0A;       /* ESPN red, kept for live/status only */
+  --e-win:#D8B45A;        /* the playoff's gold does the winning */
+
+  --e-row:48px;           /* half of their 96px matchup cell */
+  --e-logo:24px;
+  --e-r:10px;             /* their card radius, exactly */
+}
+
+/* =====================================================================
+   1. THE PICK CARDS
+   ===================================================================== */
+
+.pickback{
+  position:fixed;inset:0;z-index:30;pointer-events:none;
+  background-color:#05070b;
+  background-position:center;background-size:cover;background-repeat:no-repeat;
+  opacity:0;transform:scale(1.02);
+  transition:opacity .55s var(--ease),filter .7s var(--ease),
+             transform .9s var(--ease);
+}
+.pickback.on{opacity:1;transform:scale(1)}
+/* once the team lands the card drops back and blurs — the number stays
+   readable behind the plate, which is what the broadcast does */
+.pickback.back{
+  opacity:.42;filter:blur(9px) saturate(.85) brightness(.75);
+  transform:scale(1.08);
+}
+/* the reveal has to sit on top of its own backdrop */
+.reveal{z-index:40}
+.lower,.ticker,.ctl,.rail,.livebracket{z-index:46}
+
+/* =====================================================================
+   2. THE BOARDS
+   ===================================================================== */
+
+/* the 1-12 rankings board, behind the cold-open grid */
+.cold-grid.on::before{
+  content:'';position:fixed;inset:0;z-index:-1;
+  background:url('../assets/board-rankings.webp') center/cover no-repeat;
+  opacity:.34;filter:blur(2px);
+  animation:boardIn 1.4s var(--ease) both;
+}
+@keyframes boardIn{from{opacity:0;transform:scale(1.06)}to{opacity:.34;transform:none}}
+
+/* the 12-team bracket board, behind the finished bracket */
+#final{
+  background:
+    linear-gradient(180deg,rgba(5,7,11,.86),rgba(5,7,11,.94)),
+    url('../assets/board-bracket.webp') center/cover no-repeat fixed;
+}
+#final .bracket-wrap{background:transparent}
+
+/* =====================================================================
+   3. ESPN CARD CHROME
+
+   Flat. Ten-pixel radius. No shadow. Every card on the site now agrees
+   with every other one, which is most of what makes their pages read as
+   a single product.
+   ===================================================================== */
+
+.gcard,.hist-card,.pk-card,.lb,.hub-card,.roll-row,.lb-consensus,.crown.on{
+  border-radius:var(--e-r);
+}
+.gcard,.pk-card,.lb,.roll-row{
+  background:var(--e-card);
+  border:1px solid var(--e-line);
+  box-shadow:none;
+}
+.gcard:hover,.hist-card:hover{box-shadow:none}
+.hist-card{
+  background:var(--e-card);border:1px solid var(--e-line);
+  box-shadow:none;border-radius:var(--e-r);
+}
+.hub-card{
+  background:var(--e-card);border:1px solid var(--e-line);
+  box-shadow:none;
+}
+.hub-card:hover{
+  background:var(--e-card2);
+  border-color:var(--e-line2);
+  box-shadow:none;
+}
+
+/* =====================================================================
+   4. THE SCORE CELL
+
+   [logo] [rank] [name ..................] [score]
+
+   One row, 48px, used by the results screen, the pick'em and the field
+   list. Their team name is 11px/600 with no tracking — resisting the urge
+   to letterspace it is what makes it look like a scoreboard.
+   ===================================================================== */
+
+.g-side,.pk-pick,.fl-row{min-height:var(--e-row)}
+
+.g-side{
+  gap:8px;padding:0 12px;
+  border-radius:0;
+}
+.g-side+.g-side{border-top:1px solid var(--e-line)}
+
+/* the seed number, small and right-aligned like their Rank cell */
+.g-seed,.pk-seed,.fl-row .n{
+  font-family:var(--ui);
+  font-size:11px;font-weight:700;letter-spacing:0;
+  color:var(--e-faint);text-align:right;
+}
+.g-side.won .g-seed{color:var(--e-win)}
+
+/* the plate inside a scorecell shrinks to their logo scale */
+.g-side .dy-plate,.pk-pick .dy-plate{--bh:30px}
+.g-side .dy-plate .tag,.pk-pick .dy-plate .tag{letter-spacing:0}
+
+/* winners get a gold left edge, not a wash — theirs is a bold weight
+   change plus a marker, never a coloured row */
+.g-side.won{
+  background:none;
+  box-shadow:inset 3px 0 0 var(--e-win);
+}
+.g-side.won .g-score{color:var(--e-txt);font-weight:700}
+.g-side.lost{opacity:.5}
+
+.g-score{
+  width:44px;height:30px;border-radius:6px;
+  font-family:var(--ui);font-size:14px;font-weight:700;letter-spacing:0;
+  background:rgba(0,0,0,.4);border:1px solid var(--e-line2);
+  color:var(--e-body);
+}
+
+/* ---- the matchup card ---- */
+.gcard{overflow:hidden}
+.g-head{
+  padding:9px 12px;
+  border-bottom:1px solid var(--e-line);
+  background:none;
+}
+.g-head b{
+  font-size:12px;font-weight:700;letter-spacing:0;text-transform:none;
+  color:var(--e-txt);
+}
+.g-head span{font-size:11px;color:var(--e-faint);letter-spacing:0}
+.gcard.live{border-color:var(--e-line2)}
+.gcard.live .g-head b::after{
+  content:'LIVE';margin-left:8px;padding:1px 5px;border-radius:3px;
+  font-size:9px;font-weight:800;letter-spacing:.6px;
+  background:var(--e-live);color:#fff;vertical-align:2px;
+}
+.gcard.done{border-color:var(--e-line)}
+.gcard.done .g-head b::after{
+  content:'FINAL';margin-left:8px;font-size:9.5px;font-weight:800;
+  letter-spacing:1px;color:var(--e-faint);vertical-align:1px;
+}
+
+/* =====================================================================
+   5. ROUND LABELS AND NAV
+
+   12px/500, sentence case, sitting on a hairline. Not a shouty
+   uppercase display line — that is the tell of a fan site.
+   ===================================================================== */
+
+.res-head,.pk-round{
+  align-items:center;gap:10px;
+  margin-bottom:10px;padding-bottom:7px;
+  border-bottom:1px solid var(--e-line);
+}
+.res-head b,.pk-round b{
+  font-family:var(--ui);
+  font-size:12px;font-weight:700;letter-spacing:0;text-transform:none;
+  color:var(--e-txt);
+  background:none;-webkit-text-fill-color:currentColor;
+}
+.res-head span,.pk-round span{
+  font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;
+  color:var(--e-faint);
+}
+
+/* their tab underline is 2px and full-width under the label */
+.pk-tab{
+  padding:12px 16px;font-size:12px;font-weight:600;
+  letter-spacing:0;text-transform:none;color:var(--e-mut);
+}
+.pk-tab.on{color:var(--e-txt)}
+.pk-tab.on::after{
+  left:0;right:0;height:2px;background:var(--e-live);box-shadow:none;
+}
+
+/* =====================================================================
+   6. THE FIELD LIST — the phone-shaped bracket
+   ===================================================================== */
+
+.field-list h4{
+  font-size:12px;font-weight:700;letter-spacing:0;text-transform:none;
+  color:var(--e-txt);
+  padding-bottom:7px;border-bottom:1px solid var(--e-line);
+}
+.fl-game{
+  background:var(--e-card);border:1px solid var(--e-line);
+  border-radius:var(--e-r);overflow:hidden;
+}
+.fl-game .lbl{
+  font-size:11px;font-weight:500;letter-spacing:0;text-transform:none;
+  color:var(--e-faint);
+  padding:8px 12px;border-bottom:1px solid var(--e-line);
+}
+.fl-row{gap:8px;padding:0 12px;border-radius:0}
+.fl-row.bye{background:none;box-shadow:inset 3px 0 0 var(--e-win)}
+.fl-row .tagline{
+  font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--e-faint);
+}
+.fl-head b{font-size:15px;letter-spacing:0}
+
+/* =====================================================================
+   7. THE LEADERBOARD — their standings table
+   ===================================================================== */
+
+.lb-row{padding:0 12px;min-height:44px}
+.lb-head{min-height:32px;background:rgba(255,255,255,.02)}
+.lb-head span{
+  font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+  color:var(--e-faint);
+}
+.lb-pos{
+  font-family:var(--ui);font-size:12px;font-weight:700;color:var(--e-faint);
+}
+.lb-row.lead{background:none;box-shadow:inset 3px 0 0 var(--e-win)}
+.lb-row.lead .lb-pos{color:var(--e-win)}
+.lb-name{font-size:13px;font-weight:600;letter-spacing:0}
+.lb-champ{font-size:12px;font-weight:400;color:var(--e-mut)}
+.lb-pts{
+  font-family:var(--ui);font-size:15px;font-weight:800;
+  color:var(--e-txt);font-variant-numeric:tabular-nums;
+}
+.lb-max{font-size:11px;color:var(--e-faint);font-variant-numeric:tabular-nums}
+.lb-row+.lb-row{border-top:1px solid var(--e-line)}
+
+/* =====================================================================
+   8. HEADERS — their 20px condensed page title
+   ===================================================================== */
+
+.dy-head{
+  background:linear-gradient(180deg,rgba(10,13,19,.97),rgba(10,13,19,.8));
+  border-bottom:1px solid var(--e-line);
+}
+.dy-head h1{
+  font-size:clamp(20px,2.4vw,26px);letter-spacing:.6px;
+  background:none;-webkit-text-fill-color:var(--e-txt);color:var(--e-txt);
+}
+.dy-head .sub{font-size:11.5px;letter-spacing:0;color:var(--e-faint)}
+.dy-progress{
+  font-size:11px;font-weight:600;letter-spacing:0;text-transform:none;
+  color:var(--e-mut);
+}
+
+/* the room and the pool pick up the same card language */
+.pool-card{
+  background:var(--e-card);border:1px solid var(--e-line);
+  border-radius:var(--e-r);box-shadow:none;
+}
+.pool-card:hover{
+  background:var(--e-card2);border-color:var(--e-line2);
+  box-shadow:none;transform:none;
+}
+.seedrow{
+  background:var(--e-card);border:1px solid var(--e-line);
+  border-radius:var(--e-r);box-shadow:none;
+}
+.seedrow.bye{
+  background:var(--e-card);
+  box-shadow:inset 3px 0 0 var(--e-win);
+}
+.seedrow:not(.empty):hover{box-shadow:none;border-color:var(--e-line2)}
+.seedrow.bye:not(.empty):hover{box-shadow:inset 3px 0 0 var(--e-win)}
+
+/* =====================================================================
+   9. THE CHROME
+
+   espn.com's shell, top to bottom: a horizontally scrolling scores rail,
+   then a nav bar with a solid brand block hard against the left edge and
+   flat text links beside it. Both are full-bleed and sit above
+   everything. The show is exempt — a broadcast has no site furniture.
+   ===================================================================== */
+
+:root{ --ss-h:46px; --nav-h:44px; --chrome-h:calc(var(--ss-h) + var(--nav-h)); }
+
+.chrome{
+  position:fixed;top:0;left:0;right:0;z-index:60;
+  display:none;
+  background:var(--e-page);
+  border-bottom:1px solid var(--e-line);
+}
+body.chromed .chrome{display:block}
+
+/* ---- the scores rail ---- */
+.scorestrip{
+  display:flex;align-items:stretch;height:var(--ss-h);
+  border-bottom:1px solid var(--e-line);
+  background:#070a0f;
+}
+.ss-league{
+  flex:none;width:58px;
+  font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--e-body);
+  border-right:1px solid var(--e-line);
+}
+.ss-league:hover{color:var(--e-txt);background:rgba(255,255,255,.04)}
+.ss-track{
+  flex:1;min-width:0;display:flex;align-items:stretch;
+  overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;scroll-behavior:smooth;
+}
+.ss-track::-webkit-scrollbar{display:none}
+.ss-arrow{
+  flex:none;width:30px;font-size:17px;color:var(--e-mut);
+  border-left:1px solid var(--e-line);
+}
+.ss-arrow:hover{color:var(--e-txt);background:rgba(255,255,255,.04)}
+.ss-empty{
+  display:flex;align-items:center;padding:0 14px;
+  font-size:11.5px;color:var(--e-faint);white-space:nowrap;
+}
+
+/* one game cell — status line over two team rows, exactly their shape */
+.ss-cell{
+  flex:none;width:132px;
+  display:flex;flex-direction:column;justify-content:center;gap:1px;
+  padding:5px 10px;text-align:left;
+  border-right:1px solid var(--e-line);
+}
+.ss-cell:hover{background:rgba(255,255,255,.045)}
+.ss-status{
+  font-size:9.5px;font-weight:600;letter-spacing:.2px;color:var(--e-faint);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ss-cell.final .ss-status{color:var(--e-mut)}
+.ss-row{display:flex;align-items:center;gap:5px;line-height:1.25}
+.ss-rank{
+  font-style:normal;flex:none;width:13px;text-align:right;
+  font-size:9.5px;font-weight:600;color:var(--e-faint);
+}
+.ss-abbr{
+  flex:1;min-width:0;font-size:11px;font-weight:600;color:var(--e-body);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ss-num{
+  flex:none;text-decoration:none;
+  font-size:11px;font-weight:700;color:var(--e-body);
+  font-variant-numeric:tabular-nums;
+}
+.ss-row.w .ss-abbr,.ss-row.w .ss-num{color:var(--e-txt);font-weight:800}
+.ss-row.l .ss-abbr,.ss-row.l .ss-num{color:var(--e-faint)}
+
+/* ---- the nav bar ---- */
+.espn-nav{
+  display:flex;align-items:stretch;height:var(--nav-h);
+  background:#0e1218;
+}
+.espn-brand{
+  flex:none;width:74px;
+  font-family:var(--cond);font-size:22px;letter-spacing:1px;
+  color:#fff;background:var(--e-live);
+  display:grid;place-items:center;
+}
+.espn-brand:hover{filter:brightness(1.12)}
+.en-links{
+  flex:1;min-width:0;display:flex;align-items:stretch;
+  overflow-x:auto;scrollbar-width:none;
+}
+.en-links::-webkit-scrollbar{display:none}
+.en-links button{
+  flex:none;padding:0 15px;
+  font-size:12px;font-weight:600;letter-spacing:.2px;color:var(--e-mut);
+  white-space:nowrap;position:relative;
+}
+.en-links button:hover{color:var(--e-txt);background:rgba(255,255,255,.04)}
+.en-links button.on{color:#fff}
+.en-links button.on::after{
+  content:'';position:absolute;left:10px;right:10px;bottom:0;height:2px;
+  background:var(--e-live);
+}
+.en-right{flex:none;display:flex;align-items:center;padding-right:10px}
+.en-watch{
+  padding:7px 13px;border-radius:4px;
+  font-size:11.5px;font-weight:700;letter-spacing:.2px;
+  color:#fff;background:var(--e-live);
+}
+.en-watch:hover{filter:brightness(1.12)}
+
+/* every chromed screen starts below the furniture */
+body.chromed #home,body.chromed #room,body.chromed #results,
+body.chromed #pickem,body.chromed #history,body.chromed #final{
+  padding-top:var(--chrome-h);
+}
+
+/* =====================================================================
+   10. PHONES — ESPN goes denser, not larger
+   ===================================================================== */
+
+@media (max-width:720px){
+  :root{--e-row:44px;--e-logo:20px;--ss-h:42px;--nav-h:42px}
+  .ss-league{width:44px;font-size:10px}
+  .ss-cell{width:118px;padding:5px 8px}
+  .ss-arrow{display:none}          /* a phone just swipes the rail */
+  .espn-brand{width:58px;font-size:18px}
+  .en-links button{padding:0 12px;font-size:11.5px}
+  .en-watch{padding:6px 10px;font-size:11px}
+  .g-side,.fl-row{padding:0 10px;gap:7px}
+  .g-score{width:40px;height:28px;font-size:13px}
+  .g-head{padding:8px 10px}
+  .g-head b{font-size:11.5px}
+  .lb-row{padding:0 10px}
+  .pickback.back{filter:blur(6px) saturate(.85) brightness(.7)}
+  /* a fixed background attachment is a scroll-jank machine on iOS */
+  #final{background-attachment:scroll}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .pickback{transition:opacity .2s linear}
+  .cold-grid.on::before{animation:none}
+}

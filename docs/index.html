@@ -13,8 +13,35 @@
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
 <link rel="stylesheet" href="css/broadcast.css?v=e93ce466">
 <link rel="stylesheet" href="css/dynasty.css?v=f693d625">
+<link rel="stylesheet" href="css/espn.css?v=9568c1e2">
 </head>
 <body>
+
+<!-- =====================================================================
+     ESPN CHROME — the scores strip and the nav bar that sit above every
+     screen except the show itself. Modelled on espn.com: a horizontally
+     scrolling rail of game cells, then a brand block and flat nav.
+     ================================================================== -->
+<div class="chrome" id="chrome">
+  <div class="scorestrip">
+    <button class="ss-league" id="ssLeague">CFP</button>
+    <div class="ss-track" id="ssTrack"></div>
+    <button class="ss-arrow" id="ssNext" aria-label="Scroll scores">&#8250;</button>
+  </div>
+  <nav class="espn-nav">
+    <button class="espn-brand" id="navBrand" title="Home">CFP</button>
+    <div class="en-links" id="enLinks">
+      <button data-go="room">The Field</button>
+      <button data-go="final">Bracket</button>
+      <button data-go="results">Play It Out</button>
+      <button data-go="pickem">Pick&rsquo;em</button>
+      <button data-go="history">History</button>
+    </div>
+    <div class="en-right">
+      <button class="en-watch" id="navShow">&#9654; Watch</button>
+    </div>
+  </nav>
+</div>
 
 <!-- =====================================================================
      SCREEN 0 — HOME
@@ -103,9 +130,6 @@
       <div class="sub">Commissioner control &mdash; not shared until you say so</div>
     </div>
     <div class="spacer"></div>
-    <button class="btn ghost" id="btnHistory">History</button>
-    <button class="btn ghost" id="btnResults">Play It Out</button>
-    <button class="btn ghost" id="btnPickem">Pick&rsquo;em</button>
     <button class="btn ghost" id="btnLogos">Logos <span id="logoCount"></span></button>
     <button class="btn ghost" id="btnLeague">League Setup</button>
     <button class="btn ghost" id="btnAddTeam">+ Custom Team</button>
@@ -204,6 +228,9 @@
     <div class="lb-head"><b>THE BRACKET</b><span id="lbCount"></span></div>
     <div class="bracket" id="liveBracket"></div>
   </div>
+
+  <!-- the pick card for this seed, full bleed behind the reveal -->
+  <div class="pickback" id="pickBack"></div>
 
   <!-- reveal -->
   <div class="reveal" id="revealLayer">
@@ -671,11 +698,11 @@
 <script src="js/teams.js?v=37d37716"></script>
 <script src="js/logos.js?v=d49e9f30"></script>
 <script src="js/recorder.js?v=3cbae938"></script>
-<script src="js/app.js?v=dc0bdce5"></script>
+<script src="js/app.js?v=f3833adb"></script>
 <script src="js/dynasty.js?v=bd2e407e"></script>
 <script src="js/pickem.js?v=57695d46"></script>
 <script src="js/export.js?v=a19034fc"></script>
-<script src="js/ui-dynasty.js?v=d7b52d05"></script>
-<script src="js/show.js?v=c5199e28"></script>
+<script src="js/ui-dynasty.js?v=1f861994"></script>
+<script src="js/show.js?v=6363fda7"></script>
 </body>
 </html>

@@ -41,3 +41,11 @@ FBS-Logo-Library-main.zip
 # per-seed commentary sources (seedcall/ holds the cut halves)
 ElevenLabs_*.mp3
 seedcall/_transcripts/
+# working masters — import_assets.py turns these into what ships
+ChatGPT Image *.png
+Generated image *.png
+kling_*.mp4
+assets/ChatGPT Image *.png
+assets/Generated image *.png
+assets/kling_*.mp4
+507d7461-*.png

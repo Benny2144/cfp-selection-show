@@ -16,17 +16,32 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
 
 FILES = ['index.html', 'netlify.toml', '.nojekyll', 'music.mp3',
-         'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4']
+         'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4', 'committee.mp4']
 DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
+
+# Subfolders worth following. Everything else (voice/_transcripts and the
+# like) is working material and stays out of the build.
+SUBDIRS = {'assets': ['pick']}
 
 # never ship these
 SKIP_EXT = {'.avif', '.py', '.md'}
 SKIP_NAMES = {'README.txt'}
-# subfolders (voice/_transcripts) are skipped for free — only files are copied
+
+# The raw output of the image generator and the 4K film it came with. Those
+# are the masters — tools/import_assets.py turns them into the WebPs and the
+# 720p committee.mp4 that actually get used, and shipping both would put a
+# third of a gigabyte on the site for no visible difference.
+SKIP_PATTERNS = [
+    re.compile(r'^ChatGPT Image .*\.png$', re.I),
+    re.compile(r'^Generated image .*\.png$', re.I),
+    re.compile(r'^kling_.*\.mp4$', re.I),
+]
 
 
 def keep(name):
     if name in SKIP_NAMES:
+        return False
+    if any(p.match(name) for p in SKIP_PATTERNS):
         return False
     return os.path.splitext(name)[1].lower() not in SKIP_EXT
 
@@ -90,6 +105,19 @@ def main():
             if os.path.isfile(p) and keep(name):
                 shutil.copy2(p, os.path.join(dst, name))
                 total += os.path.getsize(p)
+
+        # named subfolders only — voice/_transcripts and friends stay behind
+        for sub in SUBDIRS.get(d, []):
+            ssrc = os.path.join(src, sub)
+            if not os.path.isdir(ssrc):
+                continue
+            sdst = os.path.join(dst, sub)
+            os.makedirs(sdst, exist_ok=True)
+            for name in os.listdir(ssrc):
+                p = os.path.join(ssrc, name)
+                if os.path.isfile(p) and keep(name):
+                    shutil.copy2(p, os.path.join(sdst, name))
+                    total += os.path.getsize(p)
 
     stamp_assets()
     print('Built %s' % OUT)

@@ -832,6 +832,13 @@ const VIEWER_BLOCKED = ['room', 'home'];
 function showScreen(name) {
   if (VIEWER && VIEWER_BLOCKED.includes(name)) name = 'show';
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === name));
+
+  /* The show is the broadcast — it gets the whole glass. Everywhere else
+     wears the ESPN chrome. A guest on a share link never sees it at all,
+     because every link in it leads somewhere they are not allowed. */
+  document.body.classList.toggle('chromed', name !== 'show' && !VIEWER);
+  if (name !== 'show' && !VIEWER) { Dynasty.renderStrip(); Dynasty.markNav(name); }
+
   applyRoomFilm(name);
   if (name === 'final')   renderBracket();
   if (name === 'results') Dynasty.renderResults();
@@ -935,7 +942,7 @@ function applyRoomFilm(active) {
     if (wanted) {
       v.muted = true; v.volume = 0;       // belt and braces: never audible
       if (!v.getAttribute('src')) {
-        v.src = VIDEO_FILE;
+        v.src = ROOM_FILM_FILE;
         /* play() straight after load() is too early — the media is not ready
            and the promise rejects, leaving the poster up for good. */
         v.addEventListener('canplay',
@@ -1041,10 +1048,8 @@ async function boot() {
   $('#mShareClose').onclick = () => $('#mShare').classList.remove('on');
   $('#mShareCopy').onclick  = copyShare;
   $('#mShareOpen').onclick  = () => window.open($('#shareUrl').value, '_blank');
+  /* The destinations that used to live here are in the ESPN nav now. */
   $('#btnBracket').onclick = () => showScreen('final');
-  $('#btnResults').onclick = () => showScreen('results');
-  $('#btnPickem').onclick  = () => showScreen('pickem');
-  $('#btnHistory').onclick = () => showScreen('history');
   $('#fResults').onclick   = () => showScreen('results');
   $('#fImage').onclick     = () => Dynasty.openExport();
   $$('.hub-card').forEach(c => c.onclick = () => showScreen(c.dataset.go));
