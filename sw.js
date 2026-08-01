@@ -1,5 +1,8 @@
-const CACHE = 'cfp-dynasty-shell-v1';
-const SHELL = ['/', '/manifest.webmanifest', '/assets/cfp-icon.png', '/assets/room-bg.webp'];
+const CACHE = 'cfp-dynasty-shell-v3';
+const SHELL = [
+  '/', '/manifest.webmanifest?v=3', '/assets/cfp-icon-192.png',
+  '/assets/cfp-icon-512.png', '/assets/room-bg.webp'
+];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));

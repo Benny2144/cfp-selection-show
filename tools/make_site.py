@@ -26,7 +26,7 @@ DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
 # base these are left out of the build and served from R2 by worker.js;
 # when it is blank they are copied as usual and the site is self-contained.
 # Keep this in step with CDN_FILES in js/show.js.
-CDN_FILES = {'intro-video.mp4', 'selection-night-open.mp4'}
+CDN_FILES = {'committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4'}
 PAGES_FILE_CAP = 25 * 1024 * 1024
 
 # Subfolders worth following. Everything else (voice/_transcripts and the
@@ -54,6 +54,19 @@ def keep(name):
     if any(p.match(name) for p in SKIP_PATTERNS):
         return False
     return os.path.splitext(name)[1].lower() not in SKIP_EXT
+
+
+def ensure_app_icons():
+    """Build installable PWA icon sizes from the checked-in square mark."""
+    try:
+        from PIL import Image
+    except ImportError:
+        sys.exit('Pillow is required to build the 192px and 512px app icons.')
+    source = os.path.join(ROOT, 'assets', 'cfp-icon.png')
+    image = Image.open(source).convert('RGBA')
+    for size in (192, 512):
+        target = os.path.join(ROOT, 'assets', 'cfp-icon-%d.png' % size)
+        image.resize((size, size), Image.Resampling.LANCZOS).save(target, optimize=True)
 
 
 def stamp_assets():
@@ -120,6 +133,7 @@ def media_base():
 
 
 def main():
+    ensure_app_icons()
     missing = [f for f in FILES if not os.path.exists(os.path.join(ROOT, f))]
     if 'music.mp3' in missing or 'intro.mp3' in missing:
         sys.exit('Run tools/trim_music.py first — music.mp3 / intro.mp3 are missing.')

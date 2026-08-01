@@ -32,6 +32,10 @@ const STATE = {
   logoPattern: '',
   premiere: 0,                         // epoch ms, or 0 for "whenever you like"
   results: {},                         // gameId -> {a,b} scores, once it is played
+  cloudEventId: '',                    // private id for updating a published event
+  shareCode: '',                       // public short code for that event
+  leagueRoomId: '',                    // shared Cloudflare league workspace currently loaded
+  leagueRoomVersion: 0,                // optimistic version of that shared board
   seeds: Array(12).fill(null),         // null | {id, record, champ}
   out:   Array(4).fill(null)           // first four out — shown before the bracket
 };
@@ -282,7 +286,10 @@ function renderSeeds() {
       const meta = document.createElement('div');
       meta.className = 'meta';
       const rec = document.createElement('input');
+      rec.name = `seed-${i + 1}-record`;
+      rec.autocomplete = 'off';
       rec.placeholder = 'REC'; rec.value = s.record || '';
+      rec.setAttribute('aria-label', `${team(s.id).school} record`);
       rec.oninput = () => { s.record = rec.value; persist(); };
       meta.appendChild(rec);
       row.appendChild(meta);
@@ -296,6 +303,7 @@ function renderSeeds() {
       cc.title = s.champ
         ? `${team(s.id).conf} champion — click to make at-large`
         : 'Mark as conference champion';
+      cc.setAttribute('aria-label', cc.title);
       cc.onclick = () => {
         s.champ = !s.champ; persist(); renderSeeds();
       };
@@ -356,7 +364,16 @@ function renderSeeds() {
     list.appendChild(row);
   });
 
-  $('#btnGo').disabled = STATE.seeds.filter(Boolean).length === 0;
+  const filled = STATE.seeds.filter(Boolean).length;
+  const ready = filled === 12;
+  $('#btnGo').disabled = false;
+  $('#btnGo').classList.toggle('not-ready', !ready);
+  $('#btnGo').setAttribute('aria-label', ready
+    ? 'Enter the Selection Night premiere'
+    : `Review Selection Night readiness, ${filled} of 12 seeds filled`);
+  if ($('#roomReadyLabel')) $('#roomReadyLabel').textContent = ready
+    ? 'FIELD READY TO AIR' : `${filled}/12 · FIELD IN PROGRESS`;
+  $('#roomReadyLabel')?.parentElement?.classList.toggle('ready', ready);
   renderBidNote();
   renderOut();
 }
@@ -403,7 +420,10 @@ function renderOut() {
       const meta = document.createElement('div');
       meta.className = 'meta';
       const rec = document.createElement('input');
+      rec.name = `out-${i + 1}-record`;
+      rec.autocomplete = 'off';
       rec.placeholder = 'REC'; rec.value = s.record || '';
+      rec.setAttribute('aria-label', `${team(s.id).school} record`);
       rec.oninput = () => { s.record = rec.value; persist(); };
       meta.appendChild(rec);
       row.appendChild(meta);
@@ -449,10 +469,21 @@ function firstRound() {
 }
 
 /* ======================================================================
-   SHARE LINK — the whole field encoded into the URL hash
+   SHARE / PUBLISH — a portable preview or a permanent cloud event
    ====================================================================== */
-function encodeState() {
-  const payload = {
+function sharePayload() {
+  const selected = [...STATE.seeds, ...STATE.out.slice(0, STATE.outCount)]
+    .filter(Boolean).map(row => row.id);
+  const identities = {};
+  [...new Set(selected)].forEach(id => {
+    const t = team(id);
+    if (!t || (!t.custom && !OVERRIDES[id])) return;
+    identities[id] = {
+      a: t.abbr, sc: t.school, m: t.mascot, p: t.primary, s: t.secondary,
+      c: t.conf, mk: t.mark || t.abbr
+    };
+  });
+  return {
     l: STATE.league, y: STATE.season, t: STATE.title, s: STATE.subtitle,
     k: STATE.ticker, ol: STATE.outLabel, oc: STATE.outCount, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
     n: STATE.calls, st: STATE.seedTalk, rf: STATE.roomFilm, mv: STATE.musicUnderVoice, vv: STATE.voiceVol,
@@ -462,19 +493,18 @@ function encodeState() {
     rs: STATE.results && Object.keys(STATE.results).length ? STATE.results : undefined,
     d: STATE.seeds.map(x => x ? [x.id, x.record || '', x.champ ? 1 : 0] : null),
     u: STATE.out.map(x => x ? [x.id, x.record || ''] : null),
-    v: Object.fromEntries(
-      Object.entries(OVERRIDES).filter(([id]) => isSeeded(id))
-        .map(([id, o]) => [id, { a: o.abbr, sc: o.school, m: o.mascot,
-                                 p: o.primary, s: o.secondary, c: o.conf }]))
+    v: identities
   };
+}
+
+function encodePayload(payload) {
   return btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function decodeState(b64) {
+function applySharedPayload(p) {
   try {
-    const s = b64.replace(/-/g, '+').replace(/_/g, '/');
-    const p = JSON.parse(decodeURIComponent(escape(atob(s))));
+    if (!p || typeof p !== 'object' || !Array.isArray(p.d)) return false;
     STATE.league   = p.l ?? STATE.league;
     STATE.season   = p.y ?? STATE.season;
     STATE.title    = p.t ?? STATE.title;
@@ -507,23 +537,124 @@ function decodeState(b64) {
       if (!TEAM_BY_ID[id]) {
         TEAM_BY_ID[id] = { id, school: o.sc || id, mascot: o.m || '',
                            abbr: o.a || id, conf: o.c || '',
-                           primary: o.p || '#222', secondary: o.s || '#fff' };
+                           primary: o.p || '#222', secondary: o.s || '#fff',
+                           mark: o.mk || o.a || id, custom: true };
       }
       OVERRIDES[id] = Object.assign({}, OVERRIDES[id], {
         abbr: o.a, school: o.sc, mascot: o.m,
-        primary: o.p, secondary: o.s, conf: o.c
+        primary: o.p, secondary: o.s, conf: o.c, mark: o.mk
       });
     });
     return true;
   } catch (e) { return false; }
 }
 
-const shareLink = () => `${location.href.split('#')[0]}#show=${encodeState()}`;
+function encodeState() { return encodePayload(sharePayload()); }
+
+function decodeState(b64) {
+  try {
+    const encoded = b64.replace(/-/g, '+').replace(/_/g, '/');
+    return applySharedPayload(JSON.parse(decodeURIComponent(escape(atob(encoded)))));
+  } catch (e) { return false; }
+}
+
+const portableShareLink = () => `${location.origin}/#show=${encodeState()}`;
+const publishedShareLink = () => STATE.shareCode
+  ? `${location.origin}/watch/${STATE.shareCode}` : '';
+const shareLink = () => publishedShareLink() || portableShareLink();
+
+function fieldReadiness() {
+  const filled = STATE.seeds.filter(Boolean).length;
+  return {
+    filled,
+    missing: STATE.seeds.map((seed, index) => seed ? null : index + 1).filter(Boolean),
+    ready: filled === 12
+  };
+}
+
+function enterPremiere(allowPreview = false) {
+  const status = fieldReadiness();
+  if (!VIEWER && !status.ready && !allowPreview) {
+    openReadiness('premiere');
+    return false;
+  }
+  showScreen('show');
+  Show.arm();
+  return true;
+}
+
+function openReadiness(intent = 'premiere') {
+  const status = fieldReadiness();
+  const modal = $('#mReadiness');
+  if (!modal) return;
+  modal.dataset.intent = intent;
+  $('#readyCount').textContent = `${status.filled}/12`;
+  $('#readyBar').style.width = `${status.filled / 12 * 100}%`;
+  $('#readyMissing').textContent = status.missing.length
+    ? `Missing seeds: ${status.missing.map(seed => `No. ${seed}`).join(', ')}`
+    : 'The field is complete.';
+  $('#readyTitle').textContent = intent === 'publish'
+    ? 'FINISH THE FIELD BEFORE IT GOES PUBLIC'
+    : 'SELECTION NIGHT IS NOT READY TO AIR';
+  modal.classList.add('on');
+  setTimeout(() => $('#readyReturn')?.focus(), 0);
+}
+
+function closeReadiness() { $('#mReadiness')?.classList.remove('on'); }
+
+async function loadPublishedEvent(code) {
+  try {
+    const response = await fetch(`/api/events/${encodeURIComponent(code)}`, {
+      headers: { accept: 'application/json' }, credentials: 'same-origin'
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.event || !applySharedPayload(result.event.payload)) {
+      throw new Error(result.error || 'This Selection Night event is unavailable');
+    }
+    STATE.shareCode = result.event.code;
+    STATE.cloudEventId = '';
+    window.CFP_PUBLISHED_EVENT = result.event;
+    document.title = `${result.event.league} ${result.event.season} — Selection Night`;
+    return true;
+  } catch (error) {
+    window.CFP_EVENT_ERROR = error.message || 'This Selection Night event is unavailable';
+    return false;
+  }
+}
+
+function loadDemoEvent() {
+  const demo = [
+    ['alabama', '13-0'], ['ohiostate', '12-1'], ['oregon', '12-1'], ['georgia', '11-2'],
+    ['texas', '11-2'], ['pennstate', '11-2'], ['notredame', '11-1'], ['clemson', '10-3'],
+    ['tennessee', '10-2'], ['lsu', '10-2'], ['miami', '10-2'], ['boisestate', '12-1']
+  ];
+  STATE.league = 'Saturday Night Dynasty';
+  STATE.season = '2027';
+  STATE.title = 'College Football Playoff';
+  STATE.subtitle = 'Selection Night Demo';
+  STATE.seeds = demo.map(([id, record]) => ({ id, record, champ: false }));
+  STATE.out = [
+    { id: 'floridastate', record: '9-3' }, { id: 'olemiss', record: '9-3' }, null, null
+  ];
+  STATE.outCount = 2;
+  STATE.results = {};
+  STATE.shareCode = '';
+  STATE.cloudEventId = '';
+  VIEWER = true;
+  document.body.classList.add('viewer', 'demo-viewer');
+  applyFx();
+  renderPool();
+  renderSeeds();
+  $('#mLink').classList.remove('on');
+  showScreen('show');
+  Show.arm();
+}
 
 /** Show the link, with a copy button and a fallback you can select by hand. */
 function openShare() {
   const url = shareLink();
-  const seeded = STATE.seeds.filter(Boolean).length;
+  const status = fieldReadiness();
+  const seeded = status.filled;
   const outs = STATE.out.slice(0, STATE.outCount).filter(Boolean).length;
 
   $('#shareUrl').value = url;
@@ -533,14 +664,26 @@ function openShare() {
 
   const local = /^file:/.test(location.protocol) ||
                 /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname);
-  $('#shareNote').innerHTML = seeded < 12
-    ? `<b style="color:var(--accent2)">Only ${seeded} of 12 seeds are filled.</b> ` +
-      'The link still works — the show just reveals what you have.'
+  $('#shareNote').innerHTML = !status.ready
+    ? `<b style="color:var(--accent2)">Draft preview: ${seeded} of 12 seeds.</b> ` +
+      'You can copy a private preview, but a permanent public event cannot go live until the field is complete.'
     : (local
        ? '<b style="color:var(--accent2)">This is a local address.</b> ' +
          'It will only open on this computer. Publish the site first if you want ' +
          'the league to be able to use it.'
-       : 'Ready to send.');
+       : (STATE.shareCode
+          ? '<b style="color:#67e8a5">Permanent event is live.</b> Publish an update whenever the field or production changes.'
+          : 'The field is ready. Publish a short permanent event link, or copy the portable preview.'));
+
+  const publish = $('#mSharePublish');
+  if (publish) {
+    publish.disabled = !status.ready;
+    publish.textContent = !CloudSync.isSignedIn()
+      ? 'Sign in to publish'
+      : (STATE.cloudEventId ? 'Publish current update' : 'Publish permanent event');
+  }
+  const mode = $('#shareMode');
+  if (mode) mode.textContent = STATE.shareCode ? 'PERMANENT CLOUD EVENT' : 'PORTABLE PREVIEW';
 
   $('#mShare').classList.add('on');
   setTimeout(() => { $('#shareUrl').focus(); $('#shareUrl').select(); }, 60);
@@ -877,6 +1020,36 @@ function showScreen(name) {
   document.dispatchEvent(new CustomEvent('cfp:screen', { detail: { name } }));
 }
 
+async function publishShare() {
+  const status = fieldReadiness();
+  if (!status.ready) { openReadiness('publish'); return; }
+  if (!CloudSync.isSignedIn()) {
+    $('#mShare').classList.remove('on');
+    CloudSync.openAccount();
+    toast('Sign in to publish a permanent Selection Night');
+    return;
+  }
+  const button = $('#mSharePublish');
+  const previous = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Publishing securely…';
+  try {
+    const event = await CloudSync.publishEvent(sharePayload(), STATE.cloudEventId || '');
+    STATE.cloudEventId = event.id;
+    STATE.shareCode = event.code;
+    persist();
+    $('#shareUrl').value = event.url;
+    $('#shareLen').textContent = event.url.length;
+    $('#shareMode').textContent = 'PERMANENT CLOUD EVENT';
+    $('#shareNote').innerHTML = '<b style="color:#67e8a5">Live nationwide.</b> This short link now opens a sealed spectator broadcast. Publish again to update the same URL.';
+    button.textContent = 'Publish current update';
+    toast(event.version > 1 ? `Event updated to version ${event.version}` : 'Permanent Selection Night published');
+  } catch (error) {
+    button.textContent = previous;
+    toast(error.message || 'Could not publish this event');
+  } finally { button.disabled = false; }
+}
+
 /** The counts on the home-screen hub cards. */
 function refreshHub() {
   const set = (id, txt) => { const e = $('#' + id); if (e) e.textContent = txt; };
@@ -971,7 +1144,7 @@ function applyRoomFilm(active) {
     if (wanted) {
       v.muted = true; v.volume = 0;       // belt and braces: never audible
       if (!v.getAttribute('src')) {
-        v.src = ROOM_FILM_FILE;
+        v.src = mediaUrl(ROOM_FILM_FILE);
         /* play() straight after load() is too early — the media is not ready
            and the promise rejects, leaving the poster up for good. */
         v.addEventListener('canplay',
@@ -994,8 +1167,11 @@ async function boot() {
 
   await LogoStore.hydrate();
 
+  const eventPath = location.pathname.match(/^\/watch\/([A-HJ-NP-Z2-9]{10})\/?$/i);
   const hash = location.hash.match(/^#show=(.+)$/);
-  const shared = !!(hash && decodeState(hash[1]));
+  const shared = eventPath
+    ? await loadPublishedEvent(eventPath[1].toUpperCase())
+    : !!(hash && decodeState(hash[1]));
   applyOutLabel();               // after decode — the count comes from the link
   VIEWER = shared;
   if (VIEWER) document.body.classList.add('viewer');
@@ -1016,12 +1192,25 @@ async function boot() {
   $('#mLinkCancel').onclick = () => $('#mLink').classList.remove('on');
   $('#mLinkGo').onclick = () => {
     const v = $('#fLink').value.trim();
+    try {
+      const candidate = new URL(v, location.origin);
+      if (candidate.origin === location.origin && /^\/watch\/[A-HJ-NP-Z2-9]{10}\/?$/i.test(candidate.pathname)) {
+        location.assign(candidate.href);
+        return;
+      }
+    } catch (error) {}
     const m = v.match(/#show=(.+)$/);
     if (!m || !decodeState(m[1])) { toast('That link does not look right'); return; }
     $('#mLink').classList.remove('on');
     applyFx(); renderPool(); renderSeeds();
     showScreen('show'); Show.arm();
   };
+  $('#mLinkDemo').onclick = loadDemoEvent;
+
+  if (eventPath && !shared) {
+    $('#eventUnavailableMessage').textContent = window.CFP_EVENT_ERROR || 'This Selection Night event is unavailable.';
+    $('#mEventUnavailable').classList.add('on');
+  }
 
   const n = STATE.seeds.filter(Boolean).length;
   $('#resumeNote').textContent = n
@@ -1077,15 +1266,19 @@ async function boot() {
   $('#fShare').onclick     = openShare;
   $('#mShareClose').onclick = () => $('#mShare').classList.remove('on');
   $('#mShareCopy').onclick  = copyShare;
+  $('#mSharePublish').onclick = () => { void publishShare(); };
   $('#mShareOpen').onclick  = () => window.open($('#shareUrl').value, '_blank');
+  $('#readyReturn').onclick = () => { closeReadiness(); showScreen('room'); };
+  $('#readyPreview').onclick = () => { closeReadiness(); enterPremiere(true); };
+  $('#mEventUnavailableClose').onclick = () => { location.assign('/'); };
   /* The destinations that used to live here are in the ESPN nav now. */
   $('#btnBracket').onclick = () => showScreen('final');
   $('#fResults').onclick   = () => showScreen('results');
   $('#fImage').onclick     = () => Dynasty.openExport();
   $$('.hub-card').forEach(c => c.onclick = () => showScreen(c.dataset.go));
   $('#fRoom').onclick      = () => showScreen('room');
-  $('#fShow').onclick      = () => { showScreen('show'); Show.arm(); };
-  $('#btnGo').onclick      = () => { showScreen('show'); Show.arm(); };
+  $('#fShow').onclick      = () => { enterPremiere(); };
+  $('#btnGo').onclick      = () => { enterPremiere(); };
   $('#fView').onclick      = () => {
     const f = $('#final');
     f.classList.toggle('showbracket');

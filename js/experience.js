@@ -86,7 +86,7 @@
 
     if (shouldPlay) {
       if (!film.dataset.ready) {
-        film.src = 'committee.mp4';
+        film.src = mediaUrl('committee.mp4');
         film.dataset.ready = '1';
         film.load();
       }

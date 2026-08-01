@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<base href="/">
 <meta name="theme-color" content="#07080b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -24,7 +25,7 @@
 <meta name="color-scheme" content="dark">
 <link rel="preload" as="image" href="assets/room-bg.webp" fetchpriority="high">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest?v=3">
 <link rel="stylesheet" href="css/broadcast.css">
 <link rel="stylesheet" href="css/dynasty.css">
 <link rel="stylesheet" href="css/espn.css">
@@ -209,8 +210,8 @@
   <div class="room-body" id="roomBody" data-tab="pool">
     <div class="pool">
       <div class="pool-bar">
-        <input type="text" id="search" placeholder="Search school, mascot or abbreviation&hellip;" autocomplete="off">
-        <select id="confFilter"><option value="">All Conferences</option></select>
+        <input type="text" id="search" aria-label="Search teams" placeholder="Search school, mascot or abbreviation&hellip;" autocomplete="off">
+        <select id="confFilter" aria-label="Filter teams by conference"><option value="">All Conferences</option></select>
         <span class="count" id="poolCount"></span>
       </div>
       <div class="pool-grid" id="poolGrid"></div>
@@ -459,7 +460,7 @@
       <span class="pre-when" id="preWhen"></span>
     </div>
 
-    <button class="playbtn" id="btnPlay" aria-label="Play the show">
+    <button class="playbtn" id="btnPlay" aria-label="Roll the opening film">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
       <span>ROLL THE OPENING FILM</span>
     </button>
@@ -554,11 +555,11 @@
     <div id="pkMake">
       <div class="pk-top">
         <div class="field">
-          <label>Your name</label>
+          <label for="pkName">Your name</label>
           <input type="text" id="pkName" placeholder="Ben" maxlength="16" autocomplete="off">
         </div>
         <div class="pk-codebox">
-          <label>Your entry code</label>
+          <label for="pkCode">Your entry code</label>
           <div class="pk-coderow">
             <input type="text" id="pkCode" class="linkbox" readonly placeholder="fill in your name">
             <button class="btn primary" id="pkCopy" disabled>Copy</button>
@@ -572,7 +573,7 @@
     <div id="pkBoard" hidden>
       <div class="pk-top">
         <div class="field wide">
-          <label>Paste entry codes &mdash; one per line, or a whole chat log</label>
+          <label for="pkPaste">Paste entry codes &mdash; one per line, or a whole chat log</label>
           <textarea id="pkPaste" class="linkbox" rows="3"
                     placeholder="BEN-1JZ&#10;MARCUS-K4"></textarea>
         </div>
@@ -613,12 +614,12 @@
   <div class="card">
     <h3 id="mTeamTitle">EDIT TEAM</h3>
     <div class="preview" id="mTeamPreview"></div>
-    <div class="field"><label>School</label><input type="text" id="fSchool"></div>
-    <div class="field"><label>Mascot</label><input type="text" id="fMascot"></div>
-    <div class="field"><label>Abbrev.</label><input type="text" id="fAbbr" maxlength="6"></div>
-    <div class="field"><label>Conference</label><input type="text" id="fConf"></div>
-    <div class="field"><label>Primary</label><input type="color" id="fPrim"><input type="text" id="fPrimHex"></div>
-    <div class="field"><label>Secondary</label><input type="color" id="fSec"><input type="text" id="fSecHex"></div>
+    <div class="field"><label for="fSchool">School</label><input type="text" id="fSchool"></div>
+    <div class="field"><label for="fMascot">Mascot</label><input type="text" id="fMascot"></div>
+    <div class="field"><label for="fAbbr">Abbrev.</label><input type="text" id="fAbbr" maxlength="6"></div>
+    <div class="field"><label for="fConf">Conference</label><input type="text" id="fConf"></div>
+    <div class="field"><label for="fPrim">Primary</label><input type="color" id="fPrim"><input type="text" id="fPrimHex" aria-label="Primary color hex value"></div>
+    <div class="field"><label for="fSec">Secondary</label><input type="color" id="fSec"><input type="text" id="fSecHex" aria-label="Secondary color hex value"></div>
     <div class="drop" id="logoDrop">Drop a logo image here &mdash; or click to browse</div>
     <input type="file" id="logoFile" accept="image/*" hidden>
     <p class="note">Logos are stored on this computer only. You can also bulk-load them by
@@ -636,14 +637,14 @@
   <div class="card">
     <h3>SHOW SETUP</h3>
         <div class="setting">
-          <label>Reveal order</label>
+          <label for="optOrder">Reveal order</label>
           <select id="optOrder">
             <option value="asc">No. 1 &rarr; No. 12</option>
             <option value="desc">No. 12 &rarr; No. 1 (countdown)</option>
           </select>
         </div>
         <div class="setting">
-          <label>Pace</label>
+          <label for="optPace">Pace</label>
           <select id="optPace">
             <option value="manual">Manual &mdash; I advance each pick</option>
             <option value="7000">Auto &mdash; 7s per team</option>
@@ -653,7 +654,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Cold open</label>
+          <label for="optCold">Cold open</label>
           <select id="optCold">
             <option value="full">Full &mdash; play the intro audio</option>
             <option value="short">Short &mdash; title card only</option>
@@ -661,7 +662,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Just missed</label>
+          <label for="optOutCount">Just missed</label>
           <select id="optOutCount">
             <option value="2">First two out &mdash; seeds 13 and 14</option>
             <option value="4">First four out &mdash; seeds 13 to 16</option>
@@ -669,7 +670,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Seed talk</label>
+          <label for="optSeedTalk">Seed talk</label>
           <select id="optSeedTalk">
             <option value="lead">Build-up only &mdash; before each pick</option>
             <option value="both">Build-up and reaction</option>
@@ -677,14 +678,14 @@
           </select>
         </div>
         <div class="setting">
-          <label>Team calls</label>
+          <label for="optCalls">Team calls</label>
           <select id="optCalls">
             <option value="on">On &mdash; announcer calls each team</option>
             <option value="off">Off &mdash; sound effects only</option>
           </select>
         </div>
         <div class="setting">
-          <label>Effects</label>
+          <label for="optFx">Effects</label>
           <select id="optFx">
             <option value="max">Maximum</option>
             <option value="normal">Normal</option>
@@ -692,7 +693,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Room video</label>
+          <label for="optRoomFilm">Room video</label>
           <select id="optRoomFilm">
             <option value="on">On &mdash; film playing behind the board</option>
             <option value="still">Still frame only &mdash; lighter</option>
@@ -700,7 +701,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Audio</label>
+          <span class="setting-label">Audio</span>
           <button class="btn ghost mixbtn" id="btnMix">Open the mix &nbsp;&#9835;</button>
         </div>
     <div class="row"><button class="btn primary" id="mSetupClose">Done</button></div>
@@ -710,14 +711,14 @@
 <div class="modal" id="mLeague">
   <div class="card">
     <h3>LEAGUE SETUP</h3>
-    <div class="field"><label>League name</label><input type="text" id="fLeague" placeholder="Sunday Night Dynasty"></div>
-    <div class="field"><label>Season</label><input type="text" id="fSeason" placeholder="2027"></div>
-    <div class="field"><label>Show title</label><input type="text" id="fTitle" placeholder="College Football Playoff"></div>
-    <div class="field"><label>Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
-    <div class="field"><label>Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
-    <div class="field"><label>Just-missed</label><input type="text" id="fOutLabel" placeholder="auto — First Two Out"></div>
+    <div class="field"><label for="fLeague">League name</label><input type="text" id="fLeague" placeholder="Sunday Night Dynasty"></div>
+    <div class="field"><label for="fSeason">Season</label><input type="text" id="fSeason" placeholder="2027"></div>
+    <div class="field"><label for="fTitle">Show title</label><input type="text" id="fTitle" placeholder="College Football Playoff"></div>
+    <div class="field"><label for="fSubtitle">Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
+    <div class="field"><label for="fTicker">Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
+    <div class="field"><label for="fOutLabel">Just-missed</label><input type="text" id="fOutLabel" placeholder="auto — First Two Out"></div>
     <div class="field">
-      <label>Premiere at</label>
+      <label for="fPremiere">Premiere at</label>
       <input type="datetime-local" id="fPremiere">
       <button class="btn ghost sm" id="preClearBtn" type="button">Clear</button>
     </div>
@@ -767,7 +768,7 @@
     <div class="bar"><i id="bulkBar"></i></div>
     <div class="note" id="bulkStatus">No logos imported yet.</div>
     <div class="field" style="margin-top:16px">
-      <label>Logo URL</label>
+      <label for="fLogoPattern">Logo URL</label>
       <input type="text" id="fLogoPattern" placeholder="https://your-host.com/logos/{id}.png">
     </div>
     <p class="note">Optional. If you host logos somewhere, put the address here with
@@ -784,21 +785,38 @@
 <div class="modal" id="mShare">
   <div class="card">
     <h3>SEND IT TO THE LEAGUE</h3>
+    <div class="share-mode" id="shareMode">PORTABLE PREVIEW</div>
     <p class="note" style="margin-bottom:12px" id="shareNote"></p>
-    <textarea id="shareUrl" class="linkbox" readonly rows="3"></textarea>
+    <textarea id="shareUrl" class="linkbox" aria-label="Share link" readonly rows="3"></textarea>
     <div class="sharegrid">
       <div><b id="shareCount">0</b><span>Teams seeded</span></div>
       <div><b id="shareOut">0</b><span>Just missed</span></div>
       <div><b id="shareLen">0</b><span>Link length</span></div>
     </div>
-    <p class="note">Whoever opens this lands on the play button and nothing else.
-      They can't reach the committee room, so the field stays secret until they
-      press play. The picks ride inside the link itself &mdash; there's no server
-      and nothing to keep running.</p>
+    <p class="note">Portable previews carry the field inside the URL. A signed-in
+      commissioner can publish a short permanent Cloudflare event instead, update
+      that same link, see its activity and revoke it at any time.</p>
     <div class="row">
       <button class="btn ghost" id="mShareClose">Close</button>
       <button class="btn" id="mShareOpen">Open It Myself</button>
       <button class="btn primary" id="mShareCopy">Copy Link</button>
+      <button class="btn event-publish" id="mSharePublish">Publish Permanent Event</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mReadiness" role="dialog" aria-modal="true" aria-labelledby="readyTitle">
+  <div class="card readiness-card">
+    <div class="readiness-kicker">BROADCAST CONTROL · PRE-FLIGHT</div>
+    <h3 id="readyTitle">SELECTION NIGHT IS NOT READY TO AIR</h3>
+    <div class="readiness-score"><b id="readyCount">0/12</b><span>SEEDS LOCKED</span></div>
+    <div class="readiness-track"><i id="readyBar"></i></div>
+    <p id="readyMissing">Missing seeds: No. 1 through No. 12</p>
+    <p class="note">A permanent event requires the complete field. Preview mode is
+      available for production rehearsals and is clearly marked as unfinished.</p>
+    <div class="row">
+      <button class="btn primary" id="readyReturn">Return to the Field</button>
+      <button class="btn ghost" id="readyPreview">Rehearse Incomplete Show</button>
     </div>
   </div>
 </div>
@@ -820,11 +838,21 @@
   <div class="card">
     <h3>OPEN A SHARED BRACKET</h3>
     <p class="note" style="margin-bottom:12px">Paste the link your commissioner sent you.</p>
-    <div class="field"><label>Link</label><input type="text" id="fLink" placeholder="https://&hellip;#show=&hellip;"></div>
+    <div class="field"><label for="fLink">Link</label><input type="text" id="fLink" placeholder="https://&hellip;/watch/&hellip;"></div>
     <div class="row">
       <button class="btn ghost" id="mLinkCancel">Cancel</button>
+      <button class="btn" id="mLinkDemo">Watch the Full Demo</button>
       <button class="btn primary" id="mLinkGo">Load it</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="mEventUnavailable" role="alertdialog" aria-modal="true" aria-labelledby="eventUnavailableTitle">
+  <div class="card event-unavailable-card">
+    <div class="readiness-kicker">CFP DYNASTY STUDIO</div>
+    <h3 id="eventUnavailableTitle">THIS BROADCAST IS OFF AIR</h3>
+    <p id="eventUnavailableMessage">This Selection Night event is unavailable.</p>
+    <button class="btn primary full" id="mEventUnavailableClose">Go to Dynasty Studio</button>
   </div>
 </div>
 
@@ -846,6 +874,7 @@
       <div class="account-eyebrow"><i></i> CFP CLOUD</div>
       <h2 id="accountTitle">YOUR DYNASTY.<br><span>EVERYWHERE.</span></h2>
       <p class="account-lead">Sign in once and your field, league setup, custom teams, branding, predictions and dynasty history stay protected across devices.</p>
+      <p class="account-invite-notice" id="accountInviteNotice" hidden></p>
       <div class="google-signin" id="googleSignIn" aria-live="polite"></div>
       <div class="account-benefits">
         <div><i>&#10003;</i><span><b>Automatic cloud saves</b><small>Every meaningful board change is synced.</small></span></div>
@@ -871,6 +900,27 @@
         <div><b>DYNASTY</b><span>History &amp; pick'em entries</span></div>
         <div><b>LOGOS</b><span>Private commissioner uploads</span></div>
       </div>
+      <section class="account-leagues" aria-labelledby="accountLeaguesTitle">
+        <div class="account-events-head">
+          <div><span>SHARED COMMISSIONER WORKSPACES</span><b id="accountLeaguesTitle">LEAGUE ROOMS</b></div>
+          <i id="accountLeagueCount">0</i>
+        </div>
+        <p class="league-room-note">Invite the league, promote co-commissioners, and publish one conflict-safe board everyone can load.</p>
+        <div class="league-room-controls">
+          <button class="event-action league-create" id="accountCreateLeague" type="button">Create room from this board</button>
+          <label for="accountJoinCode">Invite code</label>
+          <input id="accountJoinCode" name="league-invite-code" inputmode="text" maxlength="8" autocomplete="off" placeholder="8 characters">
+          <button class="event-action" id="accountJoinLeague" type="button">Join room</button>
+        </div>
+        <div id="accountLeaguesList" aria-live="polite"></div>
+      </section>
+      <section class="account-events" aria-labelledby="accountEventsTitle">
+        <div class="account-events-head">
+          <div><span>PUBLIC EVENT CONTROL</span><b id="accountEventsTitle">PUBLISHED BROADCASTS</b></div>
+          <i id="accountEventCount">0</i>
+        </div>
+        <div id="accountEventsList" aria-live="polite"></div>
+      </section>
       <button class="btn primary full" id="accountSyncNow" type="button">Sync this device now</button>
       <div class="account-actions">
         <button class="btn ghost" id="accountSignOut" type="button">Sign out</button>

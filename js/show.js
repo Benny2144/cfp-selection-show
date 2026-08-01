@@ -24,7 +24,7 @@ const MEDIA_BASE = (() => {
 /* Only these are big enough to be worth hosting apart. Everything else is
    comfortably under the cap and stays with the site, where it needs no
    CORS and no second thing to go wrong. */
-const CDN_FILES = new Set(['intro-video.mp4', 'selection-night-open.mp4']);
+const CDN_FILES = new Set(['committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4']);
 
 const mediaUrl = f => (MEDIA_BASE && CDN_FILES.has(f)) ? MEDIA_BASE + '/' + f : f;
 
@@ -808,7 +808,7 @@ const Show = (() => {
   /* ====================================================== SPOILER-FREE
      The ticker never names a team that has not been revealed on screen. */
   function hypeLines() {
-    const n = seq.length || 12;
+    const n = seq.length;
     return [
       `<span><b>${esc(STATE.league.toUpperCase())}</b> &nbsp;${esc(STATE.season)} SELECTION SHOW</span>`,
       `<span>THE COMMITTEE HAS MET &middot; <b>THE FIELD IS SET</b></span>`,

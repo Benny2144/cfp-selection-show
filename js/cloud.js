@@ -23,6 +23,10 @@ const CloudSync = (() => {
   let bound = false;
   let channel = null;
   let accountReturnFocus = null;
+  let publishedEvents = [];
+  let leagueRooms = [];
+  let pendingJoinCode = '';
+  const leagueDetailCache = new Map();
 
   const $c = id => document.getElementById(id);
 
@@ -208,6 +212,7 @@ const CloudSync = (() => {
         emit('saved');
         toast('Your dynasty is now saved to Cloudflare');
       }
+      await Promise.all([loadEvents(), loadLeagues()]);
       renderAccount();
       return true;
     } catch (error) {
@@ -221,6 +226,9 @@ const CloudSync = (() => {
     if (dirty) await flush();
     try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
     user = null;
+    publishedEvents = [];
+    leagueRooms = [];
+    leagueDetailCache.clear();
     version = 0;
     updatedAt = 0;
     dirty = false;
@@ -237,6 +245,9 @@ const CloudSync = (() => {
     try {
       await api('/api/account', { method: 'DELETE' });
       user = null;
+      publishedEvents = [];
+      leagueRooms = [];
+      leagueDetailCache.clear();
       version = 0;
       updatedAt = 0;
       dirty = false;
@@ -346,6 +357,19 @@ const CloudSync = (() => {
     document.head.appendChild(script);
   }
 
+  function offerGoogleButton() {
+    if (user || googleReady || !googleClientId) return;
+    const host = $c('googleSignIn');
+    if (!host || host.querySelector('.google-launch')) return;
+    host.textContent = '';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'google-launch';
+    button.innerHTML = '<i>G</i><span><b>Continue with Google</b><small>Loads Google sign-in only when you choose it</small></span>';
+    button.onclick = () => { void loadGoogleButton(); };
+    host.appendChild(button);
+  }
+
   function openAccount() {
     const modal = $c('mAccount');
     if (!modal) return;
@@ -360,8 +384,8 @@ const CloudSync = (() => {
       if (!cloudAvailable || !googleClientId) {
         const host = $c('googleSignIn');
         if (host) host.textContent = 'Cloud sign-in is temporarily unavailable.';
-      } else void loadGoogleButton();
-    }
+      } else offerGoogleButton();
+    } else void Promise.all([loadEvents(), loadLeagues()]);
   }
 
   function closeAccount() {
@@ -407,6 +431,433 @@ const CloudSync = (() => {
     await LogoStore.refreshCloud();
   }
 
+  async function loadEvents() {
+    if (!user) { publishedEvents = []; renderEvents(); return []; }
+    try {
+      const result = await api('/api/events');
+      publishedEvents = Array.isArray(result.events) ? result.events : [];
+      renderEvents();
+      return publishedEvents;
+    } catch (error) {
+      const host = $c('accountEventsList');
+      if (host) host.textContent = 'Published broadcasts could not be loaded.';
+      return [];
+    }
+  }
+
+  async function publishEvent(payload, eventId = '') {
+    if (!user) throw new Error('Sign in with Google to publish a permanent event');
+    await flush();
+    const publish = id => api('/api/events', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ payload, eventId: id || undefined })
+    });
+    let result;
+    try {
+      result = await publish(eventId);
+    } catch (error) {
+      if (!eventId || error.status !== 404) throw error;
+      result = await publish('');
+    }
+    await loadEvents();
+    return result.event;
+  }
+
+  async function revokeEvent(eventId) {
+    if (!user) return false;
+    await api(`/api/events/${encodeURIComponent(eventId)}`, { method: 'DELETE' });
+    if (typeof STATE !== 'undefined' && STATE.cloudEventId === eventId) {
+      STATE.cloudEventId = '';
+      STATE.shareCode = '';
+      if (typeof persist === 'function') persist();
+    }
+    await loadEvents();
+    return true;
+  }
+
+  function eventButton(label, className, action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.textContent = label;
+    button.onclick = action;
+    return button;
+  }
+
+  async function copyText(value, message) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast(message);
+    } catch (error) {
+      const field = $c('shareUrl');
+      if (field) { field.value = value; field.select(); }
+      toast('Link ready — press Ctrl+C to copy');
+    }
+  }
+
+  function renderEvents() {
+    const host = $c('accountEventsList');
+    const count = $c('accountEventCount');
+    if (!host) return;
+    host.innerHTML = '';
+    if (count) count.textContent = String(publishedEvents.length);
+    if (!publishedEvents.length) {
+      const empty = document.createElement('p');
+      empty.className = 'account-event-empty';
+      empty.textContent = 'No permanent broadcasts yet. Finish the field, then publish from Create League Link.';
+      host.appendChild(empty);
+      return;
+    }
+    publishedEvents.forEach(event => {
+      const card = document.createElement('article');
+      card.className = 'account-event';
+      const copy = document.createElement('div');
+      copy.className = 'account-event-copy';
+      const title = document.createElement('b');
+      title.textContent = event.title || 'Selection Night';
+      const meta = document.createElement('span');
+      meta.textContent = `${event.league} · ${event.season} · ${event.views} view${event.views === 1 ? '' : 's'} · v${event.version}`;
+      copy.append(title, meta);
+      const actions = document.createElement('div');
+      actions.className = 'account-event-actions';
+      actions.append(
+        eventButton('Open', 'event-action', () => window.open(event.url, '_blank', 'noopener')),
+        eventButton('Copy', 'event-action', () => { void copyText(event.url, 'Permanent event link copied'); }),
+        eventButton('Activity', 'event-action', async () => {
+          let activity = card.querySelector('.account-event-log');
+          if (activity) { activity.remove(); return; }
+          activity = document.createElement('div');
+          activity.className = 'account-event-log';
+          activity.textContent = 'Loading activity…';
+          card.appendChild(activity);
+          try {
+            const result = await api(`/api/events/${encodeURIComponent(event.id)}/activity`);
+            activity.innerHTML = '';
+            (result.activity || []).slice(0, 8).forEach(item => {
+              const row = document.createElement('span');
+              row.textContent = `${String(item.type).replace(/_/g, ' ')} · ${relativeTime(item.at)}`;
+              activity.appendChild(row);
+            });
+          } catch (error) { activity.textContent = 'Activity could not be loaded.'; }
+        }),
+        eventButton('Revoke', 'event-action danger', async () => {
+          if (!confirm(`Revoke ${event.title || 'this event'}? Its public link will stop working.`)) return;
+          try { await revokeEvent(event.id); toast('Public event revoked'); }
+          catch (error) { toast(error.message || 'Could not revoke event'); }
+        })
+      );
+      card.append(copy, actions);
+      host.appendChild(card);
+    });
+  }
+
+  function rememberLeague(league) {
+    if (!league || !league.id) return;
+    if (league.workspace || league.memberList) leagueDetailCache.set(league.id, league);
+    const at = leagueRooms.findIndex(item => item.id === league.id);
+    const summary = { ...(at >= 0 ? leagueRooms[at] : {}), ...league };
+    delete summary.workspace;
+    delete summary.memberList;
+    if (at >= 0) leagueRooms[at] = summary;
+    else leagueRooms.unshift(summary);
+  }
+
+  async function loadLeagues() {
+    if (!user) {
+      leagueRooms = [];
+      leagueDetailCache.clear();
+      renderLeagues();
+      return [];
+    }
+    try {
+      const result = await api('/api/leagues');
+      leagueRooms = Array.isArray(result.leagues) ? result.leagues : [];
+      renderLeagues();
+      return leagueRooms;
+    } catch (error) {
+      const host = $c('accountLeaguesList');
+      if (host) host.textContent = 'League rooms could not be loaded.';
+      return [];
+    }
+  }
+
+  function setActiveLeague(league) {
+    if (typeof STATE === 'undefined' || !league) return;
+    STATE.leagueRoomId = league.id;
+    STATE.leagueRoomVersion = league.version;
+    localStorage.setItem('cfp27.state', JSON.stringify(STATE));
+    if (typeof persist === 'function') persist();
+  }
+
+  async function createLeagueRoom() {
+    if (!user) return openAccount();
+    const name = String(STATE.league || '').trim() || 'Online Dynasty';
+    const season = String(STATE.season || '').trim() || String(new Date().getFullYear());
+    const button = $c('accountCreateLeague');
+    if (button) button.disabled = true;
+    try {
+      await flush();
+      const result = await api('/api/leagues', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, season, workspace: capture() })
+      });
+      rememberLeague(result.league);
+      setActiveLeague(result.league);
+      renderLeagues();
+      toast(`${name} league room created`);
+    } catch (error) {
+      toast(error.message || 'Could not create league room');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function joinLeagueRoom() {
+    if (!user) return openAccount();
+    const input = $c('accountJoinCode');
+    const code = String((input && input.value) || pendingJoinCode || '').trim().toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) {
+      toast('Enter the eight-character invite code');
+      return;
+    }
+    const button = $c('accountJoinLeague');
+    if (button) button.disabled = true;
+    try {
+      const result = await api('/api/leagues/join', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      rememberLeague(result.league);
+      pendingJoinCode = '';
+      if (input) input.value = '';
+      if (/^\/join\//.test(location.pathname)) history.replaceState({}, '', '/');
+      renderLeagues();
+      toast(`Joined ${result.league.name}`);
+    } catch (error) {
+      toast(error.message || 'Could not join league room');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function fetchLeague(leagueId, fresh = false) {
+    if (!fresh && leagueDetailCache.has(leagueId)) return leagueDetailCache.get(leagueId);
+    const result = await api(`/api/leagues/${encodeURIComponent(leagueId)}`);
+    leagueDetailCache.set(leagueId, result.league);
+    rememberLeague(result.league);
+    return result.league;
+  }
+
+  async function loadLeagueBoard(leagueId) {
+    try {
+      const league = await fetchLeague(leagueId, true);
+      if (!league.workspace) throw new Error('This league board is unavailable');
+      if (!confirm(`Load ${league.name} board v${league.version}? A recovery copy of this device will be kept.`)) return;
+      if (!applySnapshot(league.workspace)) throw new Error('The shared board could not be restored');
+      setActiveLeague(league);
+      toast(`${league.name} board loaded`);
+      closeAccount();
+      setTimeout(() => location.reload(), 450);
+    } catch (error) { toast(error.message || 'Could not load league board'); }
+  }
+
+  async function publishLeagueBoard(leagueId) {
+    const summary = leagueRooms.find(item => item.id === leagueId);
+    if (!summary || !['owner', 'admin'].includes(summary.role)) return;
+    try {
+      const latest = await fetchLeague(leagueId, true);
+      if (!confirm(`Publish this device as ${latest.name} board v${latest.version + 1}? Members will be able to load it immediately.`)) return;
+      await flush();
+      const result = await api(`/api/leagues/${encodeURIComponent(leagueId)}/workspace`, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ workspace: capture(), baseVersion: latest.version })
+      });
+      leagueDetailCache.set(leagueId, result.league);
+      rememberLeague(result.league);
+      setActiveLeague(result.league);
+      renderLeagues();
+      toast(`League board v${result.league.version} published`);
+    } catch (error) {
+      if (error.status === 409) leagueDetailCache.delete(leagueId);
+      toast(error.message || 'Could not publish league board');
+    }
+  }
+
+  async function removeLeague(league) {
+    const owner = league.role === 'owner';
+    const message = owner
+      ? `Delete ${league.name}? The shared board, invite code and member access will be permanently removed.`
+      : `Leave ${league.name}? You will need a new invite to rejoin.`;
+    if (!confirm(message)) return;
+    try {
+      if (owner) await api(`/api/leagues/${encodeURIComponent(league.id)}`, { method: 'DELETE' });
+      else await api(`/api/leagues/${encodeURIComponent(league.id)}/members/${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      leagueDetailCache.delete(league.id);
+      if (typeof STATE !== 'undefined' && STATE.leagueRoomId === league.id) {
+        STATE.leagueRoomId = '';
+        STATE.leagueRoomVersion = 0;
+        if (typeof persist === 'function') persist();
+      }
+      await loadLeagues();
+      toast(owner ? 'League room deleted' : 'You left the league room');
+    } catch (error) { toast(error.message || 'Could not update league membership'); }
+  }
+
+  async function rotateLeagueInvite(league) {
+    if (league.role !== 'owner') return;
+    if (!confirm(`Rotate the ${league.name} invite? The old code will stop working immediately.`)) return;
+    try {
+      const result = await api(`/api/leagues/${encodeURIComponent(league.id)}/invite`, { method: 'POST' });
+      leagueDetailCache.set(league.id, result.league);
+      rememberLeague(result.league);
+      renderLeagues();
+      await copyText(result.league.inviteUrl, 'New invite copied; the old code is disabled');
+    } catch (error) { toast(error.message || 'Could not rotate invite'); }
+  }
+
+  async function changeMember(league, member, role) {
+    try {
+      if (role === 'remove') {
+        if (!confirm(`Remove ${member.name} from ${league.name}?`)) return;
+        await api(`/api/leagues/${encodeURIComponent(league.id)}/members/${encodeURIComponent(member.id)}`, { method: 'DELETE' });
+      } else {
+        await api(`/api/leagues/${encodeURIComponent(league.id)}/members/${encodeURIComponent(member.id)}`, {
+          method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role })
+        });
+      }
+      leagueDetailCache.delete(league.id);
+      await loadLeagues();
+      toast(role === 'remove' ? `${member.name} removed` : `${member.name} is now ${role}`);
+    } catch (error) { toast(error.message || 'Could not update member'); }
+  }
+
+  async function showLeagueActivity(card, league) {
+    let host = card.querySelector('.league-activity');
+    if (host) { host.remove(); return; }
+    host = document.createElement('div');
+    host.className = 'account-event-log league-activity';
+    host.textContent = 'Loading league activity…';
+    card.appendChild(host);
+    try {
+      const result = await api(`/api/leagues/${encodeURIComponent(league.id)}/activity`);
+      host.innerHTML = '';
+      (result.activity || []).slice(0, 12).forEach(item => {
+        const row = document.createElement('span');
+        row.textContent = `${item.actor} · ${String(item.type).replace(/_/g, ' ')} · ${relativeTime(item.at)}`;
+        host.appendChild(row);
+      });
+    } catch (error) { host.textContent = 'League activity could not be loaded.'; }
+  }
+
+  async function toggleLeagueMembers(card, league) {
+    const existing = card.querySelector('.league-members');
+    if (existing) { existing.remove(); return; }
+    const host = document.createElement('div');
+    host.className = 'league-members';
+    host.textContent = 'Loading members…';
+    card.appendChild(host);
+    try {
+      const detail = await fetchLeague(league.id, true);
+      host.innerHTML = '';
+      (detail.memberList || []).forEach(member => {
+        const row = document.createElement('div');
+        row.className = 'league-member';
+        const initial = document.createElement('i');
+        initial.textContent = (member.name || 'M').charAt(0).toUpperCase();
+        const copy = document.createElement('span');
+        const name = document.createElement('b');
+        name.textContent = member.name;
+        const role = document.createElement('small');
+        role.textContent = member.role;
+        copy.append(name, role);
+        row.append(initial, copy);
+        if (detail.role === 'owner' && member.role !== 'owner') {
+          const actions = document.createElement('div');
+          actions.className = 'league-member-actions';
+          actions.append(
+            eventButton(member.role === 'admin' ? 'Make member' : 'Make admin', 'event-action', () => {
+              void changeMember(detail, member, member.role === 'admin' ? 'member' : 'admin');
+            }),
+            eventButton('Remove', 'event-action danger', () => { void changeMember(detail, member, 'remove'); })
+          );
+          row.appendChild(actions);
+        }
+        host.appendChild(row);
+      });
+    } catch (error) { host.textContent = 'Members could not be loaded.'; }
+  }
+
+  function renderLeagues() {
+    const host = $c('accountLeaguesList');
+    const count = $c('accountLeagueCount');
+    if (!host) return;
+    host.innerHTML = '';
+    if (count) count.textContent = String(leagueRooms.length);
+    if (!leagueRooms.length) {
+      const empty = document.createElement('p');
+      empty.className = 'account-event-empty';
+      empty.textContent = 'No league rooms yet. Create one from this board or enter an invite code.';
+      host.appendChild(empty);
+      return;
+    }
+    leagueRooms.forEach(league => {
+      const card = document.createElement('article');
+      card.className = 'account-league' +
+        (typeof STATE !== 'undefined' && STATE.leagueRoomId === league.id ? ' active' : '');
+      const top = document.createElement('div');
+      top.className = 'account-league-top';
+      const copy = document.createElement('div');
+      copy.className = 'account-event-copy';
+      const title = document.createElement('b');
+      title.textContent = league.name;
+      const meta = document.createElement('span');
+      meta.textContent = `${league.season} · ${league.members} member${league.members === 1 ? '' : 's'} · board v${league.version}`;
+      copy.append(title, meta);
+      const role = document.createElement('em');
+      role.className = `league-role ${league.role}`;
+      role.textContent = league.role;
+      top.append(copy, role);
+      const actions = document.createElement('div');
+      actions.className = 'account-event-actions';
+      actions.append(
+        eventButton('Load board', 'event-action', () => { void loadLeagueBoard(league.id); }),
+        eventButton('Copy invite', 'event-action', () => { void copyText(league.inviteUrl, 'League invite copied'); }),
+        eventButton('Members', 'event-action', () => { void toggleLeagueMembers(card, league); }),
+        eventButton('Activity', 'event-action', () => { void showLeagueActivity(card, league); })
+      );
+      if (['owner', 'admin'].includes(league.role)) {
+        actions.insertBefore(eventButton('Publish board', 'event-action publish-board', () => {
+          void publishLeagueBoard(league.id);
+        }), actions.children[1]);
+      }
+      if (league.role === 'owner') {
+        actions.appendChild(eventButton('Rotate invite', 'event-action', () => {
+          void rotateLeagueInvite(league);
+        }));
+      }
+      actions.appendChild(eventButton(league.role === 'owner' ? 'Delete room' : 'Leave', 'event-action danger', () => {
+        void removeLeague(league);
+      }));
+      card.append(top, actions);
+      host.appendChild(card);
+    });
+  }
+
+  function openJoin(code) {
+    pendingJoinCode = String(code || '').trim().toUpperCase();
+    const input = $c('accountJoinCode');
+    if (input) input.value = pendingJoinCode;
+    const notice = $c('accountInviteNotice');
+    if (notice) {
+      notice.hidden = !pendingJoinCode || !!user;
+      notice.textContent = pendingJoinCode
+        ? `You were invited to league room ${pendingJoinCode}. Sign in to review and join it.` : '';
+    }
+    openAccount();
+    if (user) setTimeout(() => $c('accountJoinLeague')?.focus(), 50);
+  }
+
   function bind() {
     if (bound) return;
     bound = true;
@@ -417,6 +868,16 @@ const CloudSync = (() => {
     if ($c('accountSyncNow')) $c('accountSyncNow').onclick = () => { dirty = true; void flush(true); };
     if ($c('accountSignOut')) $c('accountSignOut').onclick = () => { void signOut(); };
     if ($c('accountDelete')) $c('accountDelete').onclick = () => { void deleteAccount(); };
+    if ($c('accountCreateLeague')) $c('accountCreateLeague').onclick = () => { void createLeagueRoom(); };
+    if ($c('accountJoinLeague')) $c('accountJoinLeague').onclick = () => { void joinLeagueRoom(); };
+    if ($c('accountJoinCode')) {
+      $c('accountJoinCode').oninput = event => {
+        event.target.value = event.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 8);
+      };
+      $c('accountJoinCode').onkeydown = event => {
+        if (event.key === 'Enter') { event.preventDefault(); void joinLeagueRoom(); }
+      };
+    }
     if ($c('conflictCloud')) $c('conflictCloud').onclick = () => { void resolveConflict('cloud'); };
     if ($c('conflictLocal')) $c('conflictLocal').onclick = () => { void resolveConflict('local'); };
     window.addEventListener('online', () => { if (dirty) void flush(); else emit(user ? 'saved' : 'local'); });
@@ -438,10 +899,13 @@ const CloudSync = (() => {
     }
     renderAccount();
     if (user && dirty) setTimeout(() => { void flush(); }, 100);
+    const invite = location.pathname.match(/^\/join\/([A-HJ-NP-Z2-9]{8})\/?$/i);
+    if (invite) setTimeout(() => openJoin(invite[1]), 150);
   }
 
   return {
     bootstrap, bind, flush, openAccount, logoChanged, logoDeleted, clearLogos,
+    publishEvent, loadEvents, revokeEvent, loadLeagues, openJoin,
     isSignedIn: () => !!user,
     account: () => user,
     state: () => ({ version, updatedAt, dirty, saving, conflict })

@@ -130,6 +130,9 @@ const Dynasty = (() => {
     inp.maxLength = 3;
     inp.placeholder = '—';
     inp.disabled = !seedNo;
+    inp.setAttribute('aria-label', seedNo && STATE.seeds[seedNo - 1]
+      ? `${team(STATE.seeds[seedNo - 1].id).school} score in ${g.name}`
+      : `Score in ${g.name}`);
     inp.value = (STATE.results[g.id] || {})[which] ?? '';
     inp.oninput = () => {
       inp.value = inp.value.replace(/[^0-9]/g, '');
@@ -692,7 +695,7 @@ const Dynasty = (() => {
     $$('#enLinks button').forEach(b => b.onclick = () => showScreen(b.dataset.go));
     $('#navBrand').onclick = () => showScreen('home');
     $('#ssLeague').onclick = () => showScreen('final');
-    $('#navShow').onclick = () => { showScreen('show'); Show.arm(); };
+    $('#navShow').onclick = () => { enterPremiere(); };
     $('#ssNext').onclick = () => {
       const t = $('#ssTrack');
       t.scrollBy({ left: t.clientWidth * 0.8, behavior: 'smooth' });

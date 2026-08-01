@@ -11,6 +11,19 @@ member's versioned studio snapshot in D1. Imported team logos are private R2
 objects under that account. Anonymous visitors continue to work locally in the
 browser and can opt into cloud saving at any time.
 
+Complete fields can also be published as permanent Selection Night events.
+Each event receives a non-sequential ten-character `/watch/CODE` URL. The
+commissioner can update that same URL, inspect publish/update activity and
+aggregate unique-browser opens, or revoke it. Public event payloads contain
+only broadcast configuration—not the owner's email, account id, private
+workspace history, predictions, or unpublished boards.
+
+League Rooms are authenticated collaborative workspaces with permanent invite
+codes. D1 stores owner/admin/member roles, the official versioned board, member
+roster, and member-visible activity. Only owners and admins can publish the
+board. Every update includes its base version, so a stale client receives `409`
+instead of overwriting a newer commissioner edit.
+
 Production resources:
 
 - Worker: `cfp-selection-show`
@@ -52,8 +65,14 @@ Invoke-RestMethod https://cfp-selection-show.benarp2144.workers.dev/api/health
 Invoke-WebRequest -Method Head https://cfp-selection-show.benarp2144.workers.dev/media/selection-night-open.mp4
 ```
 
-The first response must report `database: ready`. The film must report
-`Content-Type: video/mp4`, byte ranges, and the expected content length.
+The first response must report `database: ready`. Each film must report
+`Content-Type: video/mp4`, byte ranges, and the expected content length. Test
+the lightweight room loop too:
+
+```powershell
+Invoke-WebRequest -Headers @{ Range = 'bytes=0-1023' } `
+  https://cfp-selection-show.benarp2144.workers.dev/media/committee.mp4
+```
 
 ## Google sign-in
 
@@ -69,12 +88,15 @@ not require one.
 
 ## Data ownership and recovery
 
-- D1 holds user identity, hashed sessions, and versioned JSON snapshots.
-- R2 holds the two public show films plus private per-account custom logos.
+- D1 holds user identity, hashed sessions, versioned JSON snapshots, published
+  events, event activity, aggregate view counts, league rooms, memberships,
+  shared board versions, and league activity.
+- R2 holds the three public show films plus private per-account custom logos.
 - A local recovery copy remains on the device if cloud saving is interrupted.
 - Conflicting edits from two devices stop and require an explicit keep-local or
   use-cloud decision; neither copy is silently discarded.
-- Deleting an account removes its D1 rows, sessions, and R2 logos.
+- Deleting an account removes its D1 rows, published events, sessions, and R2
+  logos. Revoking one event invalidates its public URL immediately.
 
 ## Replace the Selection Night opening film
 
@@ -89,3 +111,13 @@ pnpm run deploy
 
 The bucket itself remains private. Only `GET` and `HEAD` for the allow-listed
 file are exposed by the Worker; uploads and deletes are not public routes.
+
+The room/gate loop uses the same private path and must also live in R2:
+
+```powershell
+pnpm exec wrangler r2 object put cfp-selection-show-media/committee.mp4 `
+  --file committee.mp4 `
+  --content-type video/mp4 `
+  --cache-control "public, max-age=31536000, immutable" `
+  --remote
+```

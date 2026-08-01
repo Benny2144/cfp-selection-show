@@ -26,8 +26,15 @@ The production setup is checked into this repository:
 - `worker.js` exposes only allow-listed show films at `/media/`, supports
   browser byte-range requests, verifies Google sign-in, and provides the
   authenticated account API.
-- D1 stores versioned account snapshots and hashed sessions; R2 stores private
-  account logos alongside the public show media.
+- D1 stores versioned account snapshots, hashed sessions, and permanent
+  Selection Night events; R2 stores private account logos alongside the public
+  show media.
+- Signed-in commissioners publish a short `/watch/CODE` URL, update the same
+  URL without spoiling the field, see aggregate opens and activity, and revoke
+  the event from the account center.
+- League Rooms add permanent invite codes, owner/admin/member roles, shared
+  boards, member management, activity history, and optimistic version checks
+  that stop two commissioners from silently overwriting one another.
 - `tools/make_site.py` builds `docs/` without copying R2-hosted films.
 
 After authenticating Wrangler, deploy with:
@@ -85,7 +92,20 @@ python -m http.server 8777
 Then <http://localhost:8777>. Recording and clipboard need `http://localhost` or
 `https://` — they don't work from a double-clicked file.
 
-Once it's live, **Copy Share Link** produces a URL that works for anyone.
+Once it's live, **Create League Link → Publish Permanent Event** produces a
+short URL that works for anyone. The complete twelve-team field is required
+before a permanent event can go on air. A portable URL-only preview remains
+available for rehearsals.
+
+## League rooms and co-commissioners
+
+Open **Save & sign in → League Rooms** to create a shared room from the current
+board. Send its short `/join/CODE` invitation anywhere in the country. Members
+can load the official room board; the owner can promote trusted members to
+co-commissioner, and owners/admins can publish a new board version. If somebody
+else publishes between load and save, the older write is rejected and must be
+reloaded first. The room keeps a member-visible activity trail of joins, role
+changes, and board publishes.
 
 ---
 
