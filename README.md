@@ -11,8 +11,29 @@ Works on phones. Records the whole show to a video file.
 
 ## Put it online
 
-The repo is already initialized and committed, and `docs/` holds the built site
-(15.8 MB — the 80 MB source audio and the .avif originals are gitignored).
+The repo is already initialized and committed. `docs/` holds the normal web
+assets, while the oversized intro film is served from a private Cloudflare R2
+bucket through the Worker.
+
+### Cloudflare Workers + R2
+
+Live site: <https://cfp-selection-show.benarp2144.workers.dev>
+
+The production setup is checked into this repository:
+
+- `wrangler.jsonc` defines the Worker, static assets, and private R2 binding.
+- `worker.js` exposes only the allow-listed intro film at `/media/` and supports
+  browser byte-range requests.
+- `tools/make_site.py` builds `docs/` without copying the 55 MB R2-hosted film.
+
+After authenticating Wrangler, deploy with:
+
+```bash
+python tools/make_site.py
+npx wrangler deploy
+```
+
+See `CLOUDFLARE.md` for the bucket and media replacement commands.
 
 ### GitHub Pages
 

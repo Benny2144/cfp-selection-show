@@ -15,9 +15,17 @@ import os, re, shutil, sys, hashlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
 
-FILES = ['index.html', 'netlify.toml', '.nojekyll', 'music.mp3',
+FILES = ['index.html', 'netlify.toml', '_headers', '.nojekyll', 'music.mp3',
          'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4', 'committee.mp4']
 DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
+
+# Anything Cloudflare's static asset layer will not take. Its hard cap is
+# 25 MiB per asset and the intro film is 55 MB. When index.html names a media
+# base these are left out of the build and served from R2 by worker.js;
+# when it is blank they are copied as usual and the site is self-contained.
+# Keep this in step with CDN_FILES in js/show.js.
+CDN_FILES = {'intro-video.mp4'}
+PAGES_FILE_CAP = 25 * 1024 * 1024
 
 # Subfolders worth following. Everything else (voice/_transcripts and the
 # like) is working material and stays out of the build.
@@ -72,10 +80,33 @@ def stamp_assets():
     open(idx, 'w', encoding='utf-8').write(html)
 
 
+def media_base():
+    """Read the media base out of index.html, so the build and the browser
+    can never disagree about where the big files are coming from."""
+    idx = os.path.join(ROOT, 'index.html')
+    if not os.path.exists(idx):
+        return ''
+    html = open(idx, encoding='utf-8').read()
+    # The tag is documented by an example inside a comment right above it,
+    # and a plain search finds the example first — which silently builds for
+    # a bucket that does not exist. The browser is not fooled by that (a
+    # comment is not an element) so the two would disagree. Strip comments.
+    html = re.sub(r'<!--.*?-->', '', html, flags=re.S)
+    m = re.search(r'<meta\s+name=["\']media-base["\']\s+content=["\']([^"\']*)["\']',
+                  html, re.I)
+    return (m.group(1).strip().rstrip('/') if m else '')
+
+
 def main():
     missing = [f for f in FILES if not os.path.exists(os.path.join(ROOT, f))]
     if 'music.mp3' in missing or 'intro.mp3' in missing:
         sys.exit('Run tools/trim_music.py first — music.mp3 / intro.mp3 are missing.')
+
+    base = media_base()
+    offsite = CDN_FILES if base else set()
+    if base:
+        print('Media base: %s' % base)
+        print('  serving from there: %s\n' % ', '.join(sorted(CDN_FILES)))
 
     if os.path.exists(OUT):
         try:
@@ -89,7 +120,7 @@ def main():
     total = 0
     for f in FILES:
         src = os.path.join(ROOT, f)
-        if not os.path.exists(src):
+        if not os.path.exists(src) or f in offsite:
             continue
         shutil.copy2(src, os.path.join(OUT, f))
         total += os.path.getsize(src)
@@ -120,10 +151,32 @@ def main():
                     total += os.path.getsize(p)
 
     stamp_assets()
+
+    # nothing in the build is allowed to surprise Cloudflare
+    oversize = []
+    count = 0
+    for dirpath, _, names in os.walk(OUT):
+        for n in names:
+            p = os.path.join(dirpath, n)
+            count += 1
+            if os.path.getsize(p) > PAGES_FILE_CAP:
+                oversize.append((os.path.relpath(p, OUT), os.path.getsize(p)))
+
     print('Built %s' % OUT)
-    print('%.1f MB, ready to publish.' % (total / 1e6))
+    print('%.1f MB across %d files.' % (total / 1e6, count))
+
+    if oversize:
+        print('\n  !! Cloudflare static assets will reject this deploy.')
+        print('     Its limit is 25 MiB per file, on every plan:')
+        for name, size in oversize:
+            print('       %-24s %6.1f MB' % (name, size / 1e6))
+        print('     Add them to CDN_FILES and set <meta name="media-base">')
+        print('     in index.html — see CLOUDFLARE.md.')
+    elif base:
+        print('Ready for Cloudflare Workers — nothing over 25 MiB.')
     print('\nGitHub Pages: commit and push, then Settings -> Pages -> main -> /docs')
-    print('Netlify:      drag the "docs" folder onto https://app.netlify.com/drop')
+    print('Cloudflare:   npx wrangler deploy')
+    print('Netlify:      clear media-base, rebuild, then deploy docs/')
 
 
 if __name__ == '__main__':

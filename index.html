@@ -7,6 +7,15 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>CFP Selection Show — Dynasty Committee</title>
+
+<!-- The 55 MB intro film is stored in the private R2 bucket configured in
+     wrangler.jsonc. The Worker exposes that bucket read-only at /media while
+     the rest of the site stays in Cloudflare's static asset layer.
+
+     Leave this EMPTY only for a self-contained local/GitHub Pages build.
+     tools/make_site.py reads the value and omits R2-hosted files whenever it
+     is set. See CLOUDFLARE.md. -->
+<meta name="media-base" content="/media">
 <meta name="description" content="Run a broadcast-style College Football Playoff selection show for your online dynasty. Set the 12-team field, hit play, reveal it like TV.">
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">

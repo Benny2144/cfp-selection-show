@@ -5,6 +5,35 @@
 /* The cold open, in order. Drop replacements next to index.html and rename
    here. The mp3s are trimmed copies made by tools/trim_music.py, and the
    video is shrunk by tools/shrink_video.py — small enough to host. */
+/* =====================================================================
+   WHERE THE BIG FILES LIVE
+
+   Cloudflare's static asset pipeline will not accept the 55 MB intro film,
+   so anything in CDN_FILES is served by the Worker from its private R2
+   binding. The rest of the site stays in the static asset layer.
+
+   The address comes from a meta tag rather than from this file so it can
+   be changed without touching any JavaScript. Empty means "everything is
+   local", which is useful for a self-contained local/GitHub Pages build.
+   ===================================================================== */
+const MEDIA_BASE = (() => {
+  const m = document.querySelector('meta[name="media-base"]');
+  return ((m && m.content) || '').trim().replace(/\/+$/, '');
+})();
+
+/* Only these are big enough to be worth hosting apart. Everything else is
+   comfortably under the cap and stays with the site, where it needs no
+   CORS and no second thing to go wrong. */
+const CDN_FILES = new Set(['intro-video.mp4']);
+
+const mediaUrl = f => (MEDIA_BASE && CDN_FILES.has(f)) ? MEDIA_BASE + '/' + f : f;
+
+/** True only when a file crosses origins. /media is same-origin in production. */
+const isRemote = f => {
+  try { return new URL(mediaUrl(f), document.baseURI).origin !== location.origin; }
+  catch (e) { return false; }
+};
+
 const VIDEO_FILE = 'intro-video.mp4';    // rolls first, full screen
 const INTRO_FILE = 'patmac.mp3';         // then Pat
 const BOONE_FILE = 'coachboone.mp3';     // then Coach Boone
@@ -902,7 +931,17 @@ const Show = (() => {
 
     phase = 'film';
     const v = el.film;
-    if (!v.getAttribute('src')) v.src = VIDEO_FILE;
+    if (!v.getAttribute('src')) {
+      /* The film goes through createMediaElementSource so the mixer can duck
+         it. For a cross-origin element that call yields SILENCE unless the
+         media was fetched with CORS — the picture plays and the soundtrack
+         is simply gone, with no error anywhere. So the attribute goes on
+         first (it has no effect once src is set) and only when the file is
+         actually remote, because requesting CORS from a server that does not
+         send the header fails the load outright. */
+      if (isRemote(VIDEO_FILE)) v.crossOrigin = 'anonymous';
+      v.src = mediaUrl(VIDEO_FILE);
+    }
 
     el.filmStage.classList.add('on');
     /* silence underneath, and stop the watchdog putting it back */

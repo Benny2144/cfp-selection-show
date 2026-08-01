@@ -6,6 +6,7 @@ intro for very first of video before thje picks happen.mp3
 # Local tooling
 .claude/
 site/
+.wrangler/
 
 # OS junk
 Thumbs.db
