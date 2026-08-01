@@ -24,7 +24,7 @@ const MEDIA_BASE = (() => {
 /* Only these are big enough to be worth hosting apart. Everything else is
    comfortably under the cap and stays with the site, where it needs no
    CORS and no second thing to go wrong. */
-const CDN_FILES = new Set(['intro-video.mp4']);
+const CDN_FILES = new Set(['intro-video.mp4', 'selection-night-open.mp4']);
 
 const mediaUrl = f => (MEDIA_BASE && CDN_FILES.has(f)) ? MEDIA_BASE + '/' + f : f;
 
@@ -34,7 +34,7 @@ const isRemote = f => {
   catch (e) { return false; }
 };
 
-const VIDEO_FILE = 'intro-video.mp4';    // rolls first, full screen
+const VIDEO_FILE = 'selection-night-open.mp4'; // the supplied 15-second committee film
 const INTRO_FILE = 'patmac.mp3';         // then Pat
 const BOONE_FILE = 'coachboone.mp3';     // then Coach Boone
 const MUSIC_FILE = 'music.mp3';          // bed under everything
@@ -77,7 +77,18 @@ const Show = (() => {
   let seq = [], cursor = -1, timer = null;
   let paused = false, running = false, phase = 'idle', filmGuard = null;
   let ctlHide = null, revealed = [];
+  let chapterAdvance = null;
+  const chaptersPlayed = new Set();
   const el = {};
+
+  const PICK_CHAPTERS = {
+    0: { kick: 'Chapter one', index: '01—04', title: 'THE FOUR BYES',
+         sub: 'Four teams skip opening weekend. Every position changes the road.' },
+    4: { kick: 'Chapter two', index: '05—08', title: 'CAMPUS LIGHTS',
+         sub: 'Four hosts. Four home crowds. Opening-round football comes to campus.' },
+    8: { kick: 'Chapter three', index: '09—12', title: 'THE CUT LINE',
+         sub: 'The final four invitations. The bubble closes one name at a time.' }
+  };
 
   const fxLevel = () => STATE.fx || 'max';
   const isMax   = () => fxLevel() === 'max';
@@ -821,6 +832,8 @@ const Show = (() => {
     setCinemaPhase(null);
     clearTimeout(timer);
     revealed = [];
+    chaptersPlayed.clear();
+    hideStoryLayers();
 
     seq = STATE.seeds.map((s, i) => s ? i : null).filter(i => i !== null);
     if (STATE.order === 'desc') seq.reverse();
@@ -832,6 +845,7 @@ const Show = (() => {
     hidePops();
     if (el.snubWrap) el.snubWrap.classList.remove('on');
     el.revealLayer.classList.remove('on');
+    if (el.pickLock) el.pickLock.classList.remove('on');
     el.lower.classList.remove('on');
     el.rail.style.opacity = '0';
     el.glow.style.opacity = '0';
@@ -844,11 +858,11 @@ const Show = (() => {
       : `${n} team${n === 1 ? '' : 's'} selected`;
     el.gateTitle.innerHTML = `${esc(STATE.title)}<br>${esc(STATE.subtitle)}`;
     el.gateSub.innerHTML = `${esc(STATE.league)} &middot; ${esc(STATE.season)}` +
-      ` &nbsp;&middot;&nbsp; press play when everyone is watching`;
+      ` &nbsp;&middot;&nbsp; 15-second opening film &nbsp;&middot;&nbsp; press play when everyone is watching`;
 
     el.intro.src ||= INTRO_FILE;
     el.boone.src ||= BOONE_FILE;
-    el.filmStage.classList.remove('on');
+    el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
     try { el.film.pause(); el.film.currentTime = 0; } catch (e) {}
     stopCall();
     stopSeedTalk();
@@ -960,7 +974,9 @@ const Show = (() => {
   /* ---------------------------------------------------------- the film */
   function runFilm() {
     const mode = STATE.cold || 'full';
-    if (mode !== 'full') { runVoiceOpen(); return; }
+    /* Full and short shows both begin with the supplied committee film.
+       "Off" is the only explicit opt-out. */
+    if (mode === 'off') { runVoiceOpen(); return; }
 
     phase = 'film';
     const v = el.film;
@@ -976,7 +992,8 @@ const Show = (() => {
       v.src = mediaUrl(VIDEO_FILE);
     }
 
-    el.filmStage.classList.add('on');
+    el.filmStage.classList.remove('second-act', 'final-beat');
+    el.filmStage.classList.add('on', 'authored-open');
     /* silence underneath, and stop the watchdog putting it back */
     bedWanted = false;
     watchBed(false);
@@ -989,7 +1006,7 @@ const Show = (() => {
       handed = true;
       clearTimeout(filmGuard);
       phase = 'voice';
-      el.filmStage.classList.remove('on');
+      el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
       try { v.pause(); v.ontimeupdate = null; } catch (e) {}
       /* the bed comes back from the top, so the voices open over its start */
       bedWanted = true;
@@ -1025,6 +1042,8 @@ const Show = (() => {
       if (el.fbNow)   el.fbNow.textContent = fmt(v.currentTime);
       if (el.fbTotal) el.fbTotal.textContent = fmt(d);
       if (el.fbLeft)  el.fbLeft.textContent = fmt(d - v.currentTime) + ' left';
+      el.filmStage.classList.toggle('second-act', k > .36);
+      el.filmStage.classList.toggle('final-beat', k > .76);
     };
     v.ontimeupdate = paintBar;
 
@@ -1220,7 +1239,7 @@ const Show = (() => {
     });
     clearTimeout(filmGuard);
     try { el.film.pause(); el.film.onended = null; } catch (e) {}
-    el.filmStage.classList.remove('on');
+    el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
     clearTimeout(timer);
     hidePops();
     hideCold();
@@ -1230,6 +1249,166 @@ const Show = (() => {
     el.rail.style.opacity = '1';
     crowd(2.2); flare();
     next();
+  }
+
+  /* =====================================================================
+     STORY BEATS
+
+     A twelve-pick show needs shape, not twelve copies of the same animation.
+     Three chapter cards reset the tension, every completed campus matchup
+     gets a broadcast lockup, and the full field receives a final hero wall.
+     ===================================================================== */
+  function hideStoryLayers() {
+    [el.pickChapter, el.matchMoment, el.fieldWall]
+      .forEach(node => node && node.classList.remove('on'));
+    chapterAdvance = null;
+  }
+
+  function runChapter(pos, then) {
+    const card = PICK_CHAPTERS[pos];
+    if (!card) { then(); return; }
+
+    phase = 'chapter';
+    chaptersPlayed.add(pos);
+    setCinemaPhase('chapter-moment');
+    el.revealLayer.classList.remove('on');
+    if (el.pickLock) el.pickLock.classList.remove('on');
+    el.lower.classList.remove('on');
+    showPickArt(null, 'off');
+    showLiveBracket(false);
+    el.rail.style.opacity = '0';
+
+    el.pcKicker.textContent = card.kick.toUpperCase();
+    el.pcIndex.textContent = card.index;
+    el.pcTitle.textContent = card.title;
+    el.pcSub.textContent = card.sub;
+    el.pickChapter.classList.remove('on');
+    void el.pickChapter.offsetWidth;
+    el.pickChapter.classList.add('on');
+    stinger(pos === 8 ? 392 : 523.25);
+    crowd(pos === 8 ? 2.5 : 1.8);
+    flare();
+    if (!isCalm()) shockwave(pos === 8 ? '#ef3824' : '#f4c25c', 3);
+
+    let done = false;
+    chapterAdvance = () => {
+      if (done) return;
+      done = true;
+      phase = 'transition';
+      clearTimeout(timer);
+      el.pickChapter.classList.remove('on');
+      chapterAdvance = null;
+      setCinemaPhase(null);
+      el.rail.style.opacity = '1';
+      setTimeout(then, 460);
+    };
+    timer = setTimeout(chapterAdvance, 3400);
+  }
+
+  function matchTeam(target, selection, seed) {
+    const t = team(selection.id);
+    target.innerHTML = `<span class="mm-seed">NO. ${seed}</span>`;
+    target.appendChild(bannerEl(selection.id, { flip: seed > 8 }));
+    target.insertAdjacentHTML('beforeend',
+      `<strong>${esc(t.school.toUpperCase())}</strong>` +
+      `<small>${[esc(selection.record || ''), esc(t.conf || '')].filter(Boolean).join(' · ')}</small>`);
+  }
+
+  function runMatchupMoment(i, gen, then) {
+    const seed = i + 1;
+    const matchup = firstRound().find(m => m.lo === seed || m.hi === seed);
+    if (!matchup || !STATE.seeds[matchup.hi - 1] || !STATE.seeds[matchup.lo - 1]) {
+      then(); return;
+    }
+    const shown = seq.slice(0, cursor + 1);
+    if (!shown.includes(matchup.hi - 1) || !shown.includes(matchup.lo - 1)) {
+      then(); return;
+    }
+
+    phase = 'matchup';
+    setCinemaPhase('matchup-moment');
+    el.revealLayer.classList.remove('on');
+    el.lower.classList.remove('on');
+    showPickArt(null, 'off');
+    showLiveBracket(false);
+    el.rail.style.opacity = '0';
+
+    const high = STATE.seeds[matchup.hi - 1];
+    const low = STATE.seeds[matchup.lo - 1];
+    el.matchMoment.style.setProperty('--mm-left', hexA(accentOf(team(high.id)), .24));
+    el.matchMoment.style.setProperty('--mm-right', hexA(accentOf(team(low.id)), .22));
+    matchTeam(el.mmLeft, high, matchup.hi);
+    matchTeam(el.mmRight, low, matchup.lo);
+    el.mmSite.textContent = `AT ${team(high.id).school.toUpperCase()} · CAMPUS SITE`;
+    el.matchMoment.classList.remove('on');
+    void el.matchMoment.offsetWidth;
+    el.matchMoment.classList.add('on');
+    stinger(659.25); crowd(2.4); flare();
+    if (!isCalm()) {
+      shockwave(accentOf(team(high.id)), 2);
+      setTimeout(() => { if (gen === revealGen) shockwave(accentOf(team(low.id)), 2); }, 520);
+    }
+
+    let done = false;
+    chapterAdvance = () => {
+      if (done || gen !== revealGen) return;
+      done = true;
+      phase = 'transition';
+      clearTimeout(timer);
+      el.matchMoment.classList.remove('on');
+      chapterAdvance = null;
+      setCinemaPhase(null);
+      el.rail.style.opacity = '1';
+      setTimeout(then, 500);
+    };
+    timer = setTimeout(chapterAdvance, 4800);
+  }
+
+  function runFieldWall(then) {
+    phase = 'fieldwall';
+    setCinemaPhase('fieldwall-moment');
+    el.revealLayer.classList.remove('on');
+    el.lower.classList.remove('on');
+    showPickArt(null, 'off');
+    showLiveBracket(false);
+    el.rail.style.opacity = '0';
+
+    el.fieldWallGrid.innerHTML = '';
+    STATE.seeds.forEach((selection, i) => {
+      if (!selection) return;
+      const card = document.createElement('div');
+      card.className = 'fw-team';
+      card.style.setProperty('--fw-i', i);
+      card.innerHTML = `<span>${i + 1}</span>`;
+      card.appendChild(bannerEl(selection.id));
+      el.fieldWallGrid.appendChild(card);
+    });
+    el.fwMeta.textContent = `${STATE.league.toUpperCase()} · ${STATE.season} · ONE CHAMPION`;
+    el.fieldWall.classList.remove('on');
+    void el.fieldWall.offsetWidth;
+    el.fieldWall.classList.add('on');
+    crowd(3); stinger(523.25); flare();
+    burst(['#f4c25c', '#ef3824', '#ffffff', '#d99328']);
+    if (!isCalm()) shockwave('#f4c25c', 5);
+
+    let done = false;
+    chapterAdvance = () => {
+      if (done) return;
+      done = true;
+      phase = 'transition';
+      clearTimeout(timer);
+      el.fieldWall.classList.remove('on');
+      chapterAdvance = null;
+      setCinemaPhase(null);
+      setTimeout(then, 650);
+    };
+    timer = setTimeout(chapterAdvance, 5600);
+  }
+
+  function pickPrompt(i) {
+    if (i < 4) return 'WHO CLAIMS A FIRST-ROUND BYE?';
+    if (i < 8) return 'WHO BRINGS PLAYOFF FOOTBALL HOME?';
+    return i === 11 ? 'WHO GETS THE FINAL INVITATION?' : 'WHO SURVIVES THE CUT LINE?';
   }
 
   /* ============================================================= PLAY */
@@ -1299,9 +1478,18 @@ const Show = (() => {
     phase === 'film' || phase === 'voice' || phase === 'intro' || phase === 'boone';
 
   function next() {
+    if (chapterAdvance && ['chapter', 'matchup', 'fieldwall'].includes(phase)) {
+      chapterAdvance();
+      return;
+    }
     if (inColdOpen()) { endColdOpen(); return; }
     if (cursor >= seq.length - 1) { finish(); return; }
-    goto(cursor + 1);
+    const pos = cursor + 1;
+    if (PICK_CHAPTERS[pos] && !chaptersPlayed.has(pos)) {
+      runChapter(pos, () => goto(pos));
+      return;
+    }
+    goto(pos);
   }
   function prev() {
     if (inColdOpen()) return;
@@ -1311,6 +1499,7 @@ const Show = (() => {
 
   function goto(pos, rebuild) {
     clearTimeout(timer);
+    hideStoryLayers();
     phase = 'reveal';
     cursor = pos;
     reveal(seq[cursor]);
@@ -1384,7 +1573,8 @@ const Show = (() => {
   /** One class owns the visual beat so layers never compete for emphasis. */
   function setCinemaPhase(name) {
     const show = document.getElementById('show');
-    show.classList.remove('anticipating', 'landing', 'holding', 'bracket-moment');
+    show.classList.remove('anticipating', 'landing', 'holding', 'bracket-moment',
+      'chapter-moment', 'matchup-moment', 'fieldwall-moment');
     if (name) show.classList.add(name);
   }
 
@@ -1412,6 +1602,13 @@ const Show = (() => {
     if (el.revealEyebrow) el.revealEyebrow.textContent = 'COMMITTEE SELECTION';
     if (el.revealCount) el.revealCount.textContent =
       `PICK ${String(i + 1).padStart(2, '0')} / ${String(seq.length).padStart(2, '0')}`;
+    if (el.pickLock) {
+      el.pickLockSeed.textContent = String(i + 1).padStart(2, '0');
+      el.pickLockPrompt.textContent = pickPrompt(i);
+      el.pickLock.classList.remove('on');
+      void el.pickLock.offsetWidth;
+      el.pickLock.classList.add('on');
+    }
     if (el.teamGhost) {
       el.teamGhost.textContent = '';
       el.teamGhost.classList.remove('in');
@@ -1442,6 +1639,7 @@ const Show = (() => {
     const show = document.getElementById('show');
 
     setCinemaPhase('landing');
+    if (el.pickLock) el.pickLock.classList.remove('on');
     show.style.setProperty('--team-a', t.primary);
     show.style.setProperty('--team-b', accent);
     if (el.revealEyebrow)
@@ -1561,8 +1759,12 @@ const Show = (() => {
         /* the pick is done: put them on the board, hold, then move on */
         placeOnBracket(i, gen, () => {
           if (gen !== revealGen) return;
-          if (STATE.pace !== 'manual' && !paused)
-            timer = setTimeout(next, 1900);
+          const advance = () => {
+            if (gen !== revealGen) return;
+            if (STATE.pace !== 'manual' && !paused)
+              timer = setTimeout(next, 1900);
+          };
+          runMatchupMoment(i, gen, advance);
         });
       });
     };
@@ -1709,8 +1911,8 @@ const Show = (() => {
 
     showLiveBracket(false);
     fullTicker();
-    /* the argument first, then the names, then the closing card */
-    runSnub(() => runFourOut(closingCard));
+    /* the argument first, then the names, the complete twelve, and the close */
+    runSnub(() => runFourOut(() => runFieldWall(closingCard)));
   }
 
   function closingCard() {
@@ -1804,6 +2006,8 @@ const Show = (() => {
       if (phase === 'film')  el.film.play().catch(() => {});
       else if (phase === 'intro') el.intro.play().catch(() => {});
       else if (phase === 'boone') el.boone.play().catch(() => {});
+      else if (chapterAdvance && ['chapter', 'matchup', 'fieldwall'].includes(phase))
+        timer = setTimeout(chapterAdvance, 1200);
       else {
         if (callAudio) callAudio.play().catch(() => {});
         if (seedAudio) seedAudio.play().catch(() => {});
@@ -1819,12 +2023,15 @@ const Show = (() => {
      'flash', 'wipe', 'glitch', 'flare', 'vig', 'floor', 'stage', 'rail', 'lower',
      'l3cap', 'l3t1', 'l3t2', 'tkRun', 'tkBadge', 'tkClock', 'gate', 'gateKick',
      'gateTitle', 'gateSub', 'music', 'intro', 'boone', 'ctl', 'cPlay',
-     'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap',
+     'recLamp', 'film', 'filmStage', 'filmCredit', 'filmSkip', 'fourOut', 'fourOutWrap',
      'bloom', 'l3bar', 'foHead',
      'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub',
      'liveWrap', 'liveBracket', 'lbCount',
      'bidRow', 'bidTag', 'moveTag', 'snubWrap', 'snubIn', 'snubOut', 'pickBack',
-     'revealEyebrow', 'revealCount', 'teamGhost',
+     'revealEyebrow', 'revealCount', 'teamGhost', 'pickLock', 'pickLockSeed',
+     'pickLockPrompt', 'pickChapter', 'pcKicker', 'pcIndex', 'pcTitle', 'pcSub',
+     'matchMoment', 'mmLeft', 'mmRight', 'mmSite',
+     'fieldWall', 'fieldWallGrid', 'fwMeta',
      'preCount', 'preClock', 'preWhen',
      'fbFill', 'fbNow', 'fbLeft', 'fbTotal']
       .forEach(id => el[id] = document.getElementById(id));
@@ -1921,11 +2128,13 @@ const Show = (() => {
     clearTimeout(filmGuard);
     try { el.film.pause(); el.film.onended = null; el.film.onloadedmetadata = null; }
     catch (e) {}
-    el.filmStage.classList.remove('on');
+    el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
     stopCall();
     stopSeedTalk();
     showPickArt(null, 'off');
     showLiveBracket(false);
+    hideStoryLayers();
+    if (el.pickLock) el.pickLock.classList.remove('on');
     hideCold();
     stopAmbient();
     setBedVolume();

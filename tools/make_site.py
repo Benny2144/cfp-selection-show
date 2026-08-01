@@ -16,7 +16,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
 
 FILES = ['index.html', 'netlify.toml', '_headers', '.nojekyll', 'music.mp3',
-         'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4', 'committee.mp4']
+         'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4',
+         'selection-night-open.mp4', 'committee.mp4']
 DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
 
 # Anything Cloudflare's static asset layer will not take. Its hard cap is
@@ -24,7 +25,7 @@ DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
 # base these are left out of the build and served from R2 by worker.js;
 # when it is blank they are copied as usual and the site is self-contained.
 # Keep this in step with CDN_FILES in js/show.js.
-CDN_FILES = {'intro-video.mp4'}
+CDN_FILES = {'intro-video.mp4', 'selection-night-open.mp4'}
 PAGES_FILE_CAP = 25 * 1024 * 1024
 
 # Subfolders worth following. Everything else (voice/_transcripts and the

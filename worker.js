@@ -1,5 +1,5 @@
 const MEDIA_PREFIX = '/media/';
-const ALLOWED_MEDIA = new Set(['intro-video.mp4']);
+const ALLOWED_MEDIA = new Set(['intro-video.mp4', 'selection-night-open.mp4']);
 
 function mediaHeaders(object, length) {
   const headers = new Headers();

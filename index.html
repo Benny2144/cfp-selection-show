@@ -256,6 +256,13 @@
   <!-- the intro film, full bleed -->
   <div class="filmstage" id="filmStage">
     <video id="film" playsinline preload="auto"></video>
+    <div class="film-grade" aria-hidden="true"></div>
+    <div class="film-credit" id="filmCredit" aria-hidden="true">
+      <span><i></i> A CFP DYNASTY STUDIO ORIGINAL <i></i></span>
+      <b>SELECTION<br>NIGHT</b>
+      <em>THE COMMITTEE HAS SPOKEN</em>
+    </div>
+    <div class="film-livebug" aria-hidden="true"><span>CFP</span><b>ROAD TO GLORY</b></div>
     <div class="film-bar">
       <div class="fb-track"><i id="fbFill"></i></div>
       <div class="fb-times">
@@ -280,6 +287,31 @@
     <div class="cold-count" id="coldCount"></div>
   </div>
 
+  <!-- authored chapter cards break the twelve picks into a real show -->
+  <div class="pickchapter" id="pickChapter" aria-live="polite">
+    <span class="pc-kicker" id="pcKicker">CHAPTER ONE</span>
+    <b class="pc-index" id="pcIndex">01—04</b>
+    <h2 id="pcTitle">THE FOUR BYES</h2>
+    <p id="pcSub">Four teams go straight to the quarter-finals.</p>
+    <div class="pc-track"><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <!-- locks in after the second team in each opening-round pairing lands -->
+  <div class="matchmoment" id="matchMoment" aria-live="polite">
+    <div class="mm-kicker"><i></i> FIRST-ROUND MATCHUP LOCKED <i></i></div>
+    <div class="mm-grid">
+      <div class="mm-team" id="mmLeft"></div>
+      <div class="mm-vs"><span>VS</span><b id="mmSite">CAMPUS SITE</b></div>
+      <div class="mm-team" id="mmRight"></div>
+    </div>
+  </div>
+
+  <!-- the complete field gets one hero moment before the final bracket -->
+  <div class="fieldwall" id="fieldWall" aria-live="polite">
+    <div class="fw-head"><span>THE COMMITTEE HAS SPOKEN</span><b>THE TWELVE</b><em id="fwMeta">ONE FIELD · ONE CHAMPION</em></div>
+    <div class="fw-grid" id="fieldWallGrid"></div>
+  </div>
+
   <!-- the bracket, filling in as the picks land -->
   <div class="livebracket" id="liveWrap">
     <div class="lb-head"><b>THE BRACKET</b><span id="lbCount"></span></div>
@@ -296,6 +328,12 @@
       <span id="revealEyebrow">COMMITTEE SELECTION</span>
       <i></i>
       <b id="revealCount">PICK 01 / 12</b>
+    </div>
+    <div class="pick-lock" id="pickLock" aria-hidden="true">
+      <span><i></i> THE PICK IS IN</span>
+      <b id="pickLockSeed">01</b>
+      <em id="pickLockPrompt">WHO TAKES THE TOP SEED?</em>
+      <div><i></i><i></i><i></i></div>
     </div>
     <div class="team-ghost" id="teamGhost" aria-hidden="true"></div>
     <div class="hero-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -392,7 +430,7 @@
 
     <button class="playbtn" id="btnPlay" aria-label="Play the show">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-      <span>BEGIN SELECTION NIGHT</span>
+      <span>ROLL THE OPENING FILM</span>
     </button>
     <label class="rec-opt" id="recOpt">
       <input type="checkbox" id="optRecord">

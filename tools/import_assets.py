@@ -4,8 +4,8 @@ something a phone can actually download.
 
 The originals are 1.9-2.5 MB PNGs and a 62 MB 4K video. Shipped as-is the
 site would be a third of a gigabyte. Everything here is lossy on purpose:
-these are full-bleed backdrops sitting behind type, so WebP at q72 and a
-720p video are indistinguishable in use and about forty times smaller.
+the backdrops become WebP, the ambient loop becomes a silent 720p copy, and
+the featured Selection Night opener becomes a 1080p copy with its audio.
 
     python tools/import_assets.py
 
@@ -70,6 +70,26 @@ def shrink_video(src, dst, height=720, crf=30):
     return n
 
 
+def opening_video(src, dst, height=1080, crf=23):
+    """1080p with audio — this is the featured 15-second show opener."""
+    if not src or not os.path.exists(src):
+        print('  skip (not found) ->', os.path.basename(dst))
+        return 0
+    import imageio_ffmpeg
+    ff = imageio_ffmpeg.get_ffmpeg_exe()
+    cmd = [ff, '-y', '-v', 'error', '-i', src,
+           '-vf', 'scale=-2:%d' % height,
+           '-c:v', 'libx264', '-preset', 'slow', '-crf', str(crf),
+           '-pix_fmt', 'yuv420p', '-profile:v', 'high',
+           '-c:a', 'aac', '-b:a', '160k', '-ac', '2',
+           '-movflags', '+faststart', dst]
+    subprocess.run(cmd, check=True)
+    n = os.path.getsize(dst)
+    print('  %-28s %6.1f MB  (featured opener with audio)' %
+          (os.path.relpath(dst, ROOT), n / 1e6))
+    return n
+
+
 def main():
     total = 0
     print('Pick backdrops')
@@ -91,8 +111,11 @@ def main():
                   os.path.join(SRC, 'board-top10.webp'), 1920)
 
     print('Committee film')
-    total += shrink_video(find(r'^kling_.*\.mp4$'),
+    committee_src = find(r'^kling_.*\.mp4$')
+    total += shrink_video(committee_src,
                           os.path.join(ROOT, 'committee.mp4'))
+    total += opening_video(committee_src,
+                           os.path.join(ROOT, 'selection-night-open.mp4'))
 
     print('\n%.1f MB of shippable assets.' % (total / 1e6))
 
