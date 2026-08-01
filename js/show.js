@@ -476,7 +476,11 @@ const Show = (() => {
   let seedAudio = null;
 
   function seedClip(i, half) {
-    if (STATE.seedTalk === 'off') return null;
+    const mode = STATE.seedTalk || 'lead';
+    if (mode === 'off') return null;
+    /* 'lead' plays the build-up only — the reaction after the name landed
+       stepped on the moment rather than adding to it. */
+    if (half === 'after' && mode !== 'both') return null;
     const key = 's' + String(i + 1).padStart(2, '0') + '-' + half;
     if (seedCache[key] === false) return null;
     if (!seedCache[key]) {

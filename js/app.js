@@ -16,7 +16,7 @@ const STATE = {
   pace:     10000,
   cold:     'full',
   calls:    'on',
-  seedTalk: 'on',                      // the per-seed build-up and reaction
+  seedTalk: 'lead',                    // build-up only; 'both' adds the reaction
   fx:       'max',
   volume:   55,
   musicUnderVoice: 55,                 // bed level while Pat or Boone talk
@@ -409,7 +409,7 @@ function decodeState(b64) {
     STATE.cold     = p.c ?? 'full';
     STATE.fx       = p.f ?? 'max';
     STATE.calls    = p.n ?? 'on';
-    STATE.seedTalk = p.st ?? 'on';
+    STATE.seedTalk = p.st ?? 'lead';
     STATE.roomFilm = p.rf ?? 'on';
     STATE.musicUnderVoice = p.mv ?? 55;
     STATE.voiceVol = p.vv ?? 100;
@@ -745,6 +745,7 @@ function restore() {
     if (STATE.outLabel &&
         ['first two out', 'first four out'].includes(STATE.outLabel.toLowerCase()))
       STATE.outLabel = '';
+    if (STATE.seedTalk === 'on') STATE.seedTalk = 'lead';   // was build-up + reaction
     if (!Array.isArray(STATE.seeds) || STATE.seeds.length !== 12)
       STATE.seeds = Array(12).fill(null);
   } catch (e) {}
