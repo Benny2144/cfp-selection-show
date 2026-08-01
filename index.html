@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="theme-color" content="#07080b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>CFP Selection Show — Dynasty Committee</title>
+<meta name="description" content="Run a broadcast-style College Football Playoff selection show for your online dynasty. Set the 12-team field, hit play, reveal it like TV.">
+<meta property="og:title" content="CFP Selection Show">
+<meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23F56A00'/><text x='16' y='24' font-size='20' font-family='Impact' text-anchor='middle' fill='%23000'>C</text></svg>">
+<link rel="stylesheet" href="css/broadcast.css">
+</head>
+<body>
+
+<!-- =====================================================================
+     SCREEN 0 — HOME
+     ================================================================== -->
+<section id="home" class="screen active">
+  <div class="carbon"></div>
+  <div class="trophy breathe"></div>
+  <div class="grid-floor home-floor"></div>
+  <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
+  <div class="vignette"></div>
+
+  <nav class="site-nav">
+    <div class="mark">CFP</div>
+    <span class="nm">Selection Show</span>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="navHowTo">How it works</button>
+  </nav>
+
+  <div class="hero">
+    <div class="kicker anim-in-up">For your online dynasty</div>
+    <h1 class="anim-in-up d1">COLLEGE FOOTBALL<br>PLAYOFF</h1>
+    <div class="rule anim-in-up d1"></div>
+    <h2 class="anim-in-up d2">SELECTION SHOW</h2>
+    <p class="anim-in-up d3">
+      Set the twelve. Nobody sees it but you. Then hit play and reveal the whole
+      bracket like it's live on air.
+    </p>
+    <div class="hero-cta anim-in-up d3">
+      <button class="btn primary big" id="goCommish">Build the field &#9654;</button>
+      <button class="btn big" id="goWatch">I have a link</button>
+    </div>
+    <div class="hero-note anim-in-up d3" id="resumeNote"></div>
+  </div>
+
+  <div class="feature-strip">
+    <div><b>136 teams</b><span>Every FBS program, colors and all</span></div>
+    <div><b>Cold open</b><span>Hype package before the first pick</span></div>
+    <div><b>Zero spoilers</b><span>Nothing leaks until you reveal it</span></div>
+    <div><b>One link</b><span>Send the whole bracket to the league</span></div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     SCREEN 1 — COMMITTEE ROOM (commissioner only)
+     ================================================================== -->
+<section id="room" class="screen">
+  <div class="carbon"></div>
+
+  <header class="room-head">
+    <div class="mark" id="roomHome" title="Home">CFP</div>
+    <div>
+      <h1>SELECTION COMMITTEE</h1>
+      <div class="sub">Commissioner control &mdash; not shared until you say so</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="btnLogos">Logos <span id="logoCount"></span></button>
+    <button class="btn ghost" id="btnLeague">League Setup</button>
+    <button class="btn ghost" id="btnAddTeam">+ Custom Team</button>
+    <button class="btn ghost" id="btnClear">Clear Board</button>
+  </header>
+
+  <div class="room-tabs" id="roomTabs">
+    <button data-tab="pool" class="on">Teams</button>
+    <button data-tab="board">The Field <span id="tabCount"></span></button>
+  </div>
+
+  <div class="room-body" id="roomBody" data-tab="pool">
+    <div class="pool">
+      <div class="pool-bar">
+        <input type="text" id="search" placeholder="Search school, mascot or abbreviation&hellip;" autocomplete="off">
+        <select id="confFilter"><option value="">All Conferences</option></select>
+        <span class="count" id="poolCount"></span>
+      </div>
+      <div class="pool-grid" id="poolGrid"></div>
+    </div>
+
+    <div class="board">
+      <div class="board-head">
+        <h2>THE FIELD</h2>
+        <span class="hint">click a team to seed &middot; drag rows to reorder</span>
+      </div>
+      <div class="seed-list" id="seedList"></div>
+
+      <div class="board-foot">
+        <div class="setting">
+          <label>Reveal order</label>
+          <select id="optOrder">
+            <option value="asc">No. 1 &rarr; No. 12</option>
+            <option value="desc">No. 12 &rarr; No. 1 (countdown)</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Pace</label>
+          <select id="optPace">
+            <option value="manual">Manual &mdash; I advance each pick</option>
+            <option value="7000">Auto &mdash; 7s per team</option>
+            <option value="10000" selected>Auto &mdash; 10s per team</option>
+            <option value="14000">Auto &mdash; 14s per team</option>
+            <option value="20000">Auto &mdash; 20s per team</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Cold open</label>
+          <select id="optCold">
+            <option value="full">Full &mdash; play the intro audio</option>
+            <option value="short">Short &mdash; title card only</option>
+            <option value="off">Off &mdash; straight to the picks</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Effects</label>
+          <select id="optFx">
+            <option value="max">Maximum</option>
+            <option value="normal">Normal</option>
+            <option value="calm">Calm &mdash; no shake or flash</option>
+          </select>
+        </div>
+        <div class="setting">
+          <label>Music</label>
+          <input type="range" id="optVol" min="0" max="100" value="55">
+          <span class="count" id="volLbl">55%</span>
+        </div>
+        <div class="go-row">
+          <button class="btn" id="btnShare">Copy Share Link</button>
+          <button class="btn" id="btnBracket">Bracket</button>
+          <button class="btn primary" id="btnGo">Go To Show &#9654;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     SCREEN 2 — THE SHOW
+     ================================================================== -->
+<section id="show" class="screen">
+  <div class="stage" id="stage">
+    <div class="carbon"></div>
+    <div class="trophy dim breathe" id="showTrophy"></div>
+    <div class="grid-floor" id="floor"></div>
+    <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
+    <div class="glow" id="teamGlow"></div>
+    <div class="scan"></div>
+    <div class="flare" id="flare"></div>
+    <div class="vignette" id="vig"></div>
+  </div>
+
+  <!-- corner HUD framing -->
+  <div class="hud"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
+
+  <!-- cold open -->
+  <div class="cold" id="cold">
+    <div class="cold-mark" id="coldMark"><span>CFP</span></div>
+    <div class="cold-slate" id="coldSlate">
+      <div class="cs-kick" id="csKick"></div>
+      <div class="cs-big"  id="csBig"></div>
+      <div class="cs-rule"></div>
+      <div class="cs-small" id="csSmall"></div>
+    </div>
+    <div class="cold-grid" id="coldGrid"></div>
+    <div class="cold-count" id="coldCount"></div>
+  </div>
+
+  <!-- reveal -->
+  <div class="reveal" id="revealLayer">
+    <div class="seed-numeral" id="bigNum">1</div>
+    <div class="seed-chip" id="seedChip">NO. 1 SEED</div>
+    <div class="banner-stage" id="bannerStage"></div>
+    <div class="info" id="teamInfo"></div>
+  </div>
+
+  <!-- effect layers -->
+  <div class="wipe" id="wipe"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="flashfill" id="flash"></div>
+  <div class="glitch" id="glitch"></div>
+  <canvas id="fx"></canvas>
+
+  <aside class="rail" id="rail"><h3>THE BRACKET</h3><div id="railRows"></div></aside>
+
+  <div class="lower" id="lower">
+    <div class="l3">
+      <div class="cap" id="l3cap">1</div>
+      <div class="body">
+        <div class="t1" id="l3t1">&nbsp;</div>
+        <div class="t2" id="l3t2">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div class="badge" id="tkBadge">CFP</div>
+    <div class="track"><div class="run" id="tkRun"></div></div>
+    <div class="clock" id="tkClock">LIVE</div>
+  </div>
+
+  <div class="ctl" id="ctl">
+    <button id="cPrev">&#9664; Prev</button>
+    <button id="cPlay" class="go">Pause</button>
+    <button id="cNext">Next &#9654;</button>
+    <span class="sep"></span>
+    <button id="cSkip">Skip Intro</button>
+    <button id="cRestart">Restart</button>
+    <button id="cBracket">Bracket</button>
+    <button id="cFull">Fullscreen</button>
+    <button id="cRoom">Exit</button>
+  </div>
+
+  <div class="gate" id="gate">
+    <div class="trophy breathe"></div>
+    <div class="kick" id="gateKick">The field is set</div>
+    <h1 id="gateTitle">College Football Playoff<br>Selection Show</h1>
+    <p id="gateSub">12 teams &middot; press play when everyone is watching</p>
+    <button class="playbtn" id="btnPlay" aria-label="Play the show">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <label class="rec-opt" id="recOpt">
+      <input type="checkbox" id="optRecord">
+      <span>Record this show to a video file</span>
+    </label>
+    <p class="rec-why" id="recWhy"></p>
+    <p class="gate-keys">
+      SPACE = next &middot; &larr; &rarr; = step &middot; S = skip intro &middot; F = fullscreen &middot; ESC = exit
+    </p>
+  </div>
+
+  <!-- recording indicator -->
+  <div class="reclamp" id="recLamp"><i></i>REC</div>
+
+  <!-- tap zones for phones -->
+  <button class="tapzone left"  id="tapPrev" aria-label="Previous"></button>
+  <button class="tapzone right" id="tapNext" aria-label="Next"></button>
+</section>
+
+<!-- =====================================================================
+     SCREEN 3 — FINAL BRACKET
+     ================================================================== -->
+<section id="final" class="screen">
+  <div class="bracket-wrap" id="bracketWrap">
+    <div class="bracket" id="bracket"></div>
+  </div>
+  <div class="field-list" id="fieldList"></div>
+  <div class="final-actions">
+    <button class="btn" id="fView">Full Bracket</button>
+    <button class="btn" id="fRoom">Committee Room</button>
+    <button class="btn" id="fShow">Replay Show</button>
+    <button class="btn" id="fVideo" hidden>Save Video</button>
+    <button class="btn primary" id="fShare">Copy Share Link</button>
+  </div>
+</section>
+
+<!-- ======================= modals ======================= -->
+<div class="modal" id="mTeam">
+  <div class="card">
+    <h3 id="mTeamTitle">EDIT TEAM</h3>
+    <div class="preview" id="mTeamPreview"></div>
+    <div class="field"><label>School</label><input type="text" id="fSchool"></div>
+    <div class="field"><label>Mascot</label><input type="text" id="fMascot"></div>
+    <div class="field"><label>Abbrev.</label><input type="text" id="fAbbr" maxlength="6"></div>
+    <div class="field"><label>Conference</label><input type="text" id="fConf"></div>
+    <div class="field"><label>Primary</label><input type="color" id="fPrim"><input type="text" id="fPrimHex"></div>
+    <div class="field"><label>Secondary</label><input type="color" id="fSec"><input type="text" id="fSecHex"></div>
+    <div class="drop" id="logoDrop">Drop a logo image here &mdash; or click to browse</div>
+    <input type="file" id="logoFile" accept="image/*" hidden>
+    <p class="note">Logos are stored on this computer only. You can also bulk-load them by
+      dropping files named <b>&lt;team-id&gt;.png</b> into the <b>logos/</b> folder next to
+      index.html &mdash; the app finds those automatically.</p>
+    <div class="row">
+      <button class="btn ghost" id="mTeamLogoClear">Remove Logo</button>
+      <button class="btn ghost" id="mTeamCancel">Cancel</button>
+      <button class="btn primary" id="mTeamSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mLeague">
+  <div class="card">
+    <h3>LEAGUE SETUP</h3>
+    <div class="field"><label>League name</label><input type="text" id="fLeague" placeholder="Sunday Night Dynasty"></div>
+    <div class="field"><label>Season</label><input type="text" id="fSeason" placeholder="2027"></div>
+    <div class="field"><label>Show title</label><input type="text" id="fTitle" placeholder="College Football Playoff"></div>
+    <div class="field"><label>Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
+    <div class="field"><label>Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
+    <p class="note">Two audio files drive the show: the spoken intro during the cold open,
+      then the music bed under the picks. Swap them by replacing the mp3s in this folder
+      and updating INTRO_FILE / MUSIC_FILE at the top of <b>js/show.js</b>.</p>
+    <div class="row">
+      <button class="btn ghost" id="mLeagueCancel">Cancel</button>
+      <button class="btn primary" id="mLeagueSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mHow">
+  <div class="card">
+    <h3>HOW IT WORKS</h3>
+    <ol class="howto">
+      <li><b>Build the field.</b> Click teams to fill seeds 1 through 12, drag to
+          reorder, type in records. Only you see it.</li>
+      <li><b>Set the show.</b> Reveal order, pace, cold open, effects, music.</li>
+      <li><b>Go live.</b> Get the league on a stream, go fullscreen, hit play. The
+          intro package rolls, then the picks drop one at a time.</li>
+      <li><b>Send the bracket.</b> Copy Share Link puts the whole field in a URL
+          &mdash; whoever opens it lands on the play button with your bracket loaded.</li>
+    </ol>
+    <p class="note">Nothing about your field &mdash; not even the ticker &mdash; shows up
+      on screen before you reveal it.</p>
+    <div class="row"><button class="btn primary" id="mHowClose">Got it</button></div>
+  </div>
+</div>
+
+<div class="modal" id="mLogos">
+  <div class="card">
+    <h3>TEAM LOGOS</h3>
+    <p class="note" style="margin-bottom:12px">
+      Drop in a whole folder of logo images at once. Filenames are matched to teams
+      automatically &mdash; <b>Ohio_State_logo.png</b>, <b>ohiostate.png</b> and
+      <b>Ohio State Buckeyes.svg</b> all land on the same team.
+    </p>
+    <div class="drop big" id="bulkDrop">
+      Drop logo files or a folder here &mdash; or click to browse
+    </div>
+    <input type="file" id="bulkFiles" accept="image/*" multiple hidden>
+    <div class="bar"><i id="bulkBar"></i></div>
+    <div class="note" id="bulkStatus">No logos imported yet.</div>
+    <div class="field" style="margin-top:16px">
+      <label>Logo URL</label>
+      <input type="text" id="fLogoPattern" placeholder="https://your-host.com/logos/{id}.png">
+    </div>
+    <p class="note">Optional. If you host logos somewhere, put the address here with
+      <b>{id}</b> where the team id goes &mdash; any team without an imported file will
+      pull from there. Team ids are the first column in <b>js/teams.js</b>.</p>
+    <div class="row">
+      <button class="btn ghost" id="bulkClear">Remove All</button>
+      <button class="btn ghost" id="mLogosCancel">Close</button>
+      <button class="btn primary" id="mLogosSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mLink">
+  <div class="card">
+    <h3>OPEN A SHARED BRACKET</h3>
+    <p class="note" style="margin-bottom:12px">Paste the link your commissioner sent you.</p>
+    <div class="field"><label>Link</label><input type="text" id="fLink" placeholder="https://&hellip;#show=&hellip;"></div>
+    <div class="row">
+      <button class="btn ghost" id="mLinkCancel">Cancel</button>
+      <button class="btn primary" id="mLinkGo">Load it</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<audio id="intro" preload="auto"></audio>
+<audio id="music" preload="auto" loop></audio>
+
+<script src="js/teams.js"></script>
+<script src="js/logos.js"></script>
+<script src="js/recorder.js"></script>
+<script src="js/app.js"></script>
+<script src="js/show.js"></script>
+</body>
+</html>

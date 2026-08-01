@@ -1,0 +1,13 @@
+# Source media — too big to publish, and docs/ already holds trimmed copies
+2025 ESPN College Football Playoff Rankings Show _ Background Music.mp3
+intro for very first of video before thje picks happen.mp3
+*.avif
+
+# Local tooling
+.claude/
+site/
+
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store
