@@ -16,12 +16,22 @@ const Recorder = (() => {
     !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia &&
        window.MediaRecorder && window.isSecureContext);
 
+  const onPhone = () =>
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+
   function reason() {
     if (!window.isSecureContext)
       return 'Recording needs the site to be on https:// or localhost — ' +
              'it can\'t run from a file on disk.';
-    if (!navigator.mediaDevices?.getDisplayMedia || !window.MediaRecorder)
+    if (!navigator.mediaDevices?.getDisplayMedia || !window.MediaRecorder) {
+      if (onPhone())
+        return 'Phones can\'t record a browser tab. Use your phone\'s own screen ' +
+               'recorder — iPhone: swipe down and tap the record button. ' +
+               'Android: swipe down and tap Screen record. It saves straight to ' +
+               'your camera roll.';
       return 'This browser can\'t record. Chrome, Edge or Firefox on a computer can.';
+    }
     return '';
   }
 
@@ -109,7 +119,34 @@ const Recorder = (() => {
     return true;
   }
 
+  /* ---------------------------------------------------------- to a phone */
+  function file() {
+    if (!blob) return null;
+    try { return new File([blob], filename(), { type: blob.type }); }
+    catch (e) { return null; }
+  }
+
+  /** Can the OS share sheet take this video? (AirDrop, Messages, Photos…) */
+  function canShare() {
+    const f = file();
+    return !!(f && navigator.canShare && navigator.canShare({ files: [f] }));
+  }
+
+  /** Hand the video to the OS share sheet — the way to get it onto a phone. */
+  async function share() {
+    const f = file();
+    if (!f) throw new Error('Nothing recorded yet');
+    if (!navigator.share) throw new Error('no-share');
+    await navigator.share({
+      files: [f],
+      title: 'Selection Show',
+      text: 'Our playoff selection show'
+    });
+    return true;
+  }
+
   return { supported, reason, start, stop, discard, info, download, filename,
+           file, canShare, share,
            get active() { return active; },
            get ready()  { return !!blob; } };
 })();

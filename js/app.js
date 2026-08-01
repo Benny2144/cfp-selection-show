@@ -652,13 +652,25 @@ async function boot() {
     if (!Recorder.download()) toast('No recording to save');
     else toast('Saving ' + Recorder.filename());
   };
+  /* On a phone the OS share sheet is how a video gets into Photos or sent
+     on; on a desktop it hands off to AirDrop / Nearby Share / Messages. */
+  $('#fVideoShare').onclick = async () => {
+    try {
+      await Recorder.share();
+    } catch (e) {
+      if (/abort/i.test(e.name || '')) return;          // they closed the sheet
+      Recorder.download();
+      toast('Shared it to your downloads instead');
+    }
+  };
 
   /* ---------- recording ---------- */
   const recOpt = $('#optRecord');
   if (Recorder.supported()) {
     $('#recWhy').textContent =
       'You\'ll be asked to pick a window — choose this tab and tick "share tab audio". ' +
-      'The file downloads when the show ends.';
+      'When the show ends the file downloads, and a "Send To Phone" button appears ' +
+      'on the bracket screen to drop it straight onto your phone.';
   } else {
     recOpt.disabled = true;
     $('#recOpt').style.opacity = '.4';

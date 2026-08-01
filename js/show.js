@@ -575,8 +575,13 @@ const Show = (() => {
     const btn = document.getElementById('fVideo');
     btn.hidden = false;
     btn.textContent = `Save Video (${Math.round(info.size / 1e6)} MB)`;
+
+    const share = document.getElementById('fVideoShare');
+    share.hidden = !Recorder.canShare();
+
     Recorder.download();
-    toast('Video saved to your downloads');
+    toast(share.hidden ? 'Video saved to your downloads'
+                       : 'Video saved — "Send To Phone" to share it');
   }
 
   function begin() {

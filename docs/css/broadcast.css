@@ -16,6 +16,14 @@
   --cond:'Impact','Haettenschweiler','Franklin Gothic Bold','Arial Narrow',
          'Oswald','Anton',sans-serif;
   --ui:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
+
+  /* Bottom furniture. A phone's browser toolbar sits over the bottom of a
+     fixed element, so everything anchored down there is measured off the
+     ticker height plus the device's safe area. */
+  --ticker-h:52px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --bottom-rail:calc(var(--ticker-h) + var(--safe-b));
+  --above-ticker:calc(var(--bottom-rail) + 22px);
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -24,6 +32,10 @@ body{
   background:var(--ink);color:var(--txt);font-family:var(--ui);
   overflow:hidden;-webkit-font-smoothing:antialiased;
 }
+
+/* 100dvh tracks the visible area as mobile browser chrome slides away;
+   the fixed inset:0 fallback covers browsers without it. */
+.screen{height:100dvh}
 button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
 input,select{font-family:inherit}
 ::selection{background:var(--accent);color:#000}
@@ -319,8 +331,8 @@ input,select{font-family:inherit}
 .hud i{position:absolute;width:46px;height:46px;border:2px solid rgba(245,106,0,.55)}
 .hud .tl{top:18px;left:18px;border-right:0;border-bottom:0}
 .hud .tr{top:18px;right:18px;border-left:0;border-bottom:0}
-.hud .bl{bottom:82px;left:18px;border-right:0;border-top:0}
-.hud .br{bottom:82px;right:18px;border-left:0;border-top:0}
+.hud .bl{bottom:calc(var(--bottom-rail) + 30px);left:18px;border-right:0;border-top:0}
+.hud .br{bottom:calc(var(--bottom-rail) + 30px);right:18px;border-left:0;border-top:0}
 
 /* =====================  COLD OPEN  ================================== */
 .cold{position:absolute;inset:0;z-index:6;display:none;
@@ -496,7 +508,7 @@ input,select{font-family:inherit}
 
 /* ---- live bracket rail ---- */
 .rail{
-  position:absolute;top:0;right:0;bottom:74px;width:274px;z-index:11;
+  position:absolute;top:0;right:0;bottom:var(--above-ticker);width:274px;z-index:11;
   padding:70px 14px 16px;overflow:hidden;
   background:linear-gradient(270deg,rgba(5,6,9,.92),rgba(5,6,9,0));
   transition:opacity .4s;
@@ -521,7 +533,7 @@ input,select{font-family:inherit}
   100%{transform:none;opacity:1}}
 
 /* ---- lower third + ticker ---- */
-.lower{position:absolute;left:0;right:0;bottom:74px;z-index:11;padding:0 26px;
+.lower{position:absolute;left:0;right:0;bottom:var(--above-ticker);z-index:11;padding:0 26px;
   display:flex;align-items:flex-end;pointer-events:none}
 .lower .l3{display:flex;align-items:stretch;transform:translateY(120%);opacity:0;
   transition:.5s cubic-bezier(.16,1,.3,1);box-shadow:var(--shadow)}
@@ -535,7 +547,8 @@ input,select{font-family:inherit}
   text-transform:uppercase;margin-top:2px}
 
 .ticker{
-  position:absolute;left:0;right:0;bottom:0;height:52px;z-index:12;
+  position:absolute;left:0;right:0;bottom:0;z-index:12;
+  height:var(--bottom-rail);padding-bottom:var(--safe-b);
   background:linear-gradient(180deg,#0d1016,#05070a);
   border-top:2px solid var(--accent);display:flex;align-items:center;overflow:hidden;
 }
@@ -698,7 +711,7 @@ body.calm .scan{display:none}
 @keyframes recblink{0%,100%{opacity:1}50%{opacity:.15}}
 
 /* tap zones — phones only */
-.tapzone{position:absolute;top:0;bottom:52px;width:32%;z-index:19;display:none;
+.tapzone{position:absolute;top:0;bottom:var(--bottom-rail);width:32%;z-index:19;display:none;
   background:transparent;-webkit-tap-highlight-color:transparent}
 .tapzone.left{left:0}
 .tapzone.right{right:0;width:68%}
@@ -747,13 +760,14 @@ body.calm .scan{display:none}
   .rail{display:none}
   .feature-strip{grid-template-columns:repeat(2,1fr)}
   .cold-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .lower{bottom:56px;padding:0 14px}
+  .lower{bottom:calc(var(--bottom-rail) + 16px);padding:0 14px}
   .hud i{width:30px;height:30px}
-  .hud .bl,.hud .br{bottom:64px}
+  .hud .bl,.hud .br{bottom:calc(var(--bottom-rail) + 16px)}
 }
 
 /* ------------------------------- phones ------------------------------ */
 @media (max-width:720px){
+  :root{--ticker-h:44px}
   .site-nav{padding:12px 14px;gap:9px}
   .site-nav .nm{display:none}
   .hero{padding:0 18px}
@@ -810,15 +824,22 @@ body.calm .scan{display:none}
 
   /* the show */
   .tapzone{display:block}
-  .ctl{top:auto;bottom:60px;flex-wrap:wrap;justify-content:center;
-    max-width:94vw;gap:5px}
-  .ctl button{padding:9px 10px;font-size:10px;letter-spacing:1px}
+  /* one compact strip that scrolls sideways, instead of three stacked rows
+     piling up on top of the lower third */
+  /* sits above the lower third, which is itself above the ticker */
+  .ctl{
+    top:auto;bottom:calc(var(--bottom-rail) + 78px);left:8px;right:8px;
+    transform:none;max-width:none;flex-wrap:nowrap;overflow-x:auto;
+    justify-content:flex-start;gap:5px;scrollbar-width:none;
+  }
+  .ctl::-webkit-scrollbar{display:none}
+  .ctl button{padding:10px 11px;font-size:10px;letter-spacing:1px;flex:none}
+  .ctl .sep{flex:none}
   .hud{display:none}
-  .ticker{height:44px}
   .ticker .badge{padding:0 12px;font-size:16px}
   .ticker .track .run{font-size:11.5px;letter-spacing:1.8px}
   .clock{display:none}
-  .lower{bottom:48px;padding:0 10px}
+  .lower{bottom:calc(var(--bottom-rail) + 14px);padding:0 10px}
   .lower .l3 .cap{padding:0 11px;font-size:16px}
   .lower .l3 .body{padding:7px 12px}
   .lower .l3 .body .t1{font-size:16px}
@@ -864,9 +885,9 @@ body.calm .scan{display:none}
 @media (max-height:520px) and (orientation:landscape){
   .reveal .banner-stage .banner{height:min(24vh,110px)}
   .reveal .info div{padding:5px 10px;font-size:9.5px}
-  .ticker{height:38px}
+  :root{--ticker-h:38px}
   .lower{display:none}
-  .ctl{bottom:44px}
+  .ctl{bottom:calc(var(--bottom-rail) + 6px)}
 }
 
 @media (hover:none){
