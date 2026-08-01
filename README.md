@@ -11,29 +11,46 @@ Works on phones. Records the whole show to a video file.
 
 ## Put it online
 
-**Step 1 — build the upload folder.** This strips the 80 MB source audio and the
-originals, leaving about 16 MB:
+The repo is already initialized and committed, and `docs/` holds the built site
+(15.8 MB — the 80 MB source audio and the .avif originals are gitignored).
+
+### GitHub Pages
+
+Log in once, in your own terminal — this opens a browser and I deliberately stay
+out of it:
+
+```bash
+gh auth login
+```
+
+Then publish:
+
+```bash
+gh repo create cfp-selection-show --public --source=. --push
+```
+
+Turn Pages on:
+
+```bash
+gh api -X POST repos/{owner}/cfp-selection-show/pages -f "source[branch]=main" -f "source[path]=/docs"
+```
+
+Your URL is `https://<your-username>.github.io/cfp-selection-show/`. It takes a
+minute or two to go live the first time.
+
+To push changes later:
 
 ```bash
 python tools/make_site.py
+git add -A && git commit -m "update" && git push
 ```
 
-That creates a `site/` folder.
+### Netlify instead
 
-**Step 2 — drag `site` onto <https://app.netlify.com/drop>.**
+Drag the `docs` folder onto <https://app.netlify.com/drop>. Live URL in about a
+minute, no repo needed.
 
-You get a live URL in under a minute. Netlify will ask you to sign in (free) if
-you want to keep the site and give it a nicer name. That's the whole deploy — I
-can't do this part for you because it needs your account.
-
-Other hosts work exactly the same way, since this is plain static files:
-
-- **GitHub Pages** — push `site/` to a repo, Settings → Pages → deploy from
-  branch, root. `.nojekyll` is already in there.
-- **Cloudflare Pages / Vercel / Render** — point them at the folder, no build
-  command.
-
-**Testing locally first:**
+### Testing locally
 
 ```bash
 python -m http.server 8777
@@ -220,6 +237,6 @@ js/show.js              cold open, reveal engine, audio, effects
 assets/                 trophy background plates
 logos/                  drop logo files here
 tools/trim_music.py     shrink the audio without re-encoding
-tools/make_site.py      build the upload folder
-site/                   the built folder — this is what you upload
+tools/make_site.py      build the publish folder
+docs/                   the built site — this is what gets served
 ```
