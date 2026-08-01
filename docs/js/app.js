@@ -53,7 +53,10 @@ function bannerEl(id, opts = {}) {
   el.dataset.team = id;
 
   const tag = document.createElement('div');
-  tag.className = 'tag';
+  /* Long abbreviations (VANDY, UMASS) overrun the black panel at the size
+     that suits a three-letter one, so the type steps down with length. */
+  const abbrLen = String(t.abbr).replace(/[^A-Za-z0-9&]/g, '').length;
+  tag.className = 'tag tag-' + Math.min(5, Math.max(2, abbrLen));
   tag.textContent = t.abbr;
 
   const crest = document.createElement('div');

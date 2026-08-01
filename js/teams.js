@@ -5,152 +5,152 @@
    ============================================================ */
 
 const TEAM_RAW = `
-alabama|Alabama|Crimson Tide|ALA|SEC|#9E1B32|#FFFFFF
-arkansas|Arkansas|Razorbacks|ARK|SEC|#9D2235|#FFFFFF
-auburn|Auburn|Tigers|AUB|SEC|#0C2340|#E87722
-florida|Florida|Gators|UF|SEC|#0021A5|#FA4616
-georgia|Georgia|Bulldogs|UGA|SEC|#BA0C2F|#000000
-kentucky|Kentucky|Wildcats|UK|SEC|#0033A0|#FFFFFF
-lsu|LSU|Tigers|LSU|SEC|#461D7C|#FDD023
-olemiss|Ole Miss|Rebels|MISS|SEC|#14213D|#CE1126
-missstate|Mississippi State|Bulldogs|MSST|SEC|#660000|#FFFFFF
-missouri|Missouri|Tigers|MIZ|SEC|#F1B82D|#000000
-oklahoma|Oklahoma|Sooners|OU|SEC|#841617|#FDF9F7
-southcarolina|South Carolina|Gamecocks|SC|SEC|#73000A|#000000
-tennessee|Tennessee|Volunteers|TENN|SEC|#FF8200|#FFFFFF
-texas|Texas|Longhorns|TEX|SEC|#BF5700|#FFFFFF
+alabama|Alabama|Crimson Tide|ALA|SEC|#A8042D|#FFFFFF
+arkansas|Arkansas|Razorbacks|ARK|SEC|#A51E37|#FFFFFF
+auburn|Auburn|Tigers|AUB|SEC|#001F4C|#FF6402
+florida|Florida|Gators|UF|SEC|#002D88|#FB440F
+georgia|Georgia|Bulldogs|UGA|SEC|#D80100|#FFFFFF
+kentucky|Kentucky|Wildcats|UK|SEC|#002FA2|#FFFFFF
+lsu|LSU|Tigers|LSU|SEC|#4E2784|#FFC324
+olemiss|Ole Miss|Rebels|MISS|SEC|#13213C|#CC1130
+missstate|Mississippi State|Bulldogs|MSST|SEC|#5D1020|#FFFFFF
+missouri|Missouri|Tigers|MIZ|SEC|#F1BA29|#000000
+oklahoma|Oklahoma|Sooners|OU|SEC|#890002|#FFFFFF
+southcarolina|South Carolina|Gamecocks|SC|SEC|#76000C|#21201E
+tennessee|Tennessee|Volunteers|TENN|SEC|#F77E02|#FFFFFF
+texas|Texas|Longhorns|TEX|SEC|#B44E2D|#FFFFFF
 texasam|Texas A&M|Aggies|A&M|SEC|#500000|#FFFFFF
-vanderbilt|Vanderbilt|Commodores|VANDY|SEC|#866D4B|#000000
+vanderbilt|Vanderbilt|Commodores|VANDY|SEC|#D0BA89|#000000
 
-illinois|Illinois|Fighting Illini|ILL|Big Ten|#13294B|#E84A27
-indiana|Indiana|Hoosiers|IND|Big Ten|#990000|#FFFFFF
-iowa|Iowa|Hawkeyes|IOWA|Big Ten|#000000|#FFCD00
-maryland|Maryland|Terrapins|MD|Big Ten|#E03A3E|#FFD520
-michigan|Michigan|Wolverines|MICH|Big Ten|#00274C|#FFCB05
+illinois|Illinois|Fighting Illini|ILL|Big Ten|#E94B37|#14284B
+indiana|Indiana|Hoosiers|IND|Big Ten|#990100|#FFFFFF
+iowa|Iowa|Hawkeyes|IOWA|Big Ten|#F4CA16|#000000
+maryland|Maryland|Terrapins|MD|Big Ten|#E31130|#FFD300
+michigan|Michigan|Wolverines|MICH|Big Ten|#00274A|#FFCF07
 michiganstate|Michigan State|Spartans|MSU|Big Ten|#18453B|#FFFFFF
-minnesota|Minnesota|Golden Gophers|MINN|Big Ten|#7A0019|#FFCC33
-nebraska|Nebraska|Cornhuskers|NEB|Big Ten|#E41C38|#FFFFFF
-northwestern|Northwestern|Wildcats|NU|Big Ten|#4E2A84|#FFFFFF
-ohiostate|Ohio State|Buckeyes|OSU|Big Ten|#BB0000|#666666
-oregon|Oregon|Ducks|ORE|Big Ten|#154733|#FEE123
-pennstate|Penn State|Nittany Lions|PSU|Big Ten|#041E42|#FFFFFF
-purdue|Purdue|Boilermakers|PUR|Big Ten|#CEB888|#000000
-rutgers|Rutgers|Scarlet Knights|RUT|Big Ten|#CC0033|#FFFFFF
-ucla|UCLA|Bruins|UCLA|Big Ten|#2D68C4|#F2A900
-usc|USC|Trojans|USC|Big Ten|#990000|#FFC72C
-washington|Washington|Huskies|UW|Big Ten|#4B2E83|#B7A57A
-wisconsin|Wisconsin|Badgers|WIS|Big Ten|#C5050C|#FFFFFF
+minnesota|Minnesota|Golden Gophers|MINN|Big Ten|#5F102E|#FDC325
+nebraska|Nebraska|Cornhuskers|NEB|Big Ten|#DD1B36|#FFFFFF
+northwestern|Northwestern|Wildcats|NU|Big Ten|#59088F|#FFFFFF
+ohiostate|Ohio State|Buckeyes|OSU|Big Ten|#BA0000|#666666
+oregon|Oregon|Ducks|ORE|Big Ten|#004F28|#FFF000
+pennstate|Penn State|Nittany Lions|PSU|Big Ten|#002E62|#FFFFFF
+purdue|Purdue|Boilermakers|PUR|Big Ten|#B2946B|#000000
+rutgers|Rutgers|Scarlet Knights|RUT|Big Ten|#D00829|#FFFFFF
+ucla|UCLA|Bruins|UCLA|Big Ten|#007EC3|#FDB827
+usc|USC|Trojans|USC|Big Ten|#951D32|#FFC828
+washington|Washington|Huskies|UW|Big Ten|#2F0067|#E9D5A3
+wisconsin|Wisconsin|Badgers|WIS|Big Ten|#B40024|#FFFFFF
 
-arizona|Arizona|Wildcats|ARIZ|Big 12|#003366|#CC0033
-arizonastate|Arizona State|Sun Devils|ASU|Big 12|#8C1D40|#FFC627
-baylor|Baylor|Bears|BAY|Big 12|#154734|#FFB81C
-byu|BYU|Cougars|BYU|Big 12|#002E5D|#FFFFFF
-cincinnati|Cincinnati|Bearcats|CIN|Big 12|#E00122|#000000
-colorado|Colorado|Buffaloes|COLO|Big 12|#CFB87C|#000000
+arizona|Arizona|Wildcats|ARIZ|Big 12|#001B5C|#C2002C
+arizonastate|Arizona State|Sun Devils|ASU|Big 12|#7A0C2F|#FFC422
+baylor|Baylor|Bears|BAY|Big 12|#004834|#FEBB30
+byu|BYU|Cougars|BYU|Big 12|#001C54|#003EB1
+cincinnati|Cincinnati|Bearcats|CIN|Big 12|#E2001D|#000000
+colorado|Colorado|Buffaloes|COLO|Big 12|#D0B87D|#000000
 houston|Houston|Cougars|HOU|Big 12|#C8102E|#FFFFFF
-iowastate|Iowa State|Cyclones|ISU|Big 12|#C8102E|#F1BE48
-kansas|Kansas|Jayhawks|KU|Big 12|#0051BA|#E8000D
+iowastate|Iowa State|Cyclones|ISU|Big 12|#960023|#F9AE0D
+kansas|Kansas|Jayhawks|KU|Big 12|#0051BC|#E90004
 kansasstate|Kansas State|Wildcats|KSU|Big 12|#512888|#FFFFFF
-oklahomastate|Oklahoma State|Cowboys|OKST|Big 12|#FF7300|#000000
-tcu|TCU|Horned Frogs|TCU|Big 12|#4D1979|#FFFFFF
-texastech|Texas Tech|Red Raiders|TTU|Big 12|#CC0000|#000000
-ucf|UCF|Knights|UCF|Big 12|#000000|#BA9B37
-utah|Utah|Utes|UTAH|Big 12|#CC0000|#FFFFFF
-westvirginia|West Virginia|Mountaineers|WVU|Big 12|#002855|#EAAA00
+oklahomastate|Oklahoma State|Cowboys|OKST|Big 12|#FF5C00|#000000
+tcu|TCU|Horned Frogs|TCU|Big 12|#4F2683|#E6E7E8
+texastech|Texas Tech|Red Raiders|TTU|Big 12|#CD0000|#000000
+ucf|UCF|Knights|UCF|Big 12|#B9A569|#000000
+utah|Utah|Utes|UTAH|Big 12|#CD0000|#FFFFFF
+westvirginia|West Virginia|Mountaineers|WVU|Big 12|#012753|#E8AD1C
 
-bostoncollege|Boston College|Eagles|BC|ACC|#98002E|#BC9B6A
-california|California|Golden Bears|CAL|ACC|#003262|#FDB515
-clemson|Clemson|Tigers|CLEM|ACC|#F66733|#522D80
-duke|Duke|Blue Devils|DUKE|ACC|#003087|#FFFFFF
-floridastate|Florida State|Seminoles|FSU|ACC|#782F40|#CEB888
-georgiatech|Georgia Tech|Yellow Jackets|GT|ACC|#B3A369|#003057
-louisville|Louisville|Cardinals|LOU|ACC|#AD0000|#000000
-miami|Miami|Hurricanes|MIA|ACC|#F47321|#005030
-ncstate|NC State|Wolfpack|NCST|ACC|#CC0000|#000000
-northcarolina|North Carolina|Tar Heels|UNC|ACC|#4B9CD3|#FFFFFF
-pittsburgh|Pittsburgh|Panthers|PITT|ACC|#003594|#FFB81C
-smu|SMU|Mustangs|SMU|ACC|#354CA1|#C8102E
-stanford|Stanford|Cardinal|STAN|ACC|#8C1515|#FFFFFF
-syracuse|Syracuse|Orange|SYR|ACC|#F76900|#000E54
-virginia|Virginia|Cavaliers|UVA|ACC|#232D4B|#F84C1E
-virginiatech|Virginia Tech|Hokies|VT|ACC|#630031|#CF4420
-wakeforest|Wake Forest|Demon Deacons|WAKE|ACC|#9E7E38|#000000
+bostoncollege|Boston College|Eagles|BC|ACC|#8E1C2F|#DCCEA6
+california|California|Golden Bears|CAL|ACC|#02264A|#F5C035
+clemson|Clemson|Tigers|CLEM|ACC|#F56700|#3B1E72
+duke|Duke|Blue Devils|DUKE|ACC|#092F87|#FFFFFF
+floridastate|Florida State|Seminoles|FSU|ACC|#782F40|#CFB988
+georgiatech|Georgia Tech|Yellow Jackets|GT|ACC|#002C56|#A5805A
+louisville|Louisville|Cardinals|LOU|ACC|#CA0019|#FEBB0C
+miami|Miami|Hurricanes|MIA|ACC|#E95700|#004E2E
+ncstate|NC State|Wolfpack|NCST|ACC|#CD0000|#000000
+northcarolina|North Carolina|Tar Heels|UNC|ACC|#77A9CE|#112849
+pittsburgh|Pittsburgh|Panthers|PITT|ACC|#003295|#FFBA15
+smu|SMU|Mustangs|SMU|ACC|#E80132|#002E9F
+stanford|Stanford|Cardinal|STAN|ACC|#8D1515|#007762
+syracuse|Syracuse|Orange|SYR|ACC|#F14F23|#091F40
+virginia|Virginia|Cavaliers|UVA|ACC|#232B42|#FC5A1D
+virginiatech|Virginia Tech|Hokies|VT|ACC|#6E2A3D|#D74B29
+wakeforest|Wake Forest|Demon Deacons|WAKE|ACC|#D0BA89|#000000
 
-oregonstate|Oregon State|Beavers|ORST|Pac-12|#DC4405|#000000
-washingtonstate|Washington State|Cougars|WSU|Pac-12|#981E32|#5E6A71
+oregonstate|Oregon State|Beavers|ORST|Pac-12|#DD4200|#000000
+washingtonstate|Washington State|Cougars|WSU|Pac-12|#991E32|#FFFFFF
 
-notredame|Notre Dame|Fighting Irish|ND|Independent|#0C2340|#C99700
-uconn|UConn|Huskies|CONN|Independent|#000E2F|#FFFFFF
+notredame|Notre Dame|Fighting Irish|ND|Independent|#011142|#9D8839
+uconn|UConn|Huskies|CONN|Independent|#0B2240|#EB092A
 
-army|Army|Black Knights|ARMY|American|#000000|#D4BF91
-charlotte|Charlotte|49ers|CLT|American|#046A38|#B9975B
-eastcarolina|East Carolina|Pirates|ECU|American|#592A8A|#FDC82F
-fau|Florida Atlantic|Owls|FAU|American|#003366|#CC0000
-memphis|Memphis|Tigers|MEM|American|#003087|#898D8D
-navy|Navy|Midshipmen|NAVY|American|#00205B|#C5B783
+army|Army|Black Knights|ARMY|American|#D8BA8A|#18191D
+charlotte|Charlotte|49ers|CLT|American|#006A3E|#9C8847
+eastcarolina|East Carolina|Pirates|ECU|American|#582884|#FFD80E
+fau|Florida Atlantic|Owls|FAU|American|#CD0000|#002F67
+memphis|Memphis|Tigers|MEM|American|#074389|#9FA1A2
+navy|Navy|Midshipmen|NAVY|American|#002058|#D2C38D
 northtexas|North Texas|Mean Green|UNT|American|#00853E|#FFFFFF
-rice|Rice|Owls|RICE|American|#00205B|#FFFFFF
-southflorida|South Florida|Bulls|USF|American|#006747|#CFC493
-temple|Temple|Owls|TEM|American|#9D2235|#FFFFFF
-tulane|Tulane|Green Wave|TULN|American|#006747|#418FDE
-tulsa|Tulsa|Golden Hurricane|TLSA|American|#002D72|#C8102E
-uab|UAB|Blazers|UAB|American|#1E6B52|#F4C300
-utsa|UTSA|Roadrunners|UTSA|American|#0C2340|#F15A22
+rice|Rice|Owls|RICE|American|#091C5B|#FFFFFF
+southflorida|South Florida|Bulls|USF|American|#00392A|#C3B163
+temple|Temple|Owls|TEM|American|#940031|#FFFFFF
+tulane|Tulane|Green Wave|TULN|American|#005834|#01A5D8
+tulsa|Tulsa|Golden Hurricane|TLSA|American|#002F67|#A59C68
+uab|UAB|Blazers|UAB|American|#007149|#D91D40
+utsa|UTSA|Roadrunners|UTSA|American|#002344|#E46B2B
 
 delaware|Delaware|Blue Hens|DEL|C-USA|#00539F|#FFD200
-fiu|Florida International|Panthers|FIU|C-USA|#081E3F|#B6862C
+fiu|Florida International|Panthers|FIU|C-USA|#081E3F|#B6862D
 jacksonvillestate|Jacksonville State|Gamecocks|JVST|C-USA|#CC0000|#FFFFFF
 kennesawstate|Kennesaw State|Owls|KENN|C-USA|#FFC629|#000000
-liberty|Liberty|Flames|LIB|C-USA|#002D62|#A6192E
-louisianatech|Louisiana Tech|Bulldogs|LT|C-USA|#002F8B|#E31B23
-middletennessee|Middle Tennessee|Blue Raiders|MTSU|C-USA|#0066CC|#FFFFFF
+liberty|Liberty|Flames|LIB|C-USA|#092643|#9A0000
+louisianatech|Louisiana Tech|Bulldogs|LT|C-USA|#002D88|#CC3039
+middletennessee|Middle Tennessee|Blue Raiders|MTSU|C-USA|#0067A4|#FFFFFF
 missouristate|Missouri State|Bears|MOST|C-USA|#5E0009|#FFFFFF
-newmexicostate|New Mexico State|Aggies|NMSU|C-USA|#8C0B42|#FFFFFF
+newmexicostate|New Mexico State|Aggies|NMSU|C-USA|#8B090E|#FFFFFF
 samhouston|Sam Houston|Bearkats|SHSU|C-USA|#F26522|#FFFFFF
-utep|UTEP|Miners|UTEP|Mountain West|#FF8200|#041E42
-westernkentucky|Western Kentucky|Hilltoppers|WKU|C-USA|#B01E24|#FFFFFF
+utep|UTEP|Miners|UTEP|Mountain West|#041E42|#FF8201
+westernkentucky|Western Kentucky|Hilltoppers|WKU|C-USA|#C4013C|#FFFFFF
 
-akron|Akron|Zips|AKR|MAC|#041E42|#A89968
+akron|Akron|Zips|AKR|MAC|#00275F|#FFFFFF
 ballstate|Ball State|Cardinals|BALL|MAC|#BA0C2F|#FFFFFF
-bowlinggreen|Bowling Green|Falcons|BGSU|MAC|#FE5000|#4F2C1D
+bowlinggreen|Bowling Green|Falcons|BGSU|MAC|#F15C26|#542E1C
 buffalo|Buffalo|Bulls|BUFF|MAC|#005BBB|#FFFFFF
-centralmichigan|Central Michigan|Chippewas|CMU|MAC|#6A0032|#FFC82E
-easternmichigan|Eastern Michigan|Eagles|EMU|MAC|#046A38|#FFFFFF
-kentstate|Kent State|Golden Flashes|KENT|MAC|#002664|#EAAB00
-miamioh|Miami (OH)|RedHawks|M-OH|MAC|#C41230|#FFFFFF
-northernillinois|Northern Illinois|Huskies|NIU|Mountain West|#C8102E|#000000
-ohio|Ohio|Bobcats|OHIO|MAC|#00694E|#CDA077
-toledo|Toledo|Rockets|TOL|MAC|#15397F|#FFB700
-umass|UMass|Minutemen|UMASS|MAC|#881C1C|#FFFFFF
-westernmichigan|Western Michigan|Broncos|WMU|MAC|#6C4023|#B5A167
+centralmichigan|Central Michigan|Chippewas|CMU|MAC|#4B0124|#FEAF30
+easternmichigan|Eastern Michigan|Eagles|EMU|MAC|#0F6838|#FFFFFF
+kentstate|Kent State|Golden Flashes|KENT|MAC|#1E3C72|#ECAA23
+miamioh|Miami (OH)|RedHawks|M-OH|MAC|#D40124|#FFFFFF
+northernillinois|Northern Illinois|Huskies|NIU|Mountain West|#BA0C2F|#000000
+ohio|Ohio|Bobcats|OHIO|MAC|#006A4D|#E5BD87
+toledo|Toledo|Rockets|TOL|MAC|#002047|#FFCE04
+umass|UMass|Minutemen|UMASS|MAC|#A50C31|#FFFFFF
+westernmichigan|Western Michigan|Broncos|WMU|MAC|#6D4022|#B8A46A
 
-airforce|Air Force|Falcons|AF|Mountain West|#004A7B|#B0B7BC
-boisestate|Boise State|Broncos|BSU|Pac-12|#0033A0|#D64309
-coloradostate|Colorado State|Rams|CSU|Pac-12|#1E4D2B|#C8C372
-fresnostate|Fresno State|Bulldogs|FRES|Pac-12|#DB0032|#002E6D
-hawaii|Hawaii|Rainbow Warriors|HAW|Mountain West|#024731|#FFFFFF
-nevada|Nevada|Wolf Pack|NEV|Mountain West|#003366|#807F84
-newmexico|New Mexico|Lobos|UNM|Mountain West|#BA0C2F|#63666A
-sandiegostate|San Diego State|Aztecs|SDSU|Pac-12|#A6192E|#000000
-sanjosestate|San Jose State|Spartans|SJSU|Mountain West|#0055A2|#E5A823
-unlv|UNLV|Rebels|UNLV|Mountain West|#CF0A2C|#666666
-utahstate|Utah State|Aggies|USU|Pac-12|#00263A|#FFFFFF
-wyoming|Wyoming|Cowboys|WYO|Mountain West|#492F24|#FFC425
+airforce|Air Force|Falcons|AF|Mountain West|#005DAB|#FFFFFF
+boisestate|Boise State|Broncos|BSU|Pac-12|#002FA2|#FB440F
+coloradostate|Colorado State|Rams|CSU|Pac-12|#184C27|#C9C573
+fresnostate|Fresno State|Bulldogs|FRES|Pac-12|#D12130|#14284D
+hawaii|Hawaii|Rainbow Warriors|HAW|Mountain West|#00632C|#B8B8B8
+nevada|Nevada|Wolf Pack|NEV|Mountain West|#021D42|#FFFFFF
+newmexico|New Mexico|Lobos|UNM|Mountain West|#BC032C|#FFFFFF
+sandiegostate|San Diego State|Aztecs|SDSU|Pac-12|#C41230|#FFFFFF
+sanjosestate|San Jose State|Spartans|SJSU|Mountain West|#0035AA|#FFBA12
+unlv|UNLV|Rebels|UNLV|Mountain West|#E61A38|#000000
+utahstate|Utah State|Aggies|USU|Pac-12|#113257|#FFFFFF
+wyoming|Wyoming|Cowboys|WYO|Mountain West|#533528|#FEC524
 
-appstate|Appalachian State|Mountaineers|APP|Sun Belt|#000000|#FFCC00
-arkansasstate|Arkansas State|Red Wolves|ARST|Sun Belt|#CC092F|#000000
-coastalcarolina|Coastal Carolina|Chanticleers|CCU|Sun Belt|#006F71|#A27752
-georgiasouthern|Georgia Southern|Eagles|GASO|Sun Belt|#041E42|#A6A6A6
-georgiastate|Georgia State|Panthers|GAST|Sun Belt|#0039A6|#FFFFFF
+appstate|Appalachian State|Mountaineers|APP|Sun Belt|#FFD205|#000000
+arkansasstate|Arkansas State|Red Wolves|ARST|Sun Belt|#D02130|#000000
+coastalcarolina|Coastal Carolina|Chanticleers|CCU|Sun Belt|#006F72|#000000
+georgiasouthern|Georgia Southern|Eagles|GASO|Sun Belt|#00183F|#89714C
+georgiastate|Georgia State|Panthers|GAST|Sun Belt|#0133A0|#CD112C
 jamesmadison|James Madison|Dukes|JMU|Sun Belt|#450084|#CBB677
-louisiana|Louisiana|Ragin' Cajuns|UL|Sun Belt|#CE181E|#FFFFFF
-ulmonroe|UL Monroe|Warhawks|ULM|Sun Belt|#840029|#CDB87D
-marshall|Marshall|Thundering Herd|MRSH|Sun Belt|#00B140|#FFFFFF
-olddominion|Old Dominion|Monarchs|ODU|Sun Belt|#003087|#A1D2F1
-southalabama|South Alabama|Jaguars|USA|Sun Belt|#00205B|#BF0D3E
-southernmiss|Southern Miss|Golden Eagles|USM|Sun Belt|#000000|#FFAF00
-texasstate|Texas State|Bobcats|TXST|Pac-12|#501214|#AE9142
-troy|Troy|Trojans|TROY|Sun Belt|#8A2432|#FFFFFF
+louisiana|Louisiana|Ragin' Cajuns|UL|Sun Belt|#FFFFFF|#D2152A
+ulmonroe|UL Monroe|Warhawks|ULM|Sun Belt|#810028|#F6B312
+marshall|Marshall|Thundering Herd|MRSH|Sun Belt|#046330|#000000
+olddominion|Old Dominion|Monarchs|ODU|Sun Belt|#003769|#FFFFFF
+southalabama|South Alabama|Jaguars|USA|Sun Belt|#00205C|#BF0D3E
+southernmiss|Southern Miss|Golden Eagles|USM|Sun Belt|#030003|#FFC527
+texasstate|Texas State|Bobcats|TXST|Pac-12|#571C1F|#AD9256
+troy|Troy|Trojans|TROY|Sun Belt|#6D0017|#FFFFFF
 `;
 
 /* ---------------------------------------------------------------------
