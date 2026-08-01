@@ -19,7 +19,8 @@ const STATE = {
   fx:       'max',
   volume:   55,
   musicUnderVoice: 55,                 // bed level while Pat or Boone talk
-  voiceVol: 100,                       // Pat and Coach Boone
+  voiceVol: 100,                       // both intro voices
+  booneVol: 200,                       // Coach Boone on top of that
   callVol:  100,                       // the per-team announcer calls
   filmVol:  100,                       // the intro film's own soundtrack
   record:   false,
@@ -378,7 +379,8 @@ function encodeState() {
     l: STATE.league, y: STATE.season, t: STATE.title, s: STATE.subtitle,
     k: STATE.ticker, ol: STATE.outLabel, oc: STATE.outCount, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
     n: STATE.calls, rf: STATE.roomFilm, mv: STATE.musicUnderVoice, vv: STATE.voiceVol,
-    cv: STATE.callVol, fv: STATE.filmVol, g: STATE.logoPattern,
+    cv: STATE.callVol, fv: STATE.filmVol, bv: STATE.booneVol,
+    g: STATE.logoPattern,
     d: STATE.seeds.map(x => x ? [x.id, x.record || ''] : null),
     u: STATE.out.map(x => x ? [x.id, x.record || ''] : null),
     v: Object.fromEntries(
@@ -409,6 +411,7 @@ function decodeState(b64) {
     STATE.roomFilm = p.rf ?? 'on';
     STATE.musicUnderVoice = p.mv ?? 55;
     STATE.voiceVol = p.vv ?? 100;
+    STATE.booneVol = p.bv ?? 200;
     STATE.callVol  = p.cv ?? 100;
     STATE.filmVol  = p.fv ?? 100;
     if (p.g) STATE.logoPattern = p.g;
@@ -766,12 +769,14 @@ const MIX = [
   { key: 'volume',          label: 'Music' },
   { key: 'musicUnderVoice', label: 'Under talk' },
   { key: 'voiceVol',        label: 'Pat & Boone' },
+  { key: 'booneVol',        label: 'Boone extra', max: 300 },
   { key: 'callVol',         label: 'Team calls' },
   { key: 'filmVol',         label: 'Intro film' }
 ];
 
 function setMix(key, v) {
-  STATE[key] = Math.max(0, Math.min(100, +v));
+  const top = (MIX.find(c => c.key === key) || {}).max || 100;
+  STATE[key] = Math.max(0, Math.min(top, +v));
   const m = $('#mx_' + key), ml = $('#mxl_' + key);
   if (m) m.value = STATE[key];
   if (ml) ml.textContent = STATE[key] + '%';
@@ -789,7 +794,8 @@ function buildMixer() {
     row.className = 'mx-row';
     row.innerHTML =
       `<span>${esc(c.label)}</span>` +
-      `<input type="range" id="mx_${c.key}" min="0" max="100" value="${STATE[c.key]}">` +
+      `<input type="range" id="mx_${c.key}" min="0" max="${c.max || 100}" ` +
+      `value="${STATE[c.key]}">` +
       `<b id="mxl_${c.key}">${STATE[c.key]}%</b>`;
     row.querySelector('input').oninput = e => setMix(c.key, e.target.value);
     wrap.appendChild(row);

@@ -161,7 +161,24 @@ const Show = (() => {
      ===================================================================== */
   const Bus = (() => {
     const nodes = new Map();          // element -> gain node
-    let ok = true;
+    let ok = true, master = null;
+
+    /* Everything meets here first. A source can be pushed above unity —
+       Boone is doubled by default — and this catches the peaks instead of
+       letting them clip. */
+    function bus() {
+      const a = audio();
+      if (!master) {
+        master = a.createDynamicsCompressor();
+        master.threshold.value = -3;
+        master.knee.value = 6;
+        master.ratio.value = 12;
+        master.attack.value = .003;
+        master.release.value = .18;
+        master.connect(a.destination);
+      }
+      return master;
+    }
 
     function attach(el) {
       if (!el || nodes.has(el)) return nodes.get(el);
@@ -176,7 +193,7 @@ const Show = (() => {
         const src = a.createMediaElementSource(el);
         const g = a.createGain();
         g.gain.value = 1;
-        src.connect(g).connect(a.destination);
+        src.connect(g).connect(bus());
         nodes.set(el, g);
         return g;
       } catch (e) {
@@ -189,7 +206,7 @@ const Show = (() => {
     /** Set a source's level, ramped so it never clicks. */
     function set(el, v, ms) {
       if (!el) return;
-      v = Math.max(0, Math.min(1, v));
+      v = Math.max(0, Math.min(4, v));      // a gain node can amplify
       const g = nodes.get(el) || attach(el);
       if (g) {
         try {
@@ -201,7 +218,7 @@ const Show = (() => {
           return;
         } catch (e) { /* fall through */ }
       }
-      try { el.volume = v; } catch (e) {}
+      try { el.volume = Math.min(1, v); } catch (e) {}   // elements cannot
     }
 
     const level = el => {
@@ -414,13 +431,14 @@ const Show = (() => {
 
   const bedVol   = () => (STATE.volume   ?? 55) / 100;
   const voiceVol = () => (STATE.voiceVol ?? 100) / 100;
+  const booneVol = () => voiceVol() * ((STATE.booneVol ?? 200) / 100);
   const callVol  = () => (STATE.callVol  ?? 100) / 100;
   const filmVol  = () => (STATE.filmVol  ?? 100) / 100;
 
   /** Push the current slider levels at whatever is playing right now. */
   function applyLevels() {
     Bus.set(el.intro, voiceVol(), 80);
-    Bus.set(el.boone, voiceVol(), 80);
+    Bus.set(el.boone, booneVol(), 80);
     Bus.set(el.film,  filmVol(),  80);
     if (callAudio) Bus.set(callAudio, callVol(), 80);
     setBedVolume();
@@ -925,7 +943,7 @@ const Show = (() => {
         if (k >= BOONE_SLATES[i].at) idx = i;
       if (idx >= 0 && idx !== coldBeat) { coldBeat = idx; showSlate(BOONE_SLATES[idx]); }
     };
-    b.currentTime = 0; Bus.set(b, voiceVol(), 0);
+    b.currentTime = 0; Bus.set(b, booneVol(), 0);
     b.play().catch(finish2);
   }
 
