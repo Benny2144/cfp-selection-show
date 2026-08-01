@@ -19,6 +19,9 @@ const STATE = {
   fx:       'max',
   volume:   55,
   musicUnderVoice: 55,                 // bed level while Pat or Boone talk
+  voiceVol: 100,                       // Pat and Coach Boone
+  callVol:  100,                       // the per-team announcer calls
+  filmVol:  100,                       // the intro film's own soundtrack
   record:   false,
   outCount: 2,                         // 13 and 14, the way reveal day does it
   outLabel: '',                        // blank = derive it from the count
@@ -348,7 +351,8 @@ function encodeState() {
   const payload = {
     l: STATE.league, y: STATE.season, t: STATE.title, s: STATE.subtitle,
     k: STATE.ticker, ol: STATE.outLabel, oc: STATE.outCount, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
-    n: STATE.calls, mv: STATE.musicUnderVoice, g: STATE.logoPattern,
+    n: STATE.calls, mv: STATE.musicUnderVoice, vv: STATE.voiceVol,
+    cv: STATE.callVol, fv: STATE.filmVol, g: STATE.logoPattern,
     d: STATE.seeds.map(x => x ? [x.id, x.record || ''] : null),
     u: STATE.out.map(x => x ? [x.id, x.record || ''] : null),
     v: Object.fromEntries(
@@ -377,6 +381,9 @@ function decodeState(b64) {
     STATE.fx       = p.f ?? 'max';
     STATE.calls    = p.n ?? 'on';
     STATE.musicUnderVoice = p.mv ?? 55;
+    STATE.voiceVol = p.vv ?? 100;
+    STATE.callVol  = p.cv ?? 100;
+    STATE.filmVol  = p.fv ?? 100;
     if (p.g) STATE.logoPattern = p.g;
     STATE.seeds = (p.d || []).map((x, i) =>
       x ? { id: x[0], record: x[1], champ: i < 4 } : null);
@@ -788,6 +795,18 @@ async function boot() {
   $('#volLbl').textContent = STATE.volume + '%';
   $('#optDuck').value  = STATE.musicUnderVoice;
   $('#duckLbl').textContent = STATE.musicUnderVoice + '%';
+  [['optVoice','voiceLbl','voiceVol'],
+   ['optCallVol','callVolLbl','callVol'],
+   ['optFilmVol','filmVolLbl','filmVol']].forEach(([sl, lb, key]) => {
+    $('#' + sl).value = STATE[key];
+    $('#' + lb).textContent = STATE[key] + '%';
+    $('#' + sl).oninput = e => {
+      STATE[key] = +e.target.value;
+      $('#' + lb).textContent = STATE[key] + '%';
+      Show.applyLevels();            // hear it while you drag
+      persist();
+    };
+  });
 
   $('#optOrder').onchange = e => { STATE.order = e.target.value; persist(); };
   $('#optPace').onchange  = e => {

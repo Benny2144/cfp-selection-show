@@ -251,7 +251,19 @@ const Show = (() => {
     fadeEnd = setTimeout(() => { if (mine === fadeSeq) m.volume = target; }, ms + 60);
   }
 
-  const bedVol = () => (STATE.volume || 0) / 100;
+  const bedVol   = () => (STATE.volume   ?? 55) / 100;
+  const voiceVol = () => (STATE.voiceVol ?? 100) / 100;
+  const callVol  = () => (STATE.callVol  ?? 100) / 100;
+  const filmVol  = () => (STATE.filmVol  ?? 100) / 100;
+
+  /** Push the current slider levels at whatever is playing right now. */
+  function applyLevels() {
+    if (el.intro) el.intro.volume = voiceVol();
+    if (el.boone) el.boone.volume = voiceVol();
+    if (el.film)  el.film.volume  = filmVol();
+    if (callAudio) callAudio.volume = callVol();
+    setBedVolume();
+  }
 
   /* ============================================== announcer team calls */
   let callAudio = null;                 // the clip playing right now
@@ -283,7 +295,7 @@ const Show = (() => {
     if (!a) return false;
     callAudio = a;
     try { a.currentTime = 0; } catch (e) {}
-    a.volume = 1;
+    a.volume = callVol();
     const done = () => {
       if (callAudio === a) { callAudio = null; setBedVolume(); }
     };
@@ -542,7 +554,7 @@ const Show = (() => {
     if (v.readyState >= 1) watch();
 
     v.currentTime = 0;
-    v.volume = 1;
+    v.volume = filmVol();
     v.play().catch(go);
   }
 
@@ -571,7 +583,7 @@ const Show = (() => {
     /* full: the spoken intro is the clock */
     const a = el.intro;
     a.currentTime = 0;
-    a.volume = 1;
+    a.volume = voiceVol();
     const started = a.play();
 
     const fallback = () => {
@@ -638,7 +650,7 @@ const Show = (() => {
         if (k >= BOONE_SLATES[i].at) idx = i;
       if (idx >= 0 && idx !== coldBeat) { coldBeat = idx; showSlate(BOONE_SLATES[idx]); }
     };
-    b.currentTime = 0; b.volume = 1;
+    b.currentTime = 0; b.volume = voiceVol();
     b.play().catch(finish2);
   }
 
@@ -1152,6 +1164,7 @@ const Show = (() => {
     setBedVolume();
   }
 
-  return { init, arm, play, next, prev, stop, startBed, setBedVolume, fadeTo,
+  return { init, arm, play, next, prev, stop, startBed, setBedVolume,
+           applyLevels, fadeTo,
            bedVol, sfx: { stinger, beep, whoosh } };
 })();
