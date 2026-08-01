@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07080b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,11 +17,14 @@
      is set. See CLOUDFLARE.md. -->
 <meta name="media-base" content="/media">
 <meta name="description" content="Run a broadcast-style College Football Playoff selection show for your online dynasty. Set the 12-team field, hit play, reveal it like TV.">
+<meta name="theme-color" content="#030509">
+<meta name="mobile-web-app-capable" content="yes">
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Build the field. Premiere Selection Night. Turn your online dynasty into an event.">
 <meta name="color-scheme" content="dark">
 <link rel="preload" as="image" href="assets/room-bg.webp" fetchpriority="high">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="css/broadcast.css">
 <link rel="stylesheet" href="css/dynasty.css">
 <link rel="stylesheet" href="css/espn.css">
@@ -51,6 +54,9 @@
       <button data-go="history">History</button>
     </div>
     <div class="en-right">
+      <button class="account-trigger chrome-account" type="button" aria-label="Save with Google">
+        <i class="cloud-icon">&#9729;</i><span>Save &amp; sign in</span>
+      </button>
       <button class="en-watch" id="navShow">&#9654; Watch</button>
     </div>
   </nav>
@@ -75,6 +81,9 @@
     </div>
     <div class="spacer"></div>
     <span class="prime-nav-note">Built for online leagues</span>
+    <button class="account-trigger home-account" type="button" aria-label="Save with Google">
+      <i class="cloud-icon">&#9729;</i><span>Save &amp; sign in</span>
+    </button>
     <button class="btn ghost" id="navHowTo">How it works</button>
   </nav>
 
@@ -153,6 +162,11 @@
       <div><i>03</i><b>Share it</b><span>One spoiler-free league link</span></div>
       <div><i>04</i><b>Remember it</b><span>A permanent dynasty archive</span></div>
     </div>
+    <footer class="prime-footer">
+      <span>CFP DYNASTY STUDIO</span>
+      <p>An independent fan-made tool. Not affiliated with or endorsed by the NCAA, College Football Playoff, ESPN, EA Sports, or any school.</p>
+      <nav aria-label="Legal"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+    </footer>
   </div>
 </section>
 
@@ -823,6 +837,61 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Account center: Google identifies the commissioner; Cloudflare stores
+     the working board, archive, pick'em entries, branding, and custom teams. -->
+<div class="modal account-modal" id="mAccount" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+  <div class="modal-card account-card">
+    <button class="modal-x" id="mAccountClose" type="button" aria-label="Close account center">&times;</button>
+    <div id="accountSignedOut">
+      <div class="account-eyebrow"><i></i> CFP CLOUD</div>
+      <h2 id="accountTitle">YOUR DYNASTY.<br><span>EVERYWHERE.</span></h2>
+      <p class="account-lead">Sign in once and your field, league setup, custom teams, branding, predictions and dynasty history stay protected across devices.</p>
+      <div class="google-signin" id="googleSignIn" aria-live="polite"></div>
+      <div class="account-benefits">
+        <div><i>&#10003;</i><span><b>Automatic cloud saves</b><small>Every meaningful board change is synced.</small></span></div>
+        <div><i>&#10003;</i><span><b>Multi-device recovery</b><small>Start on desktop. Run Selection Night from your phone.</small></span></div>
+        <div><i>&#10003;</i><span><b>Private by design</b><small>Your commissioner board stays tied to your account.</small></span></div>
+      </div>
+      <p class="account-legal">By continuing, you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and acknowledge the <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+    </div>
+    <div id="accountSignedIn" hidden>
+      <div class="account-eyebrow"><i class="live"></i> CONNECTED TO CLOUDFLARE</div>
+      <div class="account-profile">
+        <div class="account-avatar" id="accountAvatar">C</div>
+        <div><h2 id="accountName">Commissioner</h2><p id="accountEmail"></p></div>
+      </div>
+      <div class="account-save-panel">
+        <i class="account-shield">&#10003;</i>
+        <div><b id="accountSaveState">Protected in Cloudflare</b><span id="accountLastSaved">Saved just now</span></div>
+        <span class="account-pulse"></span>
+      </div>
+      <div class="account-data-grid">
+        <div><b>FIELD</b><span>Seeds, out teams &amp; scores</span></div>
+        <div><b>STUDIO</b><span>Settings &amp; custom branding</span></div>
+        <div><b>DYNASTY</b><span>History &amp; pick'em entries</span></div>
+        <div><b>LOGOS</b><span>Private commissioner uploads</span></div>
+      </div>
+      <button class="btn primary full" id="accountSyncNow" type="button">Sync this device now</button>
+      <div class="account-actions">
+        <button class="btn ghost" id="accountSignOut" type="button">Sign out</button>
+        <button class="account-delete" id="accountDelete" type="button">Delete cloud account</button>
+      </div>
+      <p class="account-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> &middot; <a href="/terms" target="_blank" rel="noopener">Terms</a></p>
+    </div>
+  </div>
+</div>
+
+<div class="modal conflict-modal" id="mSyncConflict" role="alertdialog" aria-modal="true" aria-labelledby="conflictTitle">
+  <div class="modal-card conflict-card">
+    <div class="conflict-mark">!</div>
+    <span class="section-kicker">TWO DEVICES. TWO VERSIONS.</span>
+    <h2 id="conflictTitle">CHOOSE THE OFFICIAL BOARD</h2>
+    <p>Another device saved after this one opened. Nothing was overwritten. Choose which copy should become the official cloud version.</p>
+    <button class="btn primary full" id="conflictLocal" type="button">Use this device</button>
+    <button class="btn full" id="conflictCloud" type="button">Restore the cloud copy</button>
+  </div>
+</div>
+
 <audio id="intro" preload="auto"></audio>
 <audio id="boone" preload="auto"></audio>
 <audio id="music" preload="auto" loop></audio>
@@ -830,6 +899,7 @@
 <script src="js/teams.js"></script>
 <script src="js/logos.js"></script>
 <script src="js/recorder.js"></script>
+<script src="js/cloud.js"></script>
 <script src="js/app.js"></script>
 <script src="js/dynasty.js"></script>
 <script src="js/pickem.js"></script>

@@ -859,6 +859,7 @@ const Show = (() => {
   /* ==================================================== ARM (play gate) */
   function arm() {
     running = false; paused = false; cursor = -1; phase = 'gate';
+    document.getElementById('show').classList.remove('film-playing');
     setCinemaPhase(null);
     clearTimeout(timer);
     clearTimeout(suspenseTimer);
@@ -1012,6 +1013,15 @@ const Show = (() => {
     if (mode === 'off') { runVoiceOpen(); return; }
 
     phase = 'film';
+    /* The supplied opening owns the entire frame. A delayed chapter/reveal
+       callback from an earlier run must never leak broadcast copy over it. */
+    document.getElementById('show').classList.add('film-playing');
+    hideStoryLayers();
+    el.revealLayer.classList.remove('on');
+    el.liveWrap.classList.remove('on');
+    el.lower.classList.remove('on');
+    el.fourOutWrap.classList.remove('on');
+    el.snubWrap.classList.remove('on');
     const v = el.film;
     if (!v.getAttribute('src')) {
       /* The film goes through createMediaElementSource so the mixer can duck
@@ -1039,6 +1049,7 @@ const Show = (() => {
       handed = true;
       clearTimeout(filmGuard);
       phase = 'voice';
+      document.getElementById('show').classList.remove('film-playing');
       el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
       try { v.pause(); v.ontimeupdate = null; } catch (e) {}
       /* the bed comes back from the top, so the voices open over its start */
@@ -2302,6 +2313,7 @@ const Show = (() => {
   /** Leave the show — kill the voice track but keep the bed playing. */
   function stop() {
     running = false; phase = 'idle';
+    document.getElementById('show').classList.remove('film-playing');
     setCinemaPhase(null);
     bedWanted = false; watchBed(false);
     clearTimeout(timer); clearTimeout(markTimer); clearTimeout(suspenseTimer);

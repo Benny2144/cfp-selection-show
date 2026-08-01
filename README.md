@@ -23,15 +23,19 @@ Live site: <https://cfp-selection-show.benarp2144.workers.dev>
 The production setup is checked into this repository:
 
 - `wrangler.jsonc` defines the Worker, static assets, and private R2 binding.
-- `worker.js` exposes only allow-listed show films at `/media/` and supports
-  browser byte-range requests.
+- `worker.js` exposes only allow-listed show films at `/media/`, supports
+  browser byte-range requests, verifies Google sign-in, and provides the
+  authenticated account API.
+- D1 stores versioned account snapshots and hashed sessions; R2 stores private
+  account logos alongside the public show media.
 - `tools/make_site.py` builds `docs/` without copying R2-hosted films.
 
 After authenticating Wrangler, deploy with:
 
 ```bash
-python tools/make_site.py
-npx wrangler deploy
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm run deploy
 ```
 
 See `CLOUDFLARE.md` for the bucket and media replacement commands.

@@ -1,0 +1,20 @@
+{
+  "name": "cfp-dynasty-studio",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python tools/make_site.py && node tools/bundle_site.mjs",
+    "check": "node --check worker.js && node --check js/cloud.js && node --check js/app.js && node --check js/logos.js && node --check js/show.js && node --check js/dynasty.js && node --check js/pickem.js && node --check js/teams.js && node --check sw.js",
+    "deploy": "pnpm run build && wrangler deploy",
+    "deploy:check": "wrangler deploy --dry-run"
+  },
+  "dependencies": {
+    "jose": "6.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.2",
+    "esbuild": "0.28.1",
+    "wrangler": "4.118.0"
+  }
+}

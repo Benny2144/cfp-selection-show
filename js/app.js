@@ -99,7 +99,7 @@ function bannerEl(id, opts = {}) {
     crest.innerHTML = '';
     crest.appendChild(ready);
   } else {
-    LogoStore.get(id, src => {
+    const loadLogo = () => LogoStore.get(id, src => {
       const img = new Image();
       img.alt = t.school;
       const swap = () => { crest.innerHTML = ''; crest.appendChild(img); };
@@ -107,6 +107,14 @@ function bannerEl(id, opts = {}) {
       img.src = src;
       if (img.complete && img.naturalWidth) swap();
     });
+    if (opts.lazy && 'IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(entries => {
+        if (!entries.some(entry => entry.isIntersecting)) return;
+        observer.disconnect();
+        loadLogo();
+      }, { rootMargin: '240px 80px' });
+      observer.observe(el);
+    } else loadLogo();
   }
 
   const sheen = document.createElement('div');
@@ -177,9 +185,13 @@ function renderPool() {
   }).sort((a, b) => a.school.localeCompare(b.school));
 
   list.forEach(t => {
-    const card = document.createElement('div');
+    const card = document.createElement('button');
+    card.type = 'button';
     card.className = 'pool-card' + (isSeeded(t.id) ? ' picked' : '');
-    card.appendChild(bannerEl(t.id));
+    card.disabled = isSeeded(t.id);
+    card.setAttribute('aria-label', `Add ${t.school} to the next open spot`);
+    card.title = `Add ${t.school} · right-click to edit`;
+    card.appendChild(bannerEl(t.id, { lazy: true }));
     const c = document.createElement('div');
     c.className = 'conf'; c.textContent = t.conf;
     card.appendChild(c);
@@ -218,7 +230,11 @@ function swapSeeds(a, b) {
 function markPicked(id) {
   const card = [...document.querySelectorAll('.pool-card')]
     .find(c => c.querySelector('.banner')?.dataset.team === id);
-  if (card) card.classList.toggle('picked', isSeeded(id));
+  if (card) {
+    const picked = isSeeded(id);
+    card.classList.toggle('picked', picked);
+    card.disabled = picked;
+  }
   const filled = STATE.seeds.filter(Boolean).length;
   $('#poolCount').textContent =
     `${TEAMS.length} TEAMS · ${filled}/12 SEEDED`;
@@ -973,6 +989,7 @@ function applyRoomFilm(active) {
 /* ---------------------------------------------------------------- wire */
 async function boot() {
   restore();
+  await CloudSync.bootstrap();
   applyFx();
 
   await LogoStore.hydrate();
@@ -1246,7 +1263,7 @@ async function boot() {
   }
 
   $$('.modal').forEach(m => m.addEventListener('click', e => {
-    if (e.target === m) m.classList.remove('on');
+    if (e.target === m && !m.classList.contains('conflict-modal')) m.classList.remove('on');
   }));
 
   /* The room header scrolls sideways on a phone, and a hidden scrollbar
@@ -1263,11 +1280,19 @@ async function boot() {
   }
 
   Dynasty.init();
+  CloudSync.bind();
   renderPool();
   renderSeeds();
   refreshHub();
   refreshLogoCount();
   Show.init();
+
+  /* The network remains the source of truth for pages, while a small service
+     worker gives commissioners a resilient app shell if a venue connection
+     drops. API, private logos, and R2 video are intentionally never cached. */
+  if (location.protocol === 'https:' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
 
   /* Music bed runs everywhere. Browsers need one gesture first. */
   const wake = () => { Show.startBed(); };

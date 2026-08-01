@@ -10,12 +10,13 @@ The folder is called `docs` because GitHub Pages can serve a site straight
 out of it (Settings -> Pages -> deploy from branch -> main -> /docs).
 It works just as well dragged onto https://app.netlify.com/drop
 """
-import os, re, shutil, sys, hashlib
+import os, re, shutil, sys, hashlib, json
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
 
-FILES = ['index.html', 'netlify.toml', '_headers', '.nojekyll', 'music.mp3',
+FILES = ['index.html', 'privacy.html', 'terms.html', 'manifest.webmanifest', 'sw.js',
+         'netlify.toml', '_headers', '.nojekyll', 'music.mp3',
          'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4',
          'selection-night-open.mp4', 'committee.mp4']
 DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
@@ -79,6 +80,26 @@ def stamp_assets():
 
     html = re.sub(r'(src|href)="((?:js|css)/[^"?]+)"', sub, html)
     open(idx, 'w', encoding='utf-8').write(html)
+
+
+def write_logo_manifest():
+    """Publish one exact path per bundled logo.
+
+    The browser used to probe five extensions for every school, producing
+    hundreds of avoidable 404s. A tiny manifest makes misses free and lets the
+    team pool load crests only as they scroll into view.
+    """
+    folder = os.path.join(OUT, 'logos')
+    if not os.path.isdir(folder):
+        return
+    paths = {}
+    for name in sorted(os.listdir(folder)):
+        full = os.path.join(folder, name)
+        stem, ext = os.path.splitext(name)
+        if os.path.isfile(full) and ext.lower() in {'.png', '.webp', '.jpg', '.jpeg', '.svg'}:
+            paths.setdefault(stem, 'logos/' + name)
+    with open(os.path.join(folder, 'manifest.json'), 'w', encoding='utf-8') as handle:
+        json.dump({'version': 1, 'paths': paths}, handle, separators=(',', ':'))
 
 
 def media_base():
@@ -151,6 +172,7 @@ def main():
                     shutil.copy2(p, os.path.join(sdst, name))
                     total += os.path.getsize(p)
 
+    write_logo_manifest()
     stamp_assets()
 
     # nothing in the build is allowed to surprise Cloudflare

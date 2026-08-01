@@ -207,9 +207,14 @@ const History = (() => {
   }
 
   function write(list) {
-    try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, 40))); }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(list.slice(0, 40)));
+      document.dispatchEvent(new CustomEvent('cfp:local-change', { detail: { source: 'history' } }));
+    }
     catch (e) {}
   }
+
+  function replace(list) { write(Array.isArray(list) ? list : []); }
 
   /** A season's worth of the board, small enough to keep dozens of. */
   function snapshot() {
@@ -275,7 +280,7 @@ const History = (() => {
     return Object.values(tally).sort((a, b) => b.n - a.n);
   }
 
-  return { all, save, remove, previous, restoreSeason, rollOfHonour, snapshot };
+  return { all, save, remove, replace, previous, restoreSeason, rollOfHonour, snapshot };
 })();
 
 

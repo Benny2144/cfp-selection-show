@@ -110,8 +110,13 @@ const Pickem = (() => {
   }
 
   function write(list) {
-    try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, 60))); } catch (e) {}
+    try {
+      localStorage.setItem(KEY, JSON.stringify(list.slice(0, 60)));
+      document.dispatchEvent(new CustomEvent('cfp:local-change', { detail: { source: 'pickem' } }));
+    } catch (e) {}
   }
+
+  function replace(list) { write(Array.isArray(list) ? list : []); }
 
   /** Add an entry from its code. One entry per name — pasting a newer
       code for somebody replaces their old one rather than entering them
@@ -153,5 +158,5 @@ const Pickem = (() => {
     GAMES.reduce((n, g) => n + ROUND_INFO[g.round].points, 0);
 
   return { encode, decode, resolve, championOf, score, all, add, remove,
-           clear, leaderboard, consensus, maxPoints, cleanName };
+           clear, replace, leaderboard, consensus, maxPoints, cleanName };
 })();

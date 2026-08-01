@@ -7,6 +7,9 @@ intro for very first of video before thje picks happen.mp3
 .claude/
 site/
 .wrangler/
+.wrangler-dry-run*/
+node_modules/
+worker-configuration.d.ts
 
 # OS junk
 Thumbs.db
