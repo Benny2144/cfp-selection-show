@@ -86,12 +86,23 @@ function bannerEl(id, opts = {}) {
   seam.className = 'seam';
   seam.style.background = t.secondary;
 
-  LogoStore.get(id, src => {
-    const img = new Image();
-    img.alt = t.school;
-    img.onload = () => { crest.innerHTML = ''; crest.appendChild(img); };
-    img.src = src;
-  });
+  /* Paint a already-decoded logo in this same frame. Going through onload
+     every time meant one frame of the monogram on every re-render, which is
+     the flicker you see when a team is picked. */
+  const ready = LogoStore.imageFor(id);
+  if (ready) {
+    crest.innerHTML = '';
+    crest.appendChild(ready);
+  } else {
+    LogoStore.get(id, src => {
+      const img = new Image();
+      img.alt = t.school;
+      const swap = () => { crest.innerHTML = ''; crest.appendChild(img); };
+      img.onload = swap;
+      img.src = src;
+      if (img.complete && img.naturalWidth) swap();
+    });
+  }
 
   const sheen = document.createElement('div');
   sheen.className = 'sheen';
@@ -190,19 +201,30 @@ function swapSeeds(a, b) {
 }
 
 /** Click a team: fills the next open seed, then the first four out. */
+/** Grey out one card instead of rebuilding the whole grid. */
+function markPicked(id) {
+  const card = [...document.querySelectorAll('.pool-card')]
+    .find(c => c.querySelector('.banner')?.dataset.team === id);
+  if (card) card.classList.toggle('picked', isSeeded(id));
+  const filled = STATE.seeds.filter(Boolean).length;
+  $('#poolCount').textContent =
+    `${TEAMS.length} TEAMS · ${filled}/12 SEEDED`;
+  $('#tabCount').textContent = `${filled}/12`;
+}
+
 function seedNext(id) {
   if (isSeeded(id)) return;
   const i = STATE.seeds.findIndex(s => !s);
   if (i !== -1) {
     STATE.seeds[i] = { id, record: '', champ: i < 4 };
-    persist(); renderPool(); renderSeeds();
+    persist(); markPicked(id); renderSeeds();
     if (i === 11) toast('That\'s all twelve — now the four who missed');
     return;
   }
   const o = STATE.out.slice(0, STATE.outCount).findIndex(s => !s);
   if (o === -1) { toast('The board is full'); return; }
   STATE.out[o] = { id, record: '' };
-  persist(); renderPool(); renderSeeds();
+  persist(); markPicked(id); renderSeeds();
   if (o === STATE.outCount - 1) toast('Board complete');
 }
 
@@ -845,7 +867,8 @@ async function boot() {
   $('#goWatch').onclick   = () => { $('#fLink').value = ''; $('#mLink').classList.add('on'); };
   $('#navHowTo').onclick  = () => $('#mHow').classList.add('on');
   $('#mHowClose').onclick = () => $('#mHow').classList.remove('on');
-  $('#roomHome').onclick  = () => showScreen('home');
+  const home = $('#roomHome');
+  if (home) { home.style.cursor = 'pointer'; home.onclick = () => showScreen('home'); }
   $('#mLinkCancel').onclick = () => $('#mLink').classList.remove('on');
   $('#mLinkGo').onclick = () => {
     const v = $('#fLink').value.trim();

@@ -10,6 +10,7 @@ const LogoStore = (() => {
   const DB = 'cfp27-logos', STORE = 'files';
   let db = null;
   const mem = {};                    // id -> objectURL / dataURL / path
+  const decoded = {};                // id -> an <img> already loaded and ready
   const misses = {};                 // id -> true once every source has failed
   const waiting = {};                // id -> [callbacks]
 
@@ -31,7 +32,7 @@ const LogoStore = (() => {
       tx.oncomplete = () => {
         if (mem[id] && mem[id].startsWith('blob:')) URL.revokeObjectURL(mem[id]);
         mem[id] = URL.createObjectURL(blob);
-        delete misses[id];
+        delete misses[id]; delete decoded[id];
         res();
       };
       tx.onerror = () => rej(tx.error);
@@ -45,7 +46,7 @@ const LogoStore = (() => {
       tx.objectStore(STORE).delete(id);
       tx.oncomplete = () => {
         if (mem[id] && mem[id].startsWith('blob:')) URL.revokeObjectURL(mem[id]);
-        delete mem[id]; delete misses[id]; res();
+        delete mem[id]; delete misses[id]; delete decoded[id]; res();
       };
     });
   }
@@ -83,12 +84,32 @@ const LogoStore = (() => {
   const count = () => Object.keys(mem).length;
   const has   = id => !!mem[id];
 
+  /** A ready-to-use copy of a logo, or null if it is not decoded yet.
+      Lets a banner paint its logo in the same frame it is built. */
+  function imageFor(id) {
+    const i = decoded[id];
+    if (!i || !i.complete || !i.naturalWidth) return null;
+    const c = i.cloneNode();
+    c.alt = '';
+    return c;
+  }
+
   /* ------------------------------------------------------- resolution */
   const EXT = ['png', 'svg', 'webp', 'jpg', 'jpeg'];
 
   /** Ask for a team's logo. Calls back with a URL, or never calls back. */
   function get(id, cb) {
-    if (mem[id]) { cb(mem[id]); return; }
+    if (mem[id]) {
+      /* Restored from storage: we have the URL but nothing decoded yet, so
+         warm one now and the next render paints without a blank frame. */
+      if (!decoded[id]) {
+        const w = new Image();
+        w.onload = () => { decoded[id] = w; };
+        w.src = mem[id];
+      }
+      cb(mem[id]);
+      return;
+    }
     if (misses[id]) return;
     if (waiting[id]) { waiting[id].push(cb); return; }
     waiting[id] = [cb];
@@ -114,7 +135,7 @@ const LogoStore = (() => {
       const url = cands[i++];
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload  = () => done(url);
+      img.onload  = () => { decoded[id] = img; done(url); };
       img.onerror = tryNext;
       img.src = url;
     };
@@ -174,5 +195,6 @@ const LogoStore = (() => {
     return { added, skipped, total: list.length };
   }
 
-  return { hydrate, get, put, del, clear, count, has, importFiles, matchFile, buildIndex };
+  return { hydrate, get, put, del, clear, count, has, imageFor,
+           importFiles, matchFile, buildIndex };
 })();

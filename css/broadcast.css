@@ -96,7 +96,7 @@ input,select{font-family:inherit}
   position:relative;z-index:5;display:flex;align-items:center;gap:14px;
   padding:18px 30px;
 }
-/* the real playoff mark, not a coloured box with letters in it */
+/* the playoff mark, where one is used */
 .site-nav .mark,.room-head .mark{
   display:grid;place-items:center;flex:none;cursor:pointer;
   height:40px;padding:0 4px;
@@ -105,6 +105,7 @@ input,select{font-family:inherit}
   height:100%;width:auto;display:block;
   filter:drop-shadow(0 0 14px rgba(216,180,90,.35));
 }
+.site-nav .nm{margin-left:2px}
 .site-nav .nm{font-size:11.5px;letter-spacing:5px;text-transform:uppercase;color:var(--dim)}
 .site-nav .spacer,.room-head .spacer{flex:1}
 
