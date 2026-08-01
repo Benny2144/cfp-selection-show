@@ -22,7 +22,8 @@
      ticker height plus the device's safe area. */
   --ticker-h:52px;
   --safe-b:env(safe-area-inset-bottom,0px);
-  --bottom-rail:calc(var(--ticker-h) + var(--safe-b));
+  --safe-extra:0px;   /* phones add a cushion below — see the media query */
+  --bottom-rail:calc(var(--ticker-h) + var(--safe-b) + var(--safe-extra));
   --above-ticker:calc(var(--bottom-rail) + 22px);
 }
 
@@ -33,14 +34,21 @@ body{
   overflow:hidden;-webkit-font-smoothing:antialiased;
 }
 
-/* 100dvh tracks the visible area as mobile browser chrome slides away;
-   the fixed inset:0 fallback covers browsers without it. */
-.screen{height:100dvh}
 button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
 input,select{font-family:inherit}
 ::selection{background:var(--accent);color:#000}
 
-.screen{position:fixed;inset:0;display:none;flex-direction:column}
+/* A fixed element on iOS is laid out against the LARGE viewport — the one
+   that ignores Safari's bottom toolbar — so anything pinned to bottom:0
+   ends up underneath the toolbar. Sizing to the SMALL viewport instead
+   means the bottom of the show is always the bottom of what you can see,
+   toolbar shown or hidden. bottom:auto keeps the height in charge. */
+.screen{
+  position:fixed;top:0;left:0;right:0;bottom:auto;
+  height:100vh;          /* fallback for anything without viewport units v2 */
+  height:100svh;
+  display:none;flex-direction:column;
+}
 .screen.active{display:flex}
 
 /* ================= carbon / field texture backdrop ================== */
@@ -686,7 +694,8 @@ input,select{font-family:inherit}
 
 .ticker{
   position:absolute;left:0;right:0;bottom:0;z-index:12;
-  height:var(--bottom-rail);padding-bottom:var(--safe-b);
+  height:var(--bottom-rail);
+  padding-bottom:calc(var(--safe-b) + var(--safe-extra));
   background:linear-gradient(180deg,#0d1016,#05070a);
   border-top:2px solid var(--accent);display:flex;align-items:center;overflow:hidden;
 }
@@ -1006,7 +1015,7 @@ body.calm .scan{display:none}
 
 /* ------------------------------- phones ------------------------------ */
 @media (max-width:720px){
-  :root{--ticker-h:44px}
+  :root{--ticker-h:44px;--safe-extra:10px}
   .site-nav{padding:12px 14px;gap:9px}
   .site-nav .nm{display:none}
   .hero{padding:0 18px}
