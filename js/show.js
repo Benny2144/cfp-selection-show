@@ -103,7 +103,7 @@ const Show = (() => {
     { camera: 'center', tier: 'bye', kicker: 'The bye line closes',
       title: 'The final direct ticket', milestone: 'BYE LINE CLOSED' },
     { camera: 'center', tier: 'host', kicker: 'Opening weekend',
-      title: 'The top campus host', milestone: 'CAMPUS LIGHTS ON' },
+      title: 'The top campus host', milestone: 'HOME FIELD SECURED' },
     { camera: 'right', tier: 'host', kicker: 'Home field',
       title: 'Protect this house' },
     { camera: 'left', tier: 'host', kicker: 'December football',
