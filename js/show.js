@@ -592,8 +592,24 @@ const Show = (() => {
 
   let coldBeat = -1, countAt = -1;
 
-  function showSlate(s) {
+  /* The mark used to hang about until the first slate fired, and that is
+     driven off an audio timestamp — throttled or late on a phone, it simply
+     stayed on screen through Pat and Boone. It gets its own clock now. */
+  let markTimer = null;
+
+  function showMark() {
+    clearTimeout(markTimer);
+    el.coldMark.classList.add('on');
+    markTimer = setTimeout(hideMark, 3600);
+  }
+  function hideMark() {
+    clearTimeout(markTimer);
+    markTimer = null;
     el.coldMark.classList.remove('on');
+  }
+
+  function showSlate(s) {
+    hideMark();
     el.coldGrid.classList.remove('on');
     el.coldCount.classList.remove('on');
 
@@ -623,6 +639,7 @@ const Show = (() => {
   }
 
   function showCount(n) {
+    hideMark();
     el.coldSlate.classList.remove('on');
     el.coldGrid.classList.remove('on');
     el.coldCount.classList.add('on');
@@ -632,6 +649,7 @@ const Show = (() => {
   }
 
   function hideCold() {
+    hideMark();
     el.cold.classList.remove('on');
     el.coldMark.classList.remove('on');
     el.coldSlate.classList.remove('on');
@@ -690,7 +708,7 @@ const Show = (() => {
     phase = 'intro';
     ensureBed('voice-open');
     el.cold.classList.add('on');
-    el.coldMark.classList.add('on');
+    showMark();
     setBedVolume();
     flare(); crowd(2.6); stinger();
 
@@ -760,6 +778,7 @@ const Show = (() => {
 
     phase = 'boone';
     coldBeat = -1; countAt = -1;
+    hideMark();
     ensureBed('boone');
     setBedVolume();
 
@@ -1303,7 +1322,7 @@ const Show = (() => {
   function stop() {
     running = false; phase = 'idle';
     bedWanted = false; watchBed(false);
-    clearTimeout(timer);
+    clearTimeout(timer); clearTimeout(markTimer);
     [el.intro, el.boone].forEach(a => {
       try { a.pause(); a.ontimeupdate = null; a.onended = null; } catch (e) {}
     });

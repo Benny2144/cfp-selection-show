@@ -89,8 +89,7 @@ input,select{font-family:inherit}
    0. HOME
    ===================================================================== */
 #home{background:var(--ink);overflow:hidden}
-#home .roomfilm{opacity:.16}
-#home .home-carbon{opacity:.55}
+#home .home-carbon{opacity:.35}
 #home .home-floor{opacity:.5}
 
 .site-nav{
@@ -162,23 +161,23 @@ input,select{font-family:inherit}
    hundred and thirty-six colour plates stay the thing you actually read. */
 .roomfilm{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  opacity:.20;filter:blur(2px) saturate(.72) contrast(.92);
-  pointer-events:none;z-index:0;
+  opacity:1;pointer-events:none;z-index:0;
 }
 .film-off .roomfilm,.film-off .roomfilm-scrim{display:none}
+/* just enough to hold the type, not enough to hide the picture */
 .roomfilm-scrim{
   position:absolute;inset:0;z-index:1;pointer-events:none;
-  background:
-    linear-gradient(180deg,rgba(7,8,11,.86),rgba(7,8,11,.55) 22%,rgba(7,8,11,.78)),
-    radial-gradient(120% 80% at 50% 0%,transparent,rgba(7,8,11,.6));
+  background:rgba(7,8,11,.34);
 }
 /* the pool lets it through; the board sits on a near-solid panel so the
    seed list never fights the picture behind it */
 #room .pool{background:transparent}
-#room .board{background:rgba(9,12,17,.90);backdrop-filter:blur(3px)}
-#room .pool-bar{background:rgba(13,17,23,.82);backdrop-filter:blur(3px)}
+#room .board{background:rgba(9,12,17,.93);backdrop-filter:blur(5px)}
+#room .pool-bar{background:rgba(11,15,20,.88);backdrop-filter:blur(4px)}
 #room .board-foot,#room .out-list{background:rgba(9,12,17,.72)}
-#room .pool-card .banner{box-shadow:0 6px 20px rgba(0,0,0,.75)}
+#room .pool-card .banner{box-shadow:0 4px 16px rgba(0,0,0,.9)}
+#room .pool-card .conf{color:#8e99a8;text-shadow:0 1px 4px rgba(0,0,0,.95)}
+#room .carbon{opacity:.35}
 
 .room-head{
   position:relative;z-index:2;display:flex;align-items:center;gap:18px;
@@ -274,8 +273,15 @@ input,select{font-family:inherit}
   padding:7px 9px;border-radius:4px;font-size:12.5px;outline:none}
 .setting input[type=range]{flex:1;accent-color:var(--accent)}
 .setting .mixbtn{flex:1;text-align:center;padding:8px 10px;font-size:11px}
-.go-row{display:flex;gap:9px;margin-top:4px}
-.go-row .btn{flex:1;justify-content:center;text-align:center}
+.room-actions{
+  position:relative;z-index:4;flex:none;
+  border-top:1px solid var(--line);background:rgba(12,16,21,.94);
+  backdrop-filter:blur(6px);padding:11px 18px;
+  padding-bottom:calc(11px + env(safe-area-inset-bottom,0px));
+}
+.go-row{display:flex;gap:9px;justify-content:flex-end}
+.go-row .btn{justify-content:center;text-align:center;min-width:132px}
+.go-row .btn.primary{min-width:170px}
 
 /* ================= THE BANNER =======================================
    The broadcast plate: a white-bordered slab split into a black panel
@@ -867,7 +873,7 @@ input,select{font-family:inherit}
 .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
 
 .toast{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120%);
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(260%);
   background:var(--accent);color:#0a0a0a;padding:13px 26px;border-radius:5px;
   font-weight:800;font-size:12.5px;letter-spacing:2px;text-transform:uppercase;
   z-index:200;transition:.35s cubic-bezier(.16,1,.3,1);box-shadow:var(--shadow)
@@ -1111,9 +1117,12 @@ body.calm .scan{display:none}
   .seedrow .meta{width:54px}
   .board-foot{padding:11px 12px;gap:8px}
   .setting label{width:78px;font-size:9.5px}
-  .go-row{flex-wrap:wrap}
-  .go-row .btn{padding:11px 10px;font-size:11px;letter-spacing:1px}
-  .go-row .btn:last-child{flex-basis:100%}
+  .room-actions{padding:9px 10px;
+    padding-bottom:calc(9px + env(safe-area-inset-bottom,0px))}
+  .go-row{flex-wrap:wrap;gap:6px}
+  .go-row .btn{flex:1 1 0;min-width:0;padding:11px 6px;font-size:10.5px;
+    letter-spacing:.6px}
+  .go-row .btn.primary{flex-basis:100%;min-width:0;padding:13px 6px;font-size:12px}
 
   /* the show */
   .tapzone{display:block}
