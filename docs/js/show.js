@@ -216,12 +216,26 @@ const Show = (() => {
       } catch (e) {}
     }
 
-    /** Anything already playing on element volume moves onto the graph once
-        the context wakes up, so levels start working mid-show. */
+    /** Move sources onto the graph once the context is genuinely running.
+
+        resume() is a promise: checking state on the very next line still
+        reports 'suspended', so every attach was quietly bailing out and
+        nothing ever reached the mixer. We must not await inside the click
+        either — that spends the gesture that lets media start — so the
+        playback call stays synchronous and the adoption lands after. */
     function adopt(els, level) {
-      wake();
-      els.forEach(e => { if (e && !nodes.has(e)) { attach(e); } });
-      if (typeof level === 'function') level();
+      const finish = () => {
+        els.forEach(e => { if (e && !nodes.has(e)) attach(e); });
+        if (typeof level === 'function') level();
+      };
+      try {
+        const a = audio();
+        if (a.state === 'running') { finish(); return; }
+        const p = a.resume();
+        if (p && p.then) p.then(finish).catch(finish);
+        else setTimeout(finish, 60);
+        setTimeout(finish, 400);      // belt and braces if resume never settles
+      } catch (e) { finish(); }
     }
 
     return { attach, set, level, wake, adopt,
@@ -315,6 +329,27 @@ const Show = (() => {
 
   /* ================================================== music bed control */
   let bedStarted = false, fadeRaf = null, fadeEnd = null, fadeSeq = 0;
+  /* Whether the bed is *supposed* to be running. A phone's audio session
+     interrupts and pauses the music element whenever new media starts —
+     the video, then Pat, then Boone — and setting a volume cannot un-pause
+     anything. So we track intent and put it back. */
+  let bedWanted = false, bedWatch = null;
+
+  function ensureBed(why) {
+    const m = el.music;
+    if (!m || !bedWanted) return;
+    if (m.paused || m.ended) {
+      const p = m.play();
+      if (p && p.catch) p.catch(() => {});
+      bedStarted = true;
+      setBedVolume();
+    }
+  }
+
+  function watchBed(on) {
+    clearInterval(bedWatch);
+    bedWatch = on ? setInterval(() => ensureBed('poll'), 1500) : null;
+  }
 
   /* requestAnimationFrame stops in a hidden tab, which would strand the
      volume part-way through a fade. The timer guarantees it arrives. */
@@ -653,6 +688,7 @@ const Show = (() => {
 
   function runVoiceOpen() {
     phase = 'intro';
+    ensureBed('voice-open');
     el.cold.classList.add('on');
     el.coldMark.classList.add('on');
     setBedVolume();
@@ -724,6 +760,7 @@ const Show = (() => {
 
     phase = 'boone';
     coldBeat = -1; countAt = -1;
+    ensureBed('boone');
     setBedVolume();
 
     const finish2 = () => endColdOpen();
@@ -761,6 +798,7 @@ const Show = (() => {
     clearTimeout(timer);
     hideCold();
     phase = 'reveal';
+    ensureBed('reveals');
     setBedVolume();
     el.rail.style.opacity = '1';
     crowd(2.2); flare();
@@ -803,6 +841,8 @@ const Show = (() => {
   }
 
   function begin() {
+    bedWanted = true;
+    watchBed(true);
     el.gate.style.display = 'none';
     running = true; paused = false;
     revealed = []; cursor = -1;
@@ -1099,7 +1139,10 @@ const Show = (() => {
       /* let the bracket breathe, then close the recording and the music */
       timer = setTimeout(() => {
         fadeTo(0, 3000);
-        setTimeout(() => { el.music.pause(); bedStarted = false; }, 3100);
+        setTimeout(() => {
+          bedWanted = false; watchBed(false);
+          el.music.pause(); bedStarted = false;
+        }, 3100);
         if (Recorder.active) Recorder.stop();
       }, 11000);
     }, 5000);
@@ -1146,10 +1189,12 @@ const Show = (() => {
     el.cPlay.textContent = paused ? 'Resume' : 'Pause';
     if (paused) {
       clearTimeout(timer);
+      bedWanted = false; watchBed(false);
       el.music.pause();
       try { el.intro.pause(); el.boone.pause(); el.film.pause(); } catch (e) {}
       if (callAudio) try { callAudio.pause(); } catch (e) {}
     } else {
+      bedWanted = true; watchBed(true);
       el.music.play().catch(() => {});
       if (phase === 'film')  el.film.play().catch(() => {});
       else if (phase === 'intro') el.intro.play().catch(() => {});
@@ -1172,6 +1217,12 @@ const Show = (() => {
      'bloom', 'showBug', 'bugText', 'l3bar', 'foHead']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');
+
+    /* An interruption arrives as a plain pause event on the element. */
+    el.music.addEventListener('pause', () => {
+      if (bedWanted) setTimeout(() => ensureBed('interrupted'), 120);
+    });
+    el.music.addEventListener('stalled', () => ensureBed('stalled'));
 
     cvs = document.getElementById('fx');
     ctx = cvs.getContext('2d');
@@ -1251,6 +1302,7 @@ const Show = (() => {
   /** Leave the show — kill the voice track but keep the bed playing. */
   function stop() {
     running = false; phase = 'idle';
+    bedWanted = false; watchBed(false);
     clearTimeout(timer);
     [el.intro, el.boone].forEach(a => {
       try { a.pause(); a.ontimeupdate = null; a.onended = null; } catch (e) {}
