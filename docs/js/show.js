@@ -11,6 +11,12 @@ const MUSIC_FILE = 'music.mp3';
 const DUCK_UNDER_VOICE = 0.22;
 /* how far it drops for a beat under each reveal hit */
 const DUCK_UNDER_HIT   = 0.5;
+/* how far it drops while the announcer calls a team */
+const DUCK_UNDER_CALL  = 0.3;
+
+/* Per-team announcer calls cut out of the conference files by
+   tools/cut_voice.py. Missing file = that team just gets the sound effects. */
+const VOICE_DIR = 'voice/';
 
 const Show = (() => {
 
@@ -216,22 +222,70 @@ const Show = (() => {
   }
 
   /* ================================================== music bed control */
-  let bedStarted = false, fadeRaf = null;
+  let bedStarted = false, fadeRaf = null, fadeEnd = null, fadeSeq = 0;
 
+  /* requestAnimationFrame stops in a hidden tab, which would strand the
+     volume part-way through a fade. The timer guarantees it arrives. */
   function fadeTo(target, ms) {
     const m = el.music;
     if (!m) return;
+    target = Math.max(0, Math.min(1, target));
     cancelAnimationFrame(fadeRaf);
+    clearTimeout(fadeEnd);
+    const mine = ++fadeSeq;
     const from = m.volume, t0 = performance.now();
     const step = () => {
+      if (mine !== fadeSeq) return;
       const k = Math.min(1, (performance.now() - t0) / ms);
       m.volume = Math.max(0, Math.min(1, from + (target - from) * k));
       if (k < 1) fadeRaf = requestAnimationFrame(step);
     };
     step();
+    fadeEnd = setTimeout(() => { if (mine === fadeSeq) m.volume = target; }, ms + 60);
   }
 
   const bedVol = () => (STATE.volume || 0) / 100;
+
+  /* ============================================== announcer team calls */
+  let callAudio = null;                 // the clip playing right now
+  const callCache = {};                 // id -> HTMLAudioElement | false
+
+  /** Preload the calls for the teams in this show so they land instantly. */
+  function primeCalls() {
+    STATE.seeds.forEach(s => {
+      if (!s || callCache[s.id] !== undefined) return;
+      const a = new Audio(VOICE_DIR + s.id + '.mp3');
+      a.preload = 'auto';
+      a.onerror = () => { callCache[s.id] = false; };
+      callCache[s.id] = a;
+    });
+  }
+
+  function stopCall() {
+    if (!callAudio) return;
+    try { callAudio.pause(); callAudio.currentTime = 0; } catch (e) {}
+    callAudio.onended = null;
+    callAudio = null;
+  }
+
+  /** Play a team's call, ducking the bed underneath it. */
+  function playCall(id) {
+    stopCall();
+    if (STATE.calls === 'off') return false;
+    const a = callCache[id];
+    if (!a) return false;
+    callAudio = a;
+    try { a.currentTime = 0; } catch (e) {}
+    a.volume = 1;
+    const done = () => {
+      if (callAudio === a) { callAudio = null; setBedVolume(); }
+    };
+    a.onended = done;
+    a.play().then(() => {
+      fadeTo(bedVol() * DUCK_UNDER_CALL, 220);
+    }).catch(() => { callAudio = null; });
+    return true;
+  }
 
   /** Start the music bed and keep it running everywhere in the app. */
   function startBed() {
@@ -246,6 +300,7 @@ const Show = (() => {
 
   function setBedVolume() {
     if (phase === 'intro') fadeTo(bedVol() * DUCK_UNDER_VOICE, 260);
+    else if (callAudio) fadeTo(bedVol() * DUCK_UNDER_CALL, 260);
     else fadeTo(bedVol(), 260);
   }
 
@@ -359,6 +414,8 @@ const Show = (() => {
       ` &nbsp;&middot;&nbsp; press play when everyone is watching`;
 
     el.intro.src ||= INTRO_FILE;
+    stopCall();
+    primeCalls();
     startBed();
     setBedVolume();
     startAmbient();
@@ -566,6 +623,24 @@ const Show = (() => {
       timer = setTimeout(next, +STATE.pace);
   }
 
+  /** Auto-advance must never talk over the announcer. */
+  function holdForCall(gen) {
+    if (STATE.pace === 'manual' || paused || !callAudio) return;
+    const a = callAudio;
+    const wait = () => {
+      const left = (a.duration || 0) - a.currentTime;
+      if (!isFinite(left) || left <= 0) return;
+      const needed = left * 1000 + 900;
+      const already = +STATE.pace - 700;
+      if (needed > already && gen === revealGen) {
+        clearTimeout(timer);
+        timer = setTimeout(next, needed);
+      }
+    };
+    if (a.readyState >= 1) wait();
+    else a.addEventListener('loadedmetadata', wait, { once: true });
+  }
+
   /* --- individual effect triggers --- */
   function pushStage() {
     el.stage.classList.add('push');
@@ -657,8 +732,15 @@ const Show = (() => {
       burst([t.primary, t.secondary, '#ffffff', t.primary, '#F56A00']);
       flare();
       fadeTo(bedVol() * DUCK_UNDER_HIT, 180);
-      setTimeout(() => fadeTo(bedVol(), 1500), 850);
+      setTimeout(() => { if (gen === revealGen) setBedVolume(); }, 850);
     }, 250);
+
+    /* ---- the announcer's call, once the banner has landed ---- */
+    stopCall();
+    setTimeout(() => {
+      if (gen !== revealGen) return;
+      if (playCall(s.id)) holdForCall(gen);
+    }, 700);
 
     /* ---- lower third ---- */
     el.lower.classList.remove('on');
@@ -732,11 +814,16 @@ const Show = (() => {
     el.cPlay.textContent = paused ? 'Resume' : 'Pause';
     if (paused) {
       clearTimeout(timer);
-      el.music.pause(); try { el.intro.pause(); } catch (e) {}
+      el.music.pause();
+      try { el.intro.pause(); } catch (e) {}
+      if (callAudio) try { callAudio.pause(); } catch (e) {}
     } else {
       el.music.play().catch(() => {});
       if (phase === 'intro') el.intro.play().catch(() => {});
-      else if (STATE.pace !== 'manual') timer = setTimeout(next, +STATE.pace);
+      else {
+        if (callAudio) callAudio.play().catch(() => {});
+        if (STATE.pace !== 'manual') timer = setTimeout(next, +STATE.pace);
+      }
     }
   }
 
@@ -820,6 +907,7 @@ const Show = (() => {
     running = false; phase = 'idle';
     clearTimeout(timer);
     try { el.intro.pause(); el.intro.ontimeupdate = null; el.intro.onended = null; } catch (e) {}
+    stopCall();
     hideCold();
     stopAmbient();
     setBedVolume();

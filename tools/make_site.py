@@ -16,11 +16,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
 
 FILES = ['index.html', 'netlify.toml', '.nojekyll', 'music.mp3', 'intro.mp3']
-DIRS = ['css', 'js', 'assets', 'logos']
+DIRS = ['css', 'js', 'assets', 'logos', 'voice']
 
 # never ship these
 SKIP_EXT = {'.avif', '.py', '.md'}
 SKIP_NAMES = {'README.txt'}
+# subfolders (voice/_transcripts) are skipped for free — only files are copied
 
 
 def keep(name):

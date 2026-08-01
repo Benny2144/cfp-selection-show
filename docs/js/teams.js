@@ -107,7 +107,7 @@ middletennessee|Middle Tennessee|Blue Raiders|MTSU|C-USA|#0066CC|#FFFFFF
 missouristate|Missouri State|Bears|MOST|C-USA|#5E0009|#FFFFFF
 newmexicostate|New Mexico State|Aggies|NMSU|C-USA|#8C0B42|#FFFFFF
 samhouston|Sam Houston|Bearkats|SHSU|C-USA|#F26522|#FFFFFF
-utep|UTEP|Miners|UTEP|C-USA|#FF8200|#041E42
+utep|UTEP|Miners|UTEP|Mountain West|#FF8200|#041E42
 westernkentucky|Western Kentucky|Hilltoppers|WKU|C-USA|#B01E24|#FFFFFF
 
 akron|Akron|Zips|AKR|MAC|#041E42|#A89968
@@ -118,23 +118,23 @@ centralmichigan|Central Michigan|Chippewas|CMU|MAC|#6A0032|#FFC82E
 easternmichigan|Eastern Michigan|Eagles|EMU|MAC|#046A38|#FFFFFF
 kentstate|Kent State|Golden Flashes|KENT|MAC|#002664|#EAAB00
 miamioh|Miami (OH)|RedHawks|M-OH|MAC|#C41230|#FFFFFF
-northernillinois|Northern Illinois|Huskies|NIU|MAC|#C8102E|#000000
+northernillinois|Northern Illinois|Huskies|NIU|Mountain West|#C8102E|#000000
 ohio|Ohio|Bobcats|OHIO|MAC|#00694E|#CDA077
 toledo|Toledo|Rockets|TOL|MAC|#15397F|#FFB700
 umass|UMass|Minutemen|UMASS|MAC|#881C1C|#FFFFFF
 westernmichigan|Western Michigan|Broncos|WMU|MAC|#6C4023|#B5A167
 
 airforce|Air Force|Falcons|AF|Mountain West|#004A7B|#B0B7BC
-boisestate|Boise State|Broncos|BSU|Mountain West|#0033A0|#D64309
-coloradostate|Colorado State|Rams|CSU|Mountain West|#1E4D2B|#C8C372
-fresnostate|Fresno State|Bulldogs|FRES|Mountain West|#DB0032|#002E6D
+boisestate|Boise State|Broncos|BSU|Pac-12|#0033A0|#D64309
+coloradostate|Colorado State|Rams|CSU|Pac-12|#1E4D2B|#C8C372
+fresnostate|Fresno State|Bulldogs|FRES|Pac-12|#DB0032|#002E6D
 hawaii|Hawaii|Rainbow Warriors|HAW|Mountain West|#024731|#FFFFFF
 nevada|Nevada|Wolf Pack|NEV|Mountain West|#003366|#807F84
 newmexico|New Mexico|Lobos|UNM|Mountain West|#BA0C2F|#63666A
-sandiegostate|San Diego State|Aztecs|SDSU|Mountain West|#A6192E|#000000
+sandiegostate|San Diego State|Aztecs|SDSU|Pac-12|#A6192E|#000000
 sanjosestate|San Jose State|Spartans|SJSU|Mountain West|#0055A2|#E5A823
 unlv|UNLV|Rebels|UNLV|Mountain West|#CF0A2C|#666666
-utahstate|Utah State|Aggies|USU|Mountain West|#00263A|#FFFFFF
+utahstate|Utah State|Aggies|USU|Pac-12|#00263A|#FFFFFF
 wyoming|Wyoming|Cowboys|WYO|Mountain West|#492F24|#FFC425
 
 appstate|Appalachian State|Mountaineers|APP|Sun Belt|#000000|#FFCC00
@@ -149,7 +149,7 @@ marshall|Marshall|Thundering Herd|MRSH|Sun Belt|#00B140|#FFFFFF
 olddominion|Old Dominion|Monarchs|ODU|Sun Belt|#003087|#A1D2F1
 southalabama|South Alabama|Jaguars|USA|Sun Belt|#00205B|#BF0D3E
 southernmiss|Southern Miss|Golden Eagles|USM|Sun Belt|#000000|#FFAF00
-texasstate|Texas State|Bobcats|TXST|Sun Belt|#501214|#AE9142
+texasstate|Texas State|Bobcats|TXST|Pac-12|#501214|#AE9142
 troy|Troy|Trojans|TROY|Sun Belt|#8A2432|#FFFFFF
 `;
 

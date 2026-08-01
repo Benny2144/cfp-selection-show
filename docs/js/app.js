@@ -15,6 +15,7 @@ const STATE = {
   order:    'asc',
   pace:     10000,
   cold:     'full',
+  calls:    'on',
   fx:       'max',
   volume:   55,
   record:   false,
@@ -232,7 +233,7 @@ function encodeState() {
   const payload = {
     l: STATE.league, y: STATE.season, t: STATE.title, s: STATE.subtitle,
     k: STATE.ticker, o: STATE.order, p: STATE.pace, c: STATE.cold, f: STATE.fx,
-    g: STATE.logoPattern,
+    n: STATE.calls, g: STATE.logoPattern,
     d: STATE.seeds.map(x => x ? [x.id, x.record || ''] : null),
     v: Object.fromEntries(
       Object.entries(OVERRIDES).filter(([id]) => isSeeded(id))
@@ -256,6 +257,7 @@ function decodeState(b64) {
     STATE.pace     = p.p ?? 10000;
     STATE.cold     = p.c ?? 'full';
     STATE.fx       = p.f ?? 'max';
+    STATE.calls    = p.n ?? 'on';
     if (p.g) STATE.logoPattern = p.g;
     STATE.seeds = (p.d || []).map((x, i) =>
       x ? { id: x[0], record: x[1], champ: i < 4 } : null);
@@ -611,6 +613,7 @@ async function boot() {
   $('#optOrder').value = STATE.order;
   $('#optPace').value  = String(STATE.pace);
   $('#optCold').value  = STATE.cold;
+  $('#optCalls').value = STATE.calls;
   $('#optFx').value    = STATE.fx;
   $('#optVol').value   = STATE.volume;
   $('#volLbl').textContent = STATE.volume + '%';
@@ -619,7 +622,8 @@ async function boot() {
   $('#optPace').onchange  = e => {
     STATE.pace = e.target.value === 'manual' ? 'manual' : +e.target.value; persist();
   };
-  $('#optCold').onchange = e => { STATE.cold = e.target.value; persist(); };
+  $('#optCold').onchange  = e => { STATE.cold  = e.target.value; persist(); };
+  $('#optCalls').onchange = e => { STATE.calls = e.target.value; persist(); };
   $('#optFx').onchange   = e => { STATE.fx = e.target.value; applyFx(); persist(); };
   $('#optVol').oninput   = e => {
     STATE.volume = +e.target.value;
