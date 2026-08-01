@@ -395,6 +395,28 @@
   </div>
 </div>
 
+<div class="modal" id="mShare">
+  <div class="card">
+    <h3>SEND IT TO THE LEAGUE</h3>
+    <p class="note" style="margin-bottom:12px" id="shareNote"></p>
+    <textarea id="shareUrl" class="linkbox" readonly rows="3"></textarea>
+    <div class="sharegrid">
+      <div><b id="shareCount">0</b><span>Teams seeded</span></div>
+      <div><b id="shareOut">0</b><span>Just missed</span></div>
+      <div><b id="shareLen">0</b><span>Link length</span></div>
+    </div>
+    <p class="note">Whoever opens this lands on the play button and nothing else.
+      They can't reach the committee room, so the field stays secret until they
+      press play. The picks ride inside the link itself &mdash; there's no server
+      and nothing to keep running.</p>
+    <div class="row">
+      <button class="btn ghost" id="mShareClose">Close</button>
+      <button class="btn" id="mShareOpen">Open It Myself</button>
+      <button class="btn primary" id="mShareCopy">Copy Link</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="mLink">
   <div class="card">
     <h3>OPEN A SHARED BRACKET</h3>

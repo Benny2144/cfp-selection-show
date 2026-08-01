@@ -26,6 +26,11 @@ const STATE = {
   out:   Array(4).fill(null)           // first four out — shown before the bracket
 };
 
+/* True when the page was opened from a share link. The committee room is
+   sealed off in that mode — otherwise whoever you sent it to could just walk
+   in and read the field before you ever pressed play. */
+let VIEWER = false;
+
 let OVERRIDES = loadOverrides();
 
 function team(id) {
@@ -394,13 +399,41 @@ function decodeState(b64) {
 
 const shareLink = () => `${location.href.split('#')[0]}#show=${encodeState()}`;
 
-async function copyShare() {
+/** Show the link, with a copy button and a fallback you can select by hand. */
+function openShare() {
   const url = shareLink();
+  const seeded = STATE.seeds.filter(Boolean).length;
+  const outs = STATE.out.slice(0, STATE.outCount).filter(Boolean).length;
+
+  $('#shareUrl').value = url;
+  $('#shareCount').textContent = seeded + '/12';
+  $('#shareOut').textContent = outs + '/' + STATE.outCount;
+  $('#shareLen').textContent = url.length;
+
+  const local = /^file:/.test(location.protocol) ||
+                /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname);
+  $('#shareNote').innerHTML = seeded < 12
+    ? `<b style="color:var(--accent2)">Only ${seeded} of 12 seeds are filled.</b> ` +
+      'The link still works — the show just reveals what you have.'
+    : (local
+       ? '<b style="color:var(--accent2)">This is a local address.</b> ' +
+         'It will only open on this computer. Publish the site first if you want ' +
+         'the league to be able to use it.'
+       : 'Ready to send.');
+
+  $('#mShare').classList.add('on');
+  setTimeout(() => { $('#shareUrl').focus(); $('#shareUrl').select(); }, 60);
+}
+
+async function copyShare() {
+  const url = $('#shareUrl').value || shareLink();
   try {
     await navigator.clipboard.writeText(url);
-    toast('Share link copied — send it to the league');
+    toast('Link copied — send it to the league');
   } catch (e) {
-    prompt('Copy this link:', url);
+    $('#shareUrl').select();
+    document.execCommand && document.execCommand('copy');
+    toast('Link selected — press Ctrl+C');
   }
 }
 
@@ -654,7 +687,10 @@ function refreshLogoCount() {
 /* ======================================================================
    PERSISTENCE + BOOT
    ====================================================================== */
-const persist = () => localStorage.setItem('cfp27.state', JSON.stringify(STATE));
+const persist = () => {
+  if (VIEWER) return;          // never overwrite a guest's own board
+  localStorage.setItem('cfp27.state', JSON.stringify(STATE));
+};
 
 function restore() {
   try {
@@ -672,6 +708,7 @@ function toast(msg) {
 }
 
 function showScreen(name) {
+  if (VIEWER && (name === 'room' || name === 'home')) name = 'show';
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === name));
   if (name === 'final') renderBracket();
   if (name !== 'show') Show.stop();
@@ -700,6 +737,8 @@ async function boot() {
 
   const hash = location.hash.match(/^#show=(.+)$/);
   const shared = !!(hash && decodeState(hash[1]));
+  VIEWER = shared;
+  if (VIEWER) document.body.classList.add('viewer');
 
   CONFERENCES.forEach(c => {
     const o = document.createElement('option');
@@ -768,8 +807,11 @@ async function boot() {
     if (!confirm('Clear all 12 seeds?')) return;
     STATE.seeds = Array(12).fill(null); persist(); renderPool(); renderSeeds();
   };
-  $('#btnShare').onclick   = copyShare;
-  $('#fShare').onclick     = copyShare;
+  $('#btnShare').onclick   = openShare;
+  $('#fShare').onclick     = openShare;
+  $('#mShareClose').onclick = () => $('#mShare').classList.remove('on');
+  $('#mShareCopy').onclick  = copyShare;
+  $('#mShareOpen').onclick  = () => window.open($('#shareUrl').value, '_blank');
   $('#btnBracket').onclick = () => showScreen('final');
   $('#fRoom').onclick      = () => showScreen('room');
   $('#fShow').onclick      = () => { showScreen('show'); Show.arm(); };
@@ -961,7 +1003,12 @@ async function boot() {
   ['pointerdown', 'keydown'].forEach(ev =>
     addEventListener(ev, wake, { once: true, capture: true }));
 
-  if (shared) { applyFx(); showScreen('show'); Show.arm(); }
+  if (shared) {
+    applyFx();
+    document.title = `${STATE.league} — ${STATE.subtitle}`;
+    showScreen('show');
+    Show.arm();
+  }
 }
 
 if (document.readyState === 'loading')

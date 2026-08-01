@@ -783,6 +783,29 @@ input,select{font-family:inherit}
 }
 .toast.on{transform:translateX(-50%) translateY(0)}
 
+/* =====================================================================
+   VIEWER MODE — opened from a share link, so the board stays sealed
+   ===================================================================== */
+body.viewer #cRoom,
+body.viewer #fRoom,
+body.viewer #btnShare,
+body.viewer #roomHome{display:none}
+
+.linkbox{
+  width:100%;background:#0b0f14;border:1px solid #2a3340;border-radius:5px;
+  color:var(--accent2);padding:12px 13px;font-size:12px;line-height:1.55;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  resize:vertical;outline:none;word-break:break-all;
+}
+.linkbox:focus{border-color:var(--accent)}
+.sharegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 14px}
+.sharegrid div{background:#0d1116;border:1px solid var(--line);border-radius:5px;
+  padding:10px 12px;text-align:center}
+.sharegrid b{display:block;font-family:var(--cond);font-size:21px;
+  letter-spacing:1.5px;color:var(--txt);font-weight:400}
+.sharegrid span{display:block;font-size:9px;letter-spacing:2.2px;color:#6b7684;
+  text-transform:uppercase;margin-top:3px;font-weight:800}
+
 /* calm mode kills the aggressive stuff */
 body.calm .shake,body.calm .glitch,body.calm .flashfill,body.calm .wipe{animation:none!important;opacity:0!important}
 body.calm .scan{display:none}

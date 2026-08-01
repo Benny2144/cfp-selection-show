@@ -1070,7 +1070,9 @@ const Show = (() => {
     document.getElementById('cSkip').onclick = () => { if (inColdOpen()) endColdOpen(); };
     document.getElementById('cRestart').onclick = arm;
     document.getElementById('cBracket').onclick = () => { stop(); showScreen('final'); };
-    document.getElementById('cRoom').onclick = () => { stop(); showScreen('room'); };
+    document.getElementById('cRoom').onclick = () => {
+      stop(); showScreen(VIEWER ? 'show' : 'room'); if (VIEWER) arm();
+    };
     document.getElementById('cFull').onclick = toggleFull;
 
     const nudgeCtl = () => {
@@ -1109,7 +1111,10 @@ const Show = (() => {
       else if (e.key === 's' || e.key === 'S') { if (inColdOpen()) endColdOpen(); }
       else if (e.key === 'p' || e.key === 'P') togglePause();
       else if (e.key === 'f' || e.key === 'F') toggleFull();
-      else if (e.key === 'Escape') { stop(); showScreen('room'); }
+      else if (e.key === 'Escape') {
+        if (VIEWER) { stop(); arm(); }      // back to the play button, no further
+        else { stop(); showScreen('room'); }
+      }
     });
   }
 
