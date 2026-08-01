@@ -727,80 +727,6 @@ input,select{font-family:inherit}
   .mx-row input[type=range]{height:28px}     /* easier to grab with a thumb */
 }
 
-/* =====================================================================
-   NETWORK BUG — the little permanent mark, top left
-   ===================================================================== */
-.bug{
-  position:absolute;top:18px;left:18px;z-index:13;display:none;
-  align-items:center;gap:9px;padding:7px 13px 7px 8px;
-  background:linear-gradient(180deg,rgba(12,16,22,.86),rgba(6,8,12,.86));
-  border:1px solid rgba(255,255,255,.10);border-radius:3px;
-  backdrop-filter:blur(8px);opacity:.9;
-}
-.bug.on{display:flex;animation:inUp .7s cubic-bezier(.16,1,.3,1) both}
-.bug b{display:grid;place-items:center;height:26px}
-.bug b img{height:100%;width:auto;display:block}
-.bug span{font-size:9.5px;letter-spacing:3px;text-transform:uppercase;
-  color:#95a0b0;font-weight:800}
-
-.ticker{
-  position:absolute;left:0;right:0;bottom:0;z-index:12;
-  height:var(--bottom-rail);
-  padding-bottom:calc(var(--safe-b) + var(--safe-extra));
-  background:linear-gradient(180deg,#0d1016,#05070a);
-  border-top:2px solid var(--accent);display:flex;align-items:center;overflow:hidden;
-}
-.ticker .badge{flex:none;height:100%;display:grid;place-items:center;padding:0 20px;
-  background:var(--accent);color:#080808;font-family:var(--cond);
-  font-size:20px;letter-spacing:2.5px}
-.ticker .track{flex:1;overflow:hidden;position:relative;height:100%}
-.ticker .track .run{
-  position:absolute;white-space:nowrap;top:50%;transform:translateY(-50%);
-  font-size:13.5px;letter-spacing:2.6px;text-transform:uppercase;color:#c8d0dc;
-  animation:tick 46s linear infinite;font-weight:600;
-}
-.ticker .track .run span{margin:0 26px}
-.ticker .track .run span b{color:var(--accent2)}
-@keyframes tick{from{left:100%;transform:translate(0,-50%)}
-                to{left:0;transform:translate(-100%,-50%)}}
-.clock{flex:none;padding:0 18px;font-family:var(--cond);font-size:17px;
-  letter-spacing:2px;color:#6f7a8b;border-left:1px solid #1c222c;height:100%;
-  display:grid;place-items:center}
-
-.ctl{
-  position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:20;
-  display:flex;gap:7px;padding:7px;border-radius:7px;
-  background:rgba(10,13,18,.9);border:1px solid #232b36;backdrop-filter:blur(8px);
-  opacity:0;transition:.3s;pointer-events:none;
-}
-.ctl.show{opacity:1;pointer-events:auto}
-.ctl button{padding:8px 13px;border-radius:4px;background:#1a212b;font-size:11px;
-  letter-spacing:1.4px;text-transform:uppercase;font-weight:700}
-.ctl button:hover{background:#28313e}
-.ctl button.go{background:var(--accent);color:#0a0a0a}
-.ctl .sep{width:1px;background:#242c38;margin:2px 3px}
-
-.gate{
-  position:absolute;inset:0;z-index:30;display:grid;place-content:center;
-  text-align:center;gap:24px;background:radial-gradient(60% 60% at 50% 45%,#101620,#04060a);
-}
-.gate .kick{font-size:12px;letter-spacing:8px;color:var(--accent);font-weight:800;
-  text-transform:uppercase}
-.gate h1{font-family:var(--cond);font-size:clamp(32px,6vw,92px);letter-spacing:4px;
-  line-height:.94;text-transform:uppercase}
-.gate p{color:#7f8a9a;font-size:13px;letter-spacing:2.6px;text-transform:uppercase}
-.playbtn{
-  width:132px;height:132px;border-radius:50%;margin:6px auto 0;display:grid;
-  place-items:center;background:var(--accent);color:#08090c;
-  box-shadow:0 0 0 0 rgba(245,106,0,.55);animation:pulse 2.1s infinite;
-  transition:transform .16s;
-}
-.playbtn:hover{transform:scale(1.07)}
-.playbtn svg{width:52px;height:52px;margin-left:8px}
-@keyframes pulse{
-  0%{box-shadow:0 0 0 0 rgba(245,106,0,.55)}
-  70%{box-shadow:0 0 0 44px rgba(245,106,0,0)}
-  100%{box-shadow:0 0 0 0 rgba(245,106,0,0)}}
 
 /* =====================================================================
    3. FINAL BRACKET
@@ -991,13 +917,18 @@ body.calm .scan{display:none}
 /* =====================================================================
    RECORDING
    ===================================================================== */
-.rec-opt{display:flex;align-items:center;gap:9px;justify-content:center;
-  font-size:11.5px;letter-spacing:2px;text-transform:uppercase;color:#8d98a8;
-  cursor:pointer;user-select:none}
-.rec-opt input{width:17px;height:17px;accent-color:var(--accent);cursor:pointer}
-.rec-opt:hover{color:var(--txt)}
-.rec-why{font-size:10.5px;letter-spacing:.6px;color:#616b7a;max-width:440px;
-  margin:0 auto;line-height:1.6;text-transform:none}
+/* a tidy pill rather than a checkbox with a paragraph hanging off it */
+.rec-opt{
+  display:inline-flex;align-items:center;gap:10px;margin-top:30px;
+  padding:10px 18px;border:1px solid #232c38;border-radius:999px;
+  background:rgba(12,16,22,.6);
+  font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:#8d98a8;
+  cursor:pointer;user-select:none;transition:.16s;
+}
+.rec-opt:hover{color:var(--txt);border-color:#39465a}
+.rec-opt input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.rec-why{font-size:10.5px;letter-spacing:.4px;color:#5d6775;max-width:420px;
+  margin:10px auto 0;line-height:1.65;text-transform:none}
 .gate-keys{font-size:11px;letter-spacing:2px;color:#5c6675}
 
 .reclamp{
@@ -1139,7 +1070,6 @@ body.calm .scan{display:none}
   .ctl button{padding:10px 11px;font-size:10px;letter-spacing:1px;flex:none}
   .ctl .sep{flex:none}
   .hud{display:none}
-  .bug{display:none}
   .cold-mark span img{height:min(34vh,260px);max-width:74vw}
   .ticker .badge{padding:0 12px;font-size:16px}
   .ticker .track .run{font-size:11.5px;letter-spacing:1.8px}
@@ -1166,9 +1096,11 @@ body.calm .scan{display:none}
   .cs-kick{letter-spacing:5px;margin-bottom:9px}
   .cs-rule{margin:12px auto}
   .cs-small{letter-spacing:6px}
-  .gate{gap:16px;padding:0 20px}
-  .playbtn{width:100px;height:100px}
-  .playbtn svg{width:40px;height:40px}
+  .gate{padding:5vh 18px}
+  .gate h1::after{margin-top:16px}
+  .playbtn{width:96px;height:96px;margin-top:26px}
+  .playbtn svg{width:36px;height:36px}
+  .rec-opt{margin-top:22px;padding:9px 14px;font-size:10px;letter-spacing:1.6px}
   .gate-keys{display:none}
   .reclamp{top:10px;left:10px;padding:5px 10px;font-size:12px}
 

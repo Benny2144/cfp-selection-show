@@ -962,9 +962,7 @@ async function boot() {
   const recOpt = $('#optRecord');
   if (Recorder.supported()) {
     $('#recWhy').textContent =
-      'You\'ll be asked to pick a window — choose this tab and tick "share tab audio". ' +
-      'When the show ends the file downloads, and a "Send To Phone" button appears ' +
-      'on the bracket screen to drop it straight onto your phone.';
+      'Pick this tab and tick "share tab audio". It downloads when the show ends.';
   } else {
     recOpt.disabled = true;
     $('#recOpt').style.opacity = '.4';

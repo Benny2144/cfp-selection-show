@@ -554,7 +554,6 @@ const Show = (() => {
     el.glow.style.opacity = '0';
     el.floor.style.removeProperty('--floorc');
     el.gate.style.display = 'grid';
-    el.showBug.classList.remove('on');
     el.bloom.classList.remove('go');
 
     const n = seq.length;
@@ -879,8 +878,6 @@ const Show = (() => {
     revealed = []; cursor = -1;
     paintTicker();
 
-    el.bugText.textContent = `${STATE.league} · ${STATE.season}`;
-    el.showBug.classList.add('on');
 
     /* restart the bed from the top for the show */
     const m = el.music;
@@ -1245,7 +1242,7 @@ const Show = (() => {
      'l3cap', 'l3t1', 'l3t2', 'tkRun', 'tkBadge', 'tkClock', 'gate', 'gateKick',
      'gateTitle', 'gateSub', 'music', 'intro', 'boone', 'ctl', 'cPlay',
      'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap',
-     'bloom', 'showBug', 'bugText', 'l3bar', 'foHead']
+     'bloom', 'l3bar', 'foHead']
       .forEach(id => el[id] = document.getElementById(id));
     el.glow = document.getElementById('teamGlow');
 
