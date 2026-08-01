@@ -22,10 +22,35 @@
       "migrations_dir": "./migrations"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "LEAGUE_LIVE", "class_name": "LeagueLiveRoom" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["LeagueLiveRoom"] }
+  ],
   "r2_buckets": [
     {
       "binding": "MEDIA",
       "bucket_name": "cfp-selection-show-media"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "2714001",
+      "simple": { "limit": 30, "period": 60 }
+    },
+    {
+      "name": "WRITE_RATE_LIMITER",
+      "namespace_id": "2714002",
+      "simple": { "limit": 180, "period": 60 }
+    },
+    {
+      "name": "SENSITIVE_RATE_LIMITER",
+      "namespace_id": "2714003",
+      "simple": { "limit": 30, "period": 60 }
     }
   ],
   "triggers": {

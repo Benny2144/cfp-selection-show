@@ -20,8 +20,18 @@
 <meta name="description" content="Run a broadcast-style College Football Playoff selection show for your online dynasty. Set the 12-team field, hit play, reveal it like TV.">
 <meta name="theme-color" content="#030509">
 <meta name="mobile-web-app-capable" content="yes">
+<link rel="canonical" href="https://cfp-selection-show.benarp2144.workers.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CFP Dynasty Studio">
 <meta property="og:title" content="CFP Selection Show">
 <meta property="og:description" content="Build the field. Premiere Selection Night. Turn your online dynasty into an event.">
+<meta property="og:url" content="https://cfp-selection-show.benarp2144.workers.dev/">
+<meta property="og:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/room-bg.webp">
+<meta property="og:image:alt" content="A cinematic college football selection committee room">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CFP Selection Show">
+<meta name="twitter:description" content="Build the field. Premiere Selection Night. Turn your online dynasty into an event.">
+<meta name="twitter:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/room-bg.webp">
 <meta name="color-scheme" content="dark">
 <link rel="preload" as="image" href="assets/room-bg.webp" fetchpriority="high">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
@@ -900,6 +910,18 @@
         <div><b>DYNASTY</b><span>History &amp; pick'em entries</span></div>
         <div><b>LOGOS</b><span>Private commissioner uploads</span></div>
       </div>
+      <section class="account-security" aria-labelledby="accountSecurityTitle">
+        <div class="account-events-head">
+          <div><span>PRIVACY &amp; ACCESS</span><b id="accountSecurityTitle">ACCOUNT CONTROL</b></div>
+          <i aria-hidden="true">&#10003;</i>
+        </div>
+        <div class="account-security-grid">
+          <div><b>Take your data with you</b><span>Download your workspace, broadcasts, league memberships and security activity as JSON.</span></div>
+          <button class="event-action" id="accountExport" type="button">Download my data</button>
+          <div><b>Close old sessions</b><span>Keep this device signed in and immediately sign out every other browser.</span></div>
+          <button class="event-action" id="accountSignOutOthers" type="button">Sign out other devices</button>
+        </div>
+      </section>
       <section class="account-leagues" aria-labelledby="accountLeaguesTitle">
         <div class="account-events-head">
           <div><span>SHARED COMMISSIONER WORKSPACES</span><b id="accountLeaguesTitle">LEAGUE ROOMS</b></div>

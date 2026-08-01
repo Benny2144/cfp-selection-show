@@ -1,0 +1,5 @@
+Contact: mailto:benarp2144@gmail.com
+Canonical: https://cfp-selection-show.benarp2144.workers.dev/.well-known/security.txt
+Policy: https://cfp-selection-show.benarp2144.workers.dev/privacy
+Preferred-Languages: en
+Expires: 2027-08-01T23:59:59Z

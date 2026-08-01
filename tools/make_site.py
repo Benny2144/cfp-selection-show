@@ -16,10 +16,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
 
 FILES = ['index.html', 'privacy.html', 'terms.html', 'manifest.webmanifest', 'sw.js',
+         'robots.txt', 'sitemap.xml',
          'netlify.toml', '_headers', '.nojekyll', 'music.mp3',
          'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4',
          'selection-night-open.mp4', 'committee.mp4']
-DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
+DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall', '.well-known']
 
 # Anything Cloudflare's static asset layer will not take. Its hard cap is
 # 25 MiB per asset and the intro film is 55 MB. When index.html names a media

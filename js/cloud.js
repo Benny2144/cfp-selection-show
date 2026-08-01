@@ -26,12 +26,80 @@ const CloudSync = (() => {
   let publishedEvents = [];
   let leagueRooms = [];
   let pendingJoinCode = '';
+  let lastLeagueNotice = '';
+  let leagueSocket = null;
+  let leagueReconnectTimer = null;
+  let leagueReconnectDelay = 5000;
+  let liveMembers = [];
   const leagueDetailCache = new Map();
 
   const $c = id => document.getElementById(id);
 
   function viewerMode() {
     return typeof VIEWER !== 'undefined' && VIEWER;
+  }
+
+  function closeLeagueLive() {
+    clearTimeout(leagueReconnectTimer);
+    leagueReconnectTimer = null;
+    const socket = leagueSocket;
+    leagueSocket = null;
+    liveMembers = [];
+    if (socket && socket.readyState < WebSocket.CLOSING) socket.close(1000, 'Room changed');
+  }
+
+  function handleLeagueLive(data) {
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'presence') {
+      liveMembers = Array.isArray(data.members) ? data.members.filter(member =>
+        member && typeof member.id === 'string' && typeof member.name === 'string'
+      ).slice(0, 32) : [];
+      renderLeagues();
+      return;
+    }
+    if (data.type !== 'board_published' || !Number.isInteger(data.version)) return;
+    const roomId = typeof STATE !== 'undefined' ? STATE.leagueRoomId : '';
+    const room = leagueRooms.find(item => item.id === roomId);
+    if (room && data.version > Number(room.version || 0)) {
+      room.version = data.version;
+      room.updatedBy = String(data.actor || 'Commissioner');
+      leagueDetailCache.delete(room.id);
+    }
+    if (roomId && data.version > Number(STATE.leagueRoomVersion || 0)) {
+      const notice = `${roomId}:${data.version}`;
+      if (lastLeagueNotice !== notice) {
+        lastLeagueNotice = notice;
+        toast(`${data.actor || 'A commissioner'} published board v${data.version}`);
+      }
+    }
+    renderLeagues();
+  }
+
+  function connectLeagueLive() {
+    const roomId = user && typeof STATE !== 'undefined' ? STATE.leagueRoomId : '';
+    if (!roomId || viewerMode() || !navigator.onLine) {
+      closeLeagueLive();
+      return;
+    }
+    if (leagueSocket && leagueSocket.roomId === roomId && leagueSocket.readyState < WebSocket.CLOSING) return;
+    closeLeagueLive();
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${protocol}//${location.host}/api/leagues/${encodeURIComponent(roomId)}/live`);
+    socket.roomId = roomId;
+    leagueSocket = socket;
+    socket.onopen = () => { leagueReconnectDelay = 5000; };
+    socket.onmessage = event => {
+      try { handleLeagueLive(JSON.parse(event.data)); } catch (error) {}
+    };
+    socket.onclose = () => {
+      if (leagueSocket !== socket) return;
+      leagueSocket = null;
+      liveMembers = [];
+      renderLeagues();
+      leagueReconnectTimer = setTimeout(connectLeagueLive, leagueReconnectDelay);
+      leagueReconnectDelay = Math.min(60000, leagueReconnectDelay * 2);
+    };
+    socket.onerror = () => {};
   }
 
   function emit(state, detail = {}) {
@@ -225,6 +293,7 @@ const CloudSync = (() => {
   async function signOut() {
     if (dirty) await flush();
     try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+    closeLeagueLive();
     user = null;
     publishedEvents = [];
     leagueRooms = [];
@@ -238,12 +307,60 @@ const CloudSync = (() => {
     toast('Signed out — this device still has a local copy');
   }
 
+  async function signOutOtherDevices() {
+    if (!user || !confirm('Sign out every other device connected to this cloud account? This device will stay signed in.')) return;
+    const button = $c('accountSignOutOthers');
+    if (button) button.disabled = true;
+    try {
+      const result = await api('/api/auth/logout-others', { method: 'POST' });
+      const count = Number(result.revoked || 0);
+      toast(count ? `${count} other session${count === 1 ? '' : 's'} signed out` : 'No other signed-in devices found');
+    } catch (error) {
+      toast(error.message || 'Could not sign out other devices');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function downloadAccountExport() {
+    if (!user) return;
+    const button = $c('accountExport');
+    const original = button ? button.textContent : '';
+    if (button) { button.disabled = true; button.textContent = 'Preparing export...'; }
+    try {
+      await flush();
+      const response = await fetch('/api/account/export', {
+        method: 'GET', credentials: 'same-origin', headers: { accept: 'application/json' }
+      });
+      if (!response.ok) {
+        let message = `Export failed (${response.status})`;
+        try { message = (await response.json()).error || message; } catch (error) {}
+        throw new Error(message);
+      }
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = `cfp-cloud-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+      toast('Account export downloaded');
+    } catch (error) {
+      toast(error.message || 'Could not download account data');
+    } finally {
+      if (button) { button.disabled = false; button.textContent = original || 'Download my data'; }
+    }
+  }
+
   async function deleteAccount() {
     if (!user) return;
     if (!confirm('Delete your cloud account and every cloud save? Your current device copy will remain.')) return;
     if (!confirm('This cannot be undone. Delete the cloud account now?')) return;
     try {
       await api('/api/account', { method: 'DELETE' });
+      closeLeagueLive();
       user = null;
       publishedEvents = [];
       leagueRooms = [];
@@ -573,6 +690,15 @@ const CloudSync = (() => {
     try {
       const result = await api('/api/leagues');
       leagueRooms = Array.isArray(result.leagues) ? result.leagues : [];
+      const active = typeof STATE !== 'undefined'
+        ? leagueRooms.find(item => item.id === STATE.leagueRoomId) : null;
+      if (active && active.version > Number(STATE.leagueRoomVersion || 0)) {
+        const notice = `${active.id}:${active.version}`;
+        if (lastLeagueNotice !== notice) {
+          lastLeagueNotice = notice;
+          toast(`${active.name} board v${active.version} is ready to load`);
+        }
+      }
       renderLeagues();
       return leagueRooms;
     } catch (error) {
@@ -588,6 +714,7 @@ const CloudSync = (() => {
     STATE.leagueRoomVersion = league.version;
     localStorage.setItem('cfp27.state', JSON.stringify(STATE));
     if (typeof persist === 'function') persist();
+    connectLeagueLive();
   }
 
   async function createLeagueRoom() {
@@ -803,8 +930,9 @@ const CloudSync = (() => {
     }
     leagueRooms.forEach(league => {
       const card = document.createElement('article');
-      card.className = 'account-league' +
-        (typeof STATE !== 'undefined' && STATE.leagueRoomId === league.id ? ' active' : '');
+      const active = typeof STATE !== 'undefined' && STATE.leagueRoomId === league.id;
+      const updateAvailable = active && league.version > Number(STATE.leagueRoomVersion || 0);
+      card.className = 'account-league' + (active ? ' active' : '') + (updateAvailable ? ' newer' : '');
       const top = document.createElement('div');
       top.className = 'account-league-top';
       const copy = document.createElement('div');
@@ -813,15 +941,29 @@ const CloudSync = (() => {
       title.textContent = league.name;
       const meta = document.createElement('span');
       meta.textContent = `${league.season} · ${league.members} member${league.members === 1 ? '' : 's'} · board v${league.version}`;
+      if (updateAvailable) meta.textContent += ' - UPDATE READY';
       copy.append(title, meta);
       const role = document.createElement('em');
       role.className = `league-role ${league.role}`;
       role.textContent = league.role;
-      top.append(copy, role);
+      top.appendChild(copy);
+      if (active) {
+        const presence = document.createElement('span');
+        presence.className = `league-presence${liveMembers.length ? ' online' : ''}`;
+        const dot = document.createElement('i');
+        const label = document.createElement('b');
+        label.textContent = liveMembers.length ? `${liveMembers.length} live` : 'Connecting';
+        presence.append(dot, label);
+        presence.title = liveMembers.length
+          ? liveMembers.map(member => `${member.name} (${member.role})`).join(', ')
+          : 'Opening the live league desk';
+        top.appendChild(presence);
+      }
+      top.appendChild(role);
       const actions = document.createElement('div');
       actions.className = 'account-event-actions';
       actions.append(
-        eventButton('Load board', 'event-action', () => { void loadLeagueBoard(league.id); }),
+        eventButton(updateAvailable ? `Load new v${league.version}` : 'Load board', updateAvailable ? 'event-action update-ready' : 'event-action', () => { void loadLeagueBoard(league.id); }),
         eventButton('Copy invite', 'event-action', () => { void copyText(league.inviteUrl, 'League invite copied'); }),
         eventButton('Members', 'event-action', () => { void toggleLeagueMembers(card, league); }),
         eventButton('Activity', 'event-action', () => { void showLeagueActivity(card, league); })
@@ -867,6 +1009,8 @@ const CloudSync = (() => {
     if ($c('mAccountClose')) $c('mAccountClose').onclick = closeAccount;
     if ($c('accountSyncNow')) $c('accountSyncNow').onclick = () => { dirty = true; void flush(true); };
     if ($c('accountSignOut')) $c('accountSignOut').onclick = () => { void signOut(); };
+    if ($c('accountSignOutOthers')) $c('accountSignOutOthers').onclick = () => { void signOutOtherDevices(); };
+    if ($c('accountExport')) $c('accountExport').onclick = () => { void downloadAccountExport(); };
     if ($c('accountDelete')) $c('accountDelete').onclick = () => { void deleteAccount(); };
     if ($c('accountCreateLeague')) $c('accountCreateLeague').onclick = () => { void createLeagueRoom(); };
     if ($c('accountJoinLeague')) $c('accountJoinLeague').onclick = () => { void joinLeagueRoom(); };
@@ -880,10 +1024,16 @@ const CloudSync = (() => {
     }
     if ($c('conflictCloud')) $c('conflictCloud').onclick = () => { void resolveConflict('cloud'); };
     if ($c('conflictLocal')) $c('conflictLocal').onclick = () => { void resolveConflict('local'); };
-    window.addEventListener('online', () => { if (dirty) void flush(); else emit(user ? 'saved' : 'local'); });
+    window.addEventListener('online', () => {
+      if (dirty) void flush(); else emit(user ? 'saved' : 'local');
+      if (user) connectLeagueLive();
+    });
     window.addEventListener('offline', () => emit('offline'));
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden' && dirty) void flush();
+      if (document.visibilityState === 'visible' && user && typeof STATE !== 'undefined' && STATE.leagueRoomId) {
+        void loadLeagues();
+      }
     });
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && $c('mAccount')?.classList.contains('on')) closeAccount();
@@ -899,6 +1049,11 @@ const CloudSync = (() => {
     }
     renderAccount();
     if (user && dirty) setTimeout(() => { void flush(); }, 100);
+    if (user) connectLeagueLive();
+    setInterval(() => {
+      if (user && navigator.onLine && document.visibilityState === 'visible' &&
+          typeof STATE !== 'undefined' && STATE.leagueRoomId) void loadLeagues();
+    }, 60000);
     const invite = location.pathname.match(/^\/join\/([A-HJ-NP-Z2-9]{8})\/?$/i);
     if (invite) setTimeout(() => openJoin(invite[1]), 150);
   }

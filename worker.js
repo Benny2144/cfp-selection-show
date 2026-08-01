@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { DurableObject } from 'cloudflare:workers';
 
 const MEDIA_PREFIX = '/media/';
 const API_PREFIX = '/api/';
@@ -57,6 +58,7 @@ function copyResponse(response, headers) {
 }
 
 function secureResponse(response, requestId, api = false) {
+  if (response.status === 101) return response;
   const headers = new Headers(response.headers);
   headers.set('x-content-type-options', 'nosniff');
   headers.set('referrer-policy', 'strict-origin-when-cross-origin');
@@ -128,6 +130,132 @@ function sameOriginMutation(request) {
   const origin = request.headers.get('origin');
   const expected = new URL(request.url).origin;
   return origin === expected && request.headers.get('x-cfp-request') === '1';
+}
+
+async function rateLimitResponse(limiter, key, message) {
+  if (!limiter || typeof limiter.limit !== 'function') return null;
+  const { success } = await limiter.limit({ key });
+  return success ? null : json({ error: message }, 429, { 'retry-after': '60' });
+}
+
+function parseStoredJson(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function decodeBase64url(value) {
+  try {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+    const binary = atob(padded);
+    return new Uint8Array([...binary].map(character => character.charCodeAt(0)));
+  } catch {
+    return null;
+  }
+}
+
+function liveIdentity(value) {
+  if (!value || value.length > 2048) return null;
+  const bytes = decodeBase64url(value);
+  if (!bytes) return null;
+  const identity = parseStoredJson(new TextDecoder().decode(bytes), null);
+  if (!identity || !EVENT_ID_RE.test(identity.id) || !boundedText(identity.name || '', 120) ||
+      !['owner', 'admin', 'member'].includes(identity.role)) return null;
+  return { id: identity.id, name: identity.name || 'League member', role: identity.role };
+}
+
+export class LeagueLiveRoom extends DurableObject {
+  connectedMembers() {
+    const members = new Map();
+    for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      const identity = socket.deserializeAttachment();
+      if (!identity || !EVENT_ID_RE.test(identity.id || '')) continue;
+      const current = members.get(identity.id) || {
+        id: identity.id,
+        name: identity.name || 'League member',
+        role: identity.role || 'member',
+        connections: 0,
+      };
+      current.connections += 1;
+      members.set(identity.id, current);
+    }
+    return [...members.values()];
+  }
+
+  broadcast(payload) {
+    const message = JSON.stringify(payload);
+    let delivered = 0;
+    for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      try {
+        socket.send(message);
+        delivered += 1;
+      } catch {
+        // A closing socket is omitted from the next presence snapshot.
+      }
+    }
+    return delivered;
+  }
+
+  broadcastPresence() {
+    const members = this.connectedMembers();
+    this.broadcast({ type: 'presence', members, at: Date.now() });
+    return members;
+  }
+
+  async fetch(request) {
+    if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
+      return new Response('Expected WebSocket upgrade', { status: 426 });
+    }
+    const identity = liveIdentity(request.headers.get('x-cfp-live-identity'));
+    if (!identity) return new Response('Live-room identity rejected', { status: 403 });
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    server.serializeAttachment({ ...identity, joinedAt: Date.now() });
+    this.ctx.acceptWebSocket(server);
+    server.send(JSON.stringify({ type: 'connected', member: identity, at: Date.now() }));
+    this.broadcastPresence();
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  async publishBoard(event) {
+    const version = Number(event?.version);
+    if (!Number.isInteger(version) || version < 1 ||
+        !boundedText(event?.actor || '', 120) || !Number.isFinite(event?.at)) {
+      throw new Error('Invalid live board event');
+    }
+    const delivered = this.broadcast({
+      type: 'board_published', version, actor: event.actor || 'Commissioner', at: event.at,
+    });
+    return { delivered };
+  }
+
+  async status() {
+    return { members: this.connectedMembers() };
+  }
+
+  async webSocketMessage(socket, message) {
+    if (typeof message !== 'string' || message.length > 256) {
+      socket.close(1009, 'Message too large');
+      return;
+    }
+    const data = parseStoredJson(message, null);
+    if (data?.type === 'ping') socket.send(JSON.stringify({ type: 'pong', at: Date.now() }));
+  }
+
+  async webSocketClose(socket, code, reason) {
+    socket.close(code, reason);
+    this.broadcastPresence();
+  }
+
+  async webSocketError(socket, error) {
+    log('warn', { event: 'league_live_socket_error', error: String(error) });
+    try { socket.close(1011, 'Live room connection error'); } catch {}
+  }
 }
 
 async function readBounded(request, maximum) {
@@ -323,6 +451,13 @@ async function googleLogin(request, env, requestId) {
   if (request.method !== 'POST') return methodNotAllowed('POST');
   if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
 
+  const loginLimit = await rateLimitResponse(
+    env.AUTH_RATE_LIMITER,
+    request.headers.get('cf-connecting-ip') || 'local-development',
+    'Too many sign-in attempts. Wait a minute and try again.',
+  );
+  if (loginLimit) return loginLimit;
+
   const body = await readJson(request, 16 * 1024);
   let identity;
   try {
@@ -409,6 +544,10 @@ async function saveAccountData(request, env, ctx) {
   if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const writeLimit = await rateLimitResponse(
+    env.WRITE_RATE_LIMITER, session.user.id, 'Cloud saves are arriving too quickly. Wait a minute and sync again.',
+  );
+  if (writeLimit) return writeLimit;
 
   const body = await readJson(request);
   if (!validSnapshot(body.snapshot)) return json({ error: 'Invalid account data' }, 400);
@@ -470,6 +609,130 @@ async function logout(request, env, ctx) {
   return json({ signedOut: true }, 200, { 'set-cookie': clearSessionCookie() });
 }
 
+async function logoutOtherSessions(request, env, ctx) {
+  if (request.method !== 'POST') return methodNotAllowed('POST');
+  if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
+  const session = await sessionFor(request, env, ctx);
+  if (!session) return json({ error: 'Sign in required' }, 401);
+  const limit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:logout-others`,
+    'Too many security changes. Wait a minute and try again.',
+  );
+  if (limit) return limit;
+  const now = Date.now();
+  const result = await env.DB.prepare(`
+    DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?
+  `).bind(session.user.id, session.tokenHash).run();
+  await env.DB.prepare(`
+    INSERT INTO security_events (id, user_id, event_type, created_at)
+    VALUES (?, ?, 'other_sessions_revoked', ?)
+  `).bind(crypto.randomUUID(), session.user.id, now).run();
+  const revoked = Number(result.meta.changes || 0);
+  log('info', { event: 'other_sessions_revoked', userId: session.user.id, revoked });
+  return json({ revoked });
+}
+
+async function exportAccount(request, env, ctx) {
+  if (request.method !== 'GET') return methodNotAllowed('GET');
+  const session = await sessionFor(request, env, ctx);
+  if (!session) return json({ error: 'Sign in required' }, 401);
+  const limit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:account-export`,
+    'Too many account exports. Wait a minute and try again.',
+  );
+  if (limit) return limit;
+
+  const [eventsResult, activityResult, logosResult, membershipsResult, securityResult] = await env.DB.batch([
+    env.DB.prepare(`
+      SELECT id, code, title, league_name, season, payload_json, version, view_count,
+             created_at, updated_at, last_viewed_at
+      FROM published_events WHERE owner_user_id = ? ORDER BY updated_at DESC
+    `).bind(session.user.id),
+    env.DB.prepare(`
+      SELECT a.event_id, a.event_type, a.metadata_json, a.created_at
+      FROM event_activity a JOIN published_events e ON e.id = a.event_id
+      WHERE e.owner_user_id = ? ORDER BY a.created_at DESC
+    `).bind(session.user.id),
+    env.DB.prepare(`
+      SELECT team_id, content_type, byte_size, updated_at
+      FROM user_logos WHERE user_id = ? ORDER BY team_id
+    `).bind(session.user.id),
+    env.DB.prepare(`
+      SELECT l.id, l.name, l.season, l.workspace_version, l.created_at, l.updated_at,
+             lm.role, CASE WHEN lm.role = 'owner' THEN l.code ELSE NULL END AS owner_invite_code
+      FROM league_members lm JOIN league_rooms l ON l.id = lm.league_id
+      WHERE lm.user_id = ? ORDER BY l.updated_at DESC
+    `).bind(session.user.id),
+    env.DB.prepare(`
+      SELECT event_type, created_at FROM security_events
+      WHERE user_id = ? ORDER BY created_at DESC LIMIT 250
+    `).bind(session.user.id),
+  ]);
+  const data = await accountData(env, session.user.id);
+  const eventActivity = activityResult.results || [];
+  const publishedEvents = (eventsResult.results || []).map(row => ({
+    id: row.id,
+    code: row.code,
+    url: `${env.APP_ORIGIN}/watch/${row.code}`,
+    title: row.title,
+    league: row.league_name,
+    season: row.season,
+    payload: parseStoredJson(row.payload_json, null),
+    version: Number(row.version),
+    views: Number(row.view_count || 0),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+    lastViewedAt: row.last_viewed_at == null ? null : Number(row.last_viewed_at),
+    activity: eventActivity.filter(item => item.event_id === row.id).map(item => ({
+      type: item.event_type,
+      metadata: parseStoredJson(item.metadata_json || '{}', {}),
+      at: Number(item.created_at),
+    })),
+  }));
+  const body = {
+    format: 'cfp-dynasty-studio-account-export',
+    formatVersion: 1,
+    exportedAt: Date.now(),
+    account: session.user,
+    workspace: data,
+    publishedEvents,
+    leagueMemberships: (membershipsResult.results || []).map(row => ({
+      id: row.id,
+      name: row.name,
+      season: row.season,
+      role: row.role,
+      boardVersion: Number(row.workspace_version),
+      ownerInviteCode: row.owner_invite_code || undefined,
+      createdAt: Number(row.created_at),
+      updatedAt: Number(row.updated_at),
+    })),
+    uploadedLogos: (logosResult.results || []).map(row => ({
+      teamId: row.team_id,
+      contentType: row.content_type,
+      bytes: Number(row.byte_size),
+      updatedAt: Number(row.updated_at),
+    })),
+    securityActivity: (securityResult.results || []).map(row => ({
+      type: row.event_type,
+      at: Number(row.created_at),
+    })),
+    notes: [
+      'Session tokens and Google provider identifiers are intentionally excluded.',
+      'Shared league boards belong to the room and are not duplicated in this personal export.',
+      'Uploaded logo metadata is included; binary image files remain available through the signed-in studio.',
+    ],
+  };
+  const date = new Date().toISOString().slice(0, 10);
+  log('info', { event: 'account_exported', userId: session.user.id });
+  return new Response(JSON.stringify(body, null, 2), {
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'content-disposition': `attachment; filename="cfp-cloud-export-${date}.json"`,
+      'cache-control': 'no-store',
+    },
+  });
+}
+
 function logoId(url) {
   const raw = decodeURIComponent(url.pathname.slice('/api/logos/'.length));
   return TEAM_ID_RE.test(raw) ? raw : null;
@@ -513,6 +776,10 @@ async function userLogo(request, env, ctx, url) {
 
   if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
   if (request.method === 'PUT') {
+    const writeLimit = await rateLimitResponse(
+      env.WRITE_RATE_LIMITER, session.user.id, 'Logo changes are arriving too quickly. Wait a minute and try again.',
+    );
+    if (writeLimit) return writeLimit;
     const contentType = (request.headers.get('content-type') || '').split(';')[0].toLowerCase();
     if (!LOGO_TYPES.has(contentType)) {
       return json({ error: 'Use a PNG, JPEG, or WebP logo' }, 415);
@@ -541,6 +808,10 @@ async function userLogo(request, env, ctx, url) {
   }
 
   if (request.method === 'DELETE') {
+    const writeLimit = await rateLimitResponse(
+      env.WRITE_RATE_LIMITER, session.user.id, 'Logo changes are arriving too quickly. Wait a minute and try again.',
+    );
+    if (writeLimit) return writeLimit;
     const row = await env.DB.prepare(`
       SELECT object_key FROM user_logos WHERE user_id = ? AND team_id = ?
     `).bind(session.user.id, teamId).first();
@@ -571,6 +842,11 @@ async function publishEvent(request, env, ctx) {
   if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const publishLimit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:publish-event`,
+    'Too many broadcast changes. Wait a minute and publish again.',
+  );
+  if (publishLimit) return publishLimit;
   const body = await readJson(request, MAX_EVENT_BYTES);
   if (!validPublishedPayload(body.payload)) return json({ error: 'Invalid Selection Night event' }, 400);
   if (body.payload.d.some(seed => !seed)) {
@@ -696,6 +972,11 @@ async function deleteEvent(request, env, ctx, eventId) {
   if (!EVENT_ID_RE.test(eventId)) return json({ error: 'Event not found' }, 404);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const deleteLimit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:revoke-event`,
+    'Too many broadcast changes. Wait a minute and try again.',
+  );
+  if (deleteLimit) return deleteLimit;
   const deleted = await env.DB.prepare(`
     DELETE FROM published_events WHERE id = ? AND owner_user_id = ?
     RETURNING id
@@ -785,6 +1066,11 @@ async function createLeague(request, env, ctx) {
   if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const createLimit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:create-league`,
+    'Too many league-room changes. Wait a minute and try again.',
+  );
+  if (createLimit) return createLimit;
   const body = await readJson(request, MAX_LEAGUE_BYTES + 4096);
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const season = typeof body.season === 'string' ? body.season.trim() : '';
@@ -846,6 +1132,11 @@ async function joinLeague(request, env, ctx) {
   if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const joinLimit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:join-league`,
+    'Too many invite attempts. Wait a minute and try again.',
+  );
+  if (joinLimit) return joinLimit;
   const body = await readJson(request, 4096);
   const code = String(body.code || '').trim().toUpperCase();
   if (!LEAGUE_CODE_RE.test(code)) return json({ error: 'Enter a valid league invite code' }, 400);
@@ -896,12 +1187,55 @@ async function getLeague(request, env, ctx, leagueId) {
   return json({ league });
 }
 
+async function leagueLive(request, env, ctx, leagueId) {
+  if (request.method !== 'GET') return methodNotAllowed('GET');
+  if (!EVENT_ID_RE.test(leagueId)) return json({ error: 'League room not found' }, 404);
+  if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
+    return json({ error: 'WebSocket upgrade required' }, 426);
+  }
+  if (request.headers.get('origin') !== new URL(request.url).origin) {
+    return json({ error: 'Request origin rejected' }, 403);
+  }
+  const session = await sessionFor(request, env, ctx);
+  if (!session) return json({ error: 'Sign in required' }, 401);
+  const limit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:live-connect`,
+    'Too many live-room reconnects. Wait a minute and try again.',
+  );
+  if (limit) return limit;
+  const membership = await env.DB.prepare(`
+    SELECT role FROM league_members WHERE league_id = ? AND user_id = ?
+  `).bind(leagueId, session.user.id).first();
+  if (!membership) return json({ error: 'League room not found' }, 404);
+  const identity = base64url(new TextEncoder().encode(JSON.stringify({
+    id: session.user.id,
+    name: session.user.name || 'League member',
+    role: membership.role,
+  })));
+  const headers = new Headers(request.headers);
+  headers.set('x-cfp-live-identity', identity);
+  return env.LEAGUE_LIVE.getByName(leagueId).fetch(new Request(request, { headers }));
+}
+
+function notifyLeagueBoard(env, leagueId, version, actor) {
+  return env.LEAGUE_LIVE.getByName(leagueId)
+    .publishBoard({ version, actor: actor || 'Commissioner', at: Date.now() })
+    .catch(error => {
+      log('warn', { event: 'league_live_publish_failed', leagueId, error: String(error) });
+    });
+}
+
 async function updateLeagueWorkspace(request, env, ctx, leagueId) {
   if (request.method !== 'PUT') return methodNotAllowed('PUT');
   if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
   if (!EVENT_ID_RE.test(leagueId)) return json({ error: 'League room not found' }, 404);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const writeLimit = await rateLimitResponse(
+    env.WRITE_RATE_LIMITER, session.user.id,
+    'League updates are arriving too quickly. Wait a minute and publish again.',
+  );
+  if (writeLimit) return writeLimit;
   const access = await env.DB.prepare(`
     SELECT l.workspace_version, lm.role FROM league_rooms l
     JOIN league_members lm ON lm.league_id = l.id
@@ -947,6 +1281,9 @@ async function updateLeagueWorkspace(request, env, ctx, leagueId) {
       JSON.stringify({ version: Number(updated.workspace_version) }), now),
   ]);
   const league = await leagueDetails(env, leagueId, session.user.id);
+  ctx.waitUntil(notifyLeagueBoard(
+    env, leagueId, Number(updated.workspace_version), session.user.name || 'Commissioner',
+  ));
   log('info', { event: 'league_board_published', userId: session.user.id, leagueId, version: updated.workspace_version });
   return json({ league });
 }
@@ -979,6 +1316,11 @@ async function rotateLeagueInvite(request, env, ctx, leagueId) {
   if (!EVENT_ID_RE.test(leagueId)) return json({ error: 'League room not found' }, 404);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const rotateLimit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:rotate-invite`,
+    'Too many invite changes. Wait a minute and try again.',
+  );
+  if (rotateLimit) return rotateLimit;
   let updated = false;
   for (let attempt = 0; attempt < 5 && !updated; attempt++) {
     try {
@@ -1017,6 +1359,11 @@ async function changeLeagueMember(request, env, ctx, leagueId, targetUserId) {
   }
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const memberLimit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:member-change`,
+    'Too many membership changes. Wait a minute and try again.',
+  );
+  if (memberLimit) return memberLimit;
   const access = await env.DB.prepare(`
     SELECT l.owner_user_id, mine.role AS my_role, target.role AS target_role
     FROM league_rooms l
@@ -1067,6 +1414,11 @@ async function deleteLeague(request, env, ctx, leagueId) {
   if (!EVENT_ID_RE.test(leagueId)) return json({ error: 'League room not found' }, 404);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const deleteLimit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:delete-league`,
+    'Too many league-room changes. Wait a minute and try again.',
+  );
+  if (deleteLimit) return deleteLimit;
   const deleted = await env.DB.prepare(`
     DELETE FROM league_rooms WHERE id = ? AND owner_user_id = ? RETURNING id
   `).bind(leagueId, session.user.id).first();
@@ -1084,6 +1436,11 @@ async function deleteAccount(request, env, ctx) {
   if (!sameOriginMutation(request)) return json({ error: 'Request origin rejected' }, 403);
   const session = await sessionFor(request, env, ctx);
   if (!session) return json({ error: 'Sign in required' }, 401);
+  const deleteLimit = await rateLimitResponse(
+    env.SENSITIVE_RATE_LIMITER, `${session.user.id}:delete-account`,
+    'Too many security changes. Wait a minute and try again.',
+  );
+  if (deleteLimit) return deleteLimit;
   const rows = await env.DB.prepare(`
     SELECT object_key FROM user_logos WHERE user_id = ?
   `).bind(session.user.id).all();
@@ -1112,7 +1469,9 @@ async function handleApi(request, env, ctx, url, requestId) {
   if (url.pathname === '/api/bootstrap') return bootstrap(request, env, ctx);
   if (url.pathname === '/api/auth/google') return googleLogin(request, env, requestId);
   if (url.pathname === '/api/auth/logout') return logout(request, env, ctx);
+  if (url.pathname === '/api/auth/logout-others') return logoutOtherSessions(request, env, ctx);
   if (url.pathname === '/api/account/data') return saveAccountData(request, env, ctx);
+  if (url.pathname === '/api/account/export') return exportAccount(request, env, ctx);
   if (url.pathname === '/api/account') return deleteAccount(request, env, ctx);
   if (url.pathname === '/api/events') {
     return request.method === 'POST' ? publishEvent(request, env, ctx) : listEvents(request, env, ctx);
@@ -1131,6 +1490,8 @@ async function handleApi(request, env, ctx, url, requestId) {
   if (url.pathname === '/api/leagues/join') return joinLeague(request, env, ctx);
   const leagueActivityMatch = url.pathname.match(/^\/api\/leagues\/([0-9a-f-]+)\/activity$/i);
   if (leagueActivityMatch) return leagueActivity(request, env, ctx, leagueActivityMatch[1]);
+  const leagueLiveMatch = url.pathname.match(/^\/api\/leagues\/([0-9a-f-]+)\/live$/i);
+  if (leagueLiveMatch) return leagueLive(request, env, ctx, leagueLiveMatch[1]);
   const leagueInviteMatch = url.pathname.match(/^\/api\/leagues\/([0-9a-f-]+)\/invite$/i);
   if (leagueInviteMatch) return rotateLeagueInvite(request, env, ctx, leagueInviteMatch[1]);
   const leagueWorkspaceMatch = url.pathname.match(/^\/api\/leagues\/([0-9a-f-]+)\/workspace$/i);
@@ -1218,6 +1579,43 @@ async function serveMedia(request, env, key) {
   return new Response(object.body, { headers: mediaHeaders(object, object.size) });
 }
 
+async function serveSpaRoute(request, env, url, watchCode = '') {
+  const root = new URL('/', url);
+  const assetPromise = env.ASSETS.fetch(new Request(root, request));
+  if (request.method === 'HEAD' || !watchCode) return assetPromise;
+  const [response, event] = await Promise.all([
+    assetPromise,
+    env.DB.prepare(`
+      SELECT title, league_name, season FROM published_events WHERE code = ?
+    `).bind(watchCode).first(),
+  ]);
+  if (!event || !response.ok) return response;
+
+  const title = `${event.title} | CFP Selection Night`;
+  const description = `Watch ${event.league_name} ${event.season} reveal its 12-team playoff field.`;
+  const canonical = `${env.APP_ORIGIN}/watch/${watchCode}`;
+  const setContent = value => ({ element(element) { element.setAttribute('content', value); } });
+  return new HTMLRewriter()
+    .on('title', { element(element) { element.setInnerContent(title); } })
+    .on('link[rel="canonical"]', { element(element) { element.setAttribute('href', canonical); } })
+    .on('meta[name="description"]', setContent(description))
+    .on('meta[property="og:title"]', setContent(title))
+    .on('meta[property="og:description"]', setContent(description))
+    .on('meta[property="og:url"]', setContent(canonical))
+    .on('meta[name="twitter:title"]', setContent(title))
+    .on('meta[name="twitter:description"]', setContent(description))
+    .transform(response);
+}
+
+export const testable = Object.freeze({
+  parseRange,
+  validSnapshot,
+  validPublishedPayload,
+  sameOriginMutation,
+  randomCode,
+  rateLimitResponse,
+});
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1232,12 +1630,17 @@ export default {
         const response = await serveMedia(request, env, key);
         return secureResponse(response, requestId);
       }
-      if (/^\/(?:watch\/[A-HJ-NP-Z2-9]{10}|join\/[A-HJ-NP-Z2-9]{8})\/?$/.test(url.pathname)) {
+      const spaMatch = url.pathname.match(/^\/(watch|join)\/([A-HJ-NP-Z2-9]+)\/?$/);
+      if (spaMatch && (
+        (spaMatch[1] === 'watch' && EVENT_CODE_RE.test(spaMatch[2])) ||
+        (spaMatch[1] === 'join' && LEAGUE_CODE_RE.test(spaMatch[2]))
+      )) {
         if (request.method !== 'GET' && request.method !== 'HEAD') {
           return secureResponse(methodNotAllowed('GET, HEAD'), requestId);
         }
-        const root = new URL('/', url);
-        const response = await env.ASSETS.fetch(new Request(root, request));
+        const response = await serveSpaRoute(
+          request, env, url, spaMatch[1] === 'watch' ? spaMatch[2] : '',
+        );
         return secureResponse(response, requestId);
       }
       const response = await env.ASSETS.fetch(request);

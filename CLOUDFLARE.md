@@ -22,13 +22,27 @@ League Rooms are authenticated collaborative workspaces with permanent invite
 codes. D1 stores owner/admin/member roles, the official versioned board, member
 roster, and member-visible activity. Only owners and admins can publish the
 board. Every update includes its base version, so a stale client receives `409`
-instead of overwriting a newer commissioner edit.
+instead of overwriting a newer commissioner edit. Active rooms poll their small
+version summary once per minute and alert the commissioner when a newer board is
+ready to load.
+
+Live League Room presence and instant board-publish notifications are isolated
+one Durable Object per room through the `LEAGUE_LIVE` binding. WebSockets use
+the Hibernation API, so idle rooms can sleep without disconnecting members.
+The main Worker authenticates the session and D1 membership before forwarding
+the upgrade; a browser cannot connect directly to a room coordinator.
+
+Three native Workers Rate Limiting bindings protect Google sign-in, routine
+cloud writes, and sensitive actions such as invite guesses, role changes,
+publishing, session revocation, exports, and account deletion. Rate-limit state
+is maintained by Cloudflare and is not written to D1.
 
 Production resources:
 
 - Worker: `cfp-selection-show`
 - D1: `cfp-selection-show-data`
 - R2: `cfp-selection-show-media`
+- Durable Object: `LeagueLiveRoom` through the `LEAGUE_LIVE` binding
 - Google OAuth client: configured as the public `GOOGLE_CLIENT_ID` Worker var
 - Scheduled maintenance: expired sessions and security events older than 90
   days are pruned daily
@@ -37,8 +51,7 @@ Production resources:
 
 ```powershell
 pnpm install --frozen-lockfile
-pnpm run check
-pnpm run deploy:check
+pnpm run verify
 pnpm run deploy
 ```
 
@@ -95,6 +108,8 @@ not require one.
 - A local recovery copy remains on the device if cloud saving is interrupted.
 - Conflicting edits from two devices stop and require an explicit keep-local or
   use-cloud decision; neither copy is silently discarded.
+- Account Control produces a portable JSON export without session secrets or
+  Google provider identifiers and can revoke all sessions except the current one.
 - Deleting an account removes its D1 rows, published events, sessions, and R2
   logos. Revoking one event invalidates its public URL immediately.
 

@@ -34,14 +34,24 @@ The production setup is checked into this repository:
   the event from the account center.
 - League Rooms add permanent invite codes, owner/admin/member roles, shared
   boards, member management, activity history, and optimistic version checks
-  that stop two commissioners from silently overwriting one another.
+  that stop two commissioners from silently overwriting one another. An active
+  room checks for a newer official board while the studio is open.
+- Each active League Room is coordinated by its own hibernating Cloudflare
+  Durable Object, showing who is live and delivering board-publish notices to
+  every connected commissioner immediately.
+- Cloudflare-native rate-limit bindings protect sign-in, cloud writes, invites,
+  publishing, and account security actions without storing an IP address in D1.
+- The account center can export the signed-in user's portable JSON data and
+  revoke every other active session while keeping the current device connected.
+- GitHub Actions runs syntax checks, Workers-runtime contract tests, a production
+  build, generated-binding validation, a Wrangler dry run, and dependency audit.
 - `tools/make_site.py` builds `docs/` without copying R2-hosted films.
 
 After authenticating Wrangler, deploy with:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm run check
+pnpm run verify
 pnpm run deploy
 ```
 
