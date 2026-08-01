@@ -61,7 +61,7 @@ ALIASES = {
     'ncstate':        ['nc state', 'north carolina state', 'n c state'],
     'pittsburgh':     ['pitt', 'pittsburgh'],
     'notredame':      ['notre dame'],
-    'uconn':          ['uconn', 'connecticut'],
+    'uconn':          ['uconn', 'yukon', 'connecticut'],   # heard as "Yukon"
     'umass':          ['umass', 'massachusetts'],
     'miamioh':        ['miami ohio', 'miami of ohio', 'miami oh'],
     'appstate':       ['appalachian state', 'app state'],
@@ -258,6 +258,18 @@ def next_onset(env, after, ref, need=0.05):
     return None
 
 
+def pause_after(env, t, ref, need=0.14):
+    """Scan forward from `t` for the start of the next real pause."""
+    thresh = max(ref * 0.12, 0.004)
+    n = max(1, int(need / HOP))
+    i = max(0, int(t / HOP))
+    while i + n < len(env):
+        if all(env[k] < thresh for k in range(i, i + n)):
+            return i * HOP
+        i += 1
+    return None
+
+
 def land_in_silence(env, ceiling, floor_t, ref, need=0.10):
     """Walk back from `ceiling` until the cut sits at the end of at least
     `need` seconds of quiet. That is what stops the next team's first
@@ -309,8 +321,20 @@ def cut(data, frames, t0, t1, lead=0.12):
 
 
 # ---------------------------------------------------------------- matching
-def find_span(words, cand, used):
-    """Best window of `words` matching the token list `cand`."""
+# words that mean this is a shout-out, not the team being announced:
+# "go Army, beat Navy" must not be mistaken for Navy's own call
+ASIDE = {'beat', 'over', 'versus', 'vs', 'against'}
+
+
+def find_span(words, cand, used, mascot=()):
+    """Best window of `words` matching `cand`.
+
+    Every school in these recordings is announced the same way — "<School>,
+    the <Mascot> are in / punch their ticket" — so a match that is followed
+    by the school's own mascot is almost certainly the real call, and one
+    sitting after "beat" is almost certainly a rival mention in someone
+    else's flavour line. Scoring both beats taking the first hit.
+    """
     n = len(cand)
     best = None
     for i in range(len(words) - n + 1):
@@ -318,11 +342,24 @@ def find_span(words, cand, used):
             continue
         window = [words[i + k]['w'] for k in range(n)]
         if window == cand:
-            return i, i + n - 1, 1.0
-        hits = sum(1 for a, b in zip(window, cand) if a == b)
-        score = hits / n
-        if score >= 0.75 and (best is None or score > best[2]):
-            best = (i, i + n - 1, score)
+            score = 1.0
+        else:
+            hits = sum(1 for a, b in zip(window, cand) if a == b)
+            score = hits / n
+            if score < 0.75:
+                continue
+        j = i + n - 1
+
+        after = [w['w'] for w in words[j + 1:j + 8]]
+        if mascot and any(m in after for m in mascot):
+            score += 0.60                       # "Navy, the midshipmen…"
+        if after[:1] == ['the']:
+            score += 0.25                       # the announcer's cadence
+        if i > 0 and words[i - 1]['w'] in ASIDE:
+            score -= 0.80                       # "…beat Navy"
+
+        if best is None or score > best[2]:
+            best = (i, j, score)
     return best
 
 
@@ -335,7 +372,8 @@ def listen(path, conf, teams, model):
         path, language='en', word_timestamps=True, vad_filter=False,
         beam_size=5, condition_on_previous_text=False,
         initial_prompt='College football teams: ' +
-                       ', '.join(t['school'] for t in teams if t['conf'] == conf))
+                       ', '.join(t['school'] for t in teams
+                                 if conf is None or t['conf'] == conf))
 
     words, plain = [], []
     for seg in segments:
@@ -373,12 +411,12 @@ def sweep(src, pool, taken):
     for t in order:
         if t['id'] in taken:
             continue
+        mascot = tuple(norm_words(t['mascot'])) if t['mascot'] else ()
         hit = None
         for cand in candidates(t):
-            span = find_span(words, cand, used)
-            if span:
+            span = find_span(words, cand, used, mascot)
+            if span and (hit is None or span[2] > hit[2]):
                 hit = span
-                break
         if not hit:
             continue
         i, j, score = hit
@@ -401,14 +439,17 @@ def write_clips(src, args):
     ordered = sorted(src['results'], key=lambda r: r['start'])
     env = src['env']
     print('\n--- %s ---' % src['name'])
+    # Pass one: settle every start. A start gets nudged back into the pause
+    # before the name so no syllable is lost — which means the clip before it
+    # has to end earlier than the raw word timestamp suggested.
+    for r in ordered:
+        q = quietest(env, max(0, r['start'] - 0.55), r['start'] + 0.04)
+        r['begin'] = q if q is not None else max(0, r['start'] - args.lead)
+
     for n, r in enumerate(ordered):
         t = r['team']
-        nxt = ordered[n + 1]['start'] if n + 1 < len(ordered) else None
-
-        # start: back up into the pause before the name so no syllable is lost
-        begin = r['start']
-        q = quietest(env, max(0, begin - 0.55), begin + 0.04)
-        begin = q if q is not None else max(0, begin - args.lead)
+        nxt = ordered[n + 1]['begin'] if n + 1 < len(ordered) else None
+        begin = r['begin']
 
         # end: cut inside the pause before the next call, not at the word
         # timestamp — that lands on top of the next team's first syllable
@@ -418,16 +459,20 @@ def write_clips(src, args):
             # the last word the transcript places before the next call starts
             ends = [w['e'] for w in src['words']
                     if begin < w['e'] <= nxt - 0.02]
-            w_end = (max(ends) + 0.25) if ends else (nxt - args.gap)
-            ceiling = min(w_end, nxt - 0.02)
+            last_word = max(ends) if ends else (nxt - args.gap)
             ref = speech_floor(env, int(begin / HOP), int(nxt / HOP))
-            v = land_in_silence(env, ceiling, r['end'], ref, args.quiet)
-            stop = (v if v is not None else ceiling) - args.pad
+            # where the announcer actually stops, then a beat of the pause
+            p = pause_after(env, max(begin, last_word - 0.25), ref, args.quiet)
+            if p is None or p > nxt:
+                p = last_word
+            stop = min(p + args.hold, nxt - 0.05)
         stop = max(stop, r['end'] + args.tail)
         if nxt is not None:
             stop = min(stop, nxt - 0.02)
-        if args.max_len:
-            stop = min(stop, begin + args.max_len)
+        if args.max_len and stop > begin + args.max_len:
+            ref = speech_floor(env, int(begin / HOP), int(stop / HOP))
+            q = land_in_silence(env, begin + args.max_len, r['end'], ref, args.quiet)
+            stop = q if q is not None else begin + args.max_len
 
         clip = cut(src['data'], src['frames'], begin, stop, lead=0)
         r['start'] = begin
@@ -442,7 +487,7 @@ def write_clips(src, args):
         open(os.path.join(OUT, t['id'] + '.mp3'), 'wb').write(clip)
         manifest[t['id']] = round(stop - r['start'], 2)
         flag = ' ' if r['score'] == 1.0 else '~'
-        note = '' if t['conf'] == src['conf'] else '  <- listed as ' + t['conf']
+        note = '' if t['conf'] == src['conf'] else '  ' + t['conf']
         m = r.get('margin')
         gap = ('%4.0fms' % (m * 1000)) if m is not None else '  end'
         print('  %s %-22s %6.2f-%6.2f (%4.1fs) gap %s  "%s"%s'
@@ -455,8 +500,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', default='small.en')
     ap.add_argument('--only', default=None)
+    ap.add_argument('--out', default=None, help='output folder (default voice/)')
+    ap.add_argument('--dir', default=None,
+                    help='folder of recordings; names need not say the conference')
     ap.add_argument('--tail', type=float, default=0.35,
                     help='minimum seconds kept after the name')
+    ap.add_argument('--hold', type=float, default=0.45,
+                    help='seconds of the trailing pause kept on each clip')
     ap.add_argument('--quiet', type=float, default=0.14,
                     help='seconds of silence a cut must land after')
     ap.add_argument('--pad', type=float, default=0.10,
@@ -465,37 +515,49 @@ def main():
                     help='fallback lead-in when no pause is found')
     ap.add_argument('--gap', type=float, default=0.18,
                     help='silence left before the next team starts')
-    ap.add_argument('--max-len', type=float, default=11.0,
+    ap.add_argument('--max-len', type=float, default=14.0,
                     help='hard cap on a clip, seconds (0 for none)')
     args = ap.parse_args()
 
+    global OUT, TRANS
+    if args.out:
+        OUT = args.out if os.path.isabs(args.out) else os.path.join(ROOT, args.out)
+        TRANS = os.path.join(OUT, '_transcripts')
     teams = load_teams()
-    files = [f for f in sorted(FILE_CONF) if os.path.exists(os.path.join(ROOT, f))]
-    if args.only:
-        files = [f for f in files if f.lower() == args.only.lower()]
+    if args.dir:
+        base = args.dir if os.path.isabs(args.dir) else os.path.join(ROOT, args.dir)
+        files = [(os.path.join(base, f), FILE_CONF.get(f))
+                 for f in sorted(os.listdir(base)) if f.lower().endswith('.mp3')]
+    else:
+        files = [(os.path.join(ROOT, f), FILE_CONF[f]) for f in sorted(FILE_CONF)
+                 if os.path.exists(os.path.join(ROOT, f))]
+        if args.only:
+            files = [x for x in files
+                     if os.path.basename(x[0]).lower() == args.only.lower()]
     if not files:
-        sys.exit('No conference audio found in ' + ROOT)
+        sys.exit('No audio found')
 
     from faster_whisper import WhisperModel
     print('loading %s ...' % args.model)
     model = WhisperModel(args.model, device='cpu', compute_type='int8')
 
-    srcs = [listen(os.path.join(ROOT, f), FILE_CONF[f], teams, model)
-            for f in files]
+    srcs = [listen(path, conf, teams, model) for path, conf in files]
 
     # Pass 1: every file gets first refusal on its own conference, so a stray
     # "Georgia" in the ACC file can never steal the SEC's Georgia.
     taken = set()
     for src in srcs:
-        sweep(src, [t for t in teams if t['conf'] == src['conf']], taken)
+        if src['conf']:
+            sweep(src, [t for t in teams if t['conf'] == src['conf']], taken)
 
     # Pass 2: realignment means a school can turn up in a file named after its
     # old league. Whatever is still unclaimed is fair game.
     for src in srcs:
         strays = sweep(src, [t for t in teams if t['conf'] != src['conf']], taken)
-        for r in strays:
-            print('  + %s found in %s (listed as %s)'
-                  % (r['team']['school'], src['name'], r['team']['conf']))
+        if src['conf']:
+            for r in strays:
+                print('  + %s found in %s (listed as %s)'
+                      % (r['team']['school'], src['name'], r['team']['conf']))
 
     manifest = {}
     for src in srcs:

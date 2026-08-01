@@ -26,3 +26,7 @@ sunbelt.mp3
 voice/_transcripts/
 voice_run.log
 voice_check.log
+
+# New announcer recordings (voice/ holds the cut clips that ship)
+new team mp3/
+newvoice.log
