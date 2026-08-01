@@ -599,13 +599,23 @@ const Show = (() => {
 
   function showMark() {
     clearTimeout(markTimer);
-    el.coldMark.classList.add('on');
+    const m = el.coldMark;
+    if (!m) return;
+    m.style.removeProperty('display');
+    m.style.removeProperty('visibility');
+    m.classList.add('on');
     markTimer = setTimeout(hideMark, 3600);
   }
   function hideMark() {
     clearTimeout(markTimer);
     markTimer = null;
-    el.coldMark.classList.remove('on');
+    const m = el.coldMark;
+    if (!m) return;
+    m.classList.remove('on');
+    /* Belt and braces for a phone: the class alone has proved unreliable, so
+       take the element out of the layer stack outright. showMark puts it back. */
+    m.style.display = 'none';
+    m.style.visibility = 'hidden';
   }
 
   function showSlate(s) {
@@ -741,6 +751,7 @@ const Show = (() => {
     a.onerror = fallback;
 
     a.ontimeupdate = () => {
+      if (a.currentTime > 0.4) hideMark();   // Pat is audibly under way
       const d = a.duration;
       if (!isFinite(d) || d <= 0) return;
       const k = a.currentTime / d, left = d - a.currentTime;
@@ -786,6 +797,7 @@ const Show = (() => {
     b.onerror = finish2;
     b.onended = finish2;
     b.ontimeupdate = () => {
+      if (b.currentTime > 0.4) hideMark();
       const d = b.duration;
       if (!isFinite(d) || d <= 0) return;
       const k = b.currentTime / d, left = d - b.currentTime;
