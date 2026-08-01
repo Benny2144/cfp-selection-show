@@ -10,8 +10,12 @@ const INTRO_FILE = 'patmac.mp3';         // then Pat
 const BOONE_FILE = 'coachboone.mp3';     // then Coach Boone
 const MUSIC_FILE = 'music.mp3';          // bed under everything
 
-/* how far the music drops under the spoken intro */
-const DUCK_UNDER_VOICE = 0.22;
+/* How much of the bed stays up while somebody is talking. Adjustable in the
+   committee room — 0.22 was technically playing but far too quiet to hear
+   under a voice, which reads as "the music stopped". */
+const DUCK_UNDER_VOICE = () => (STATE.musicUnderVoice ?? 55) / 100;
+/* the film carries its own full mix, so the bed sits further back under it */
+const DUCK_UNDER_FILM  = () => DUCK_UNDER_VOICE() * 0.40;
 /* how far it drops for a beat under each reveal hit */
 const DUCK_UNDER_HIT   = 0.5;
 /* how far it drops while the announcer calls a team */
@@ -302,9 +306,9 @@ const Show = (() => {
   }
 
   function setBedVolume() {
-    if (phase === 'film') fadeTo(bedVol() * 0.10, 260);
+    if (phase === 'film') fadeTo(bedVol() * DUCK_UNDER_FILM(), 260);
     else if (phase === 'intro' || phase === 'boone')
-      fadeTo(bedVol() * DUCK_UNDER_VOICE, 260);
+      fadeTo(bedVol() * DUCK_UNDER_VOICE(), 260);
     else if (callAudio) fadeTo(bedVol() * DUCK_UNDER_CALL, 260);
     else fadeTo(bedVol(), 260);
   }
@@ -507,7 +511,7 @@ const Show = (() => {
 
     el.filmStage.classList.add('on');
     /* the film carries its own sound — drop the bed right down under it */
-    fadeTo(bedVol() * 0.10, 900);
+    fadeTo(bedVol() * DUCK_UNDER_FILM(), 900);
 
     let handed = false;
     const go = () => {
