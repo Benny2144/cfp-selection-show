@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#07080b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>CFP Selection Show — Dynasty Committee</title>
+<title>CFP Dynasty Studio — Build the Field</title>
 
 <!-- The 55 MB intro film is stored in the private R2 bucket configured in
      wrangler.jsonc. The Worker exposes that bucket read-only at /media while
@@ -23,15 +23,15 @@
 <link rel="canonical" href="https://cfp-selection-show.benarp2144.workers.dev/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CFP Dynasty Studio">
-<meta property="og:title" content="CFP Selection Show">
-<meta property="og:description" content="Build the field. Premiere Selection Night. Turn your online dynasty into an event.">
+<meta property="og:title" content="CFP Dynasty Studio">
+<meta property="og:description" content="Build the field, project every round, score the games, and premiere Selection Night for your online dynasty.">
 <meta property="og:url" content="https://cfp-selection-show.benarp2144.workers.dev/">
-<meta property="og:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/selection-deck-og.png">
-<meta property="og:image:alt" content="The Selection Deck, a cinematic college football ballot room">
+<meta property="og:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/game27-dynasty-preview.png">
+<meta property="og:image:alt" content="A cinematic college football playoff bracket leading to a gold championship trophy">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="CFP Selection Show">
-<meta name="twitter:description" content="Build the field. Premiere Selection Night. Turn your online dynasty into an event.">
-<meta name="twitter:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/selection-deck-og.png">
+<meta name="twitter:title" content="CFP Dynasty Studio">
+<meta name="twitter:description" content="Build the field, project every round, score the games, and premiere Selection Night for your online dynasty.">
+<meta name="twitter:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/game27-dynasty-preview.png">
 <meta name="color-scheme" content="dark">
 <link rel="preload" as="image" href="assets/room-bg.webp" fetchpriority="high">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
@@ -41,144 +41,95 @@
 <link rel="stylesheet" href="css/espn.css">
 <link rel="stylesheet" href="css/cinematic.css">
 <link rel="stylesheet" href="css/prime.css">
+<link rel="stylesheet" href="css/game27.css">
 </head>
 <body>
 
 <!-- =====================================================================
-     ESPN CHROME — the scores strip and the nav bar that sit above every
-     screen except the show itself. Modelled on espn.com: a horizontally
-     scrolling rail of game cells, then a brand block and flat nav.
+     DYNASTY SHELL — the compact identity, mode and season rails used by
+     every management screen. The full-screen selection show stays clean.
      ================================================================== -->
 <div class="chrome" id="chrome">
-  <div class="scorestrip">
-    <button class="ss-league" id="ssLeague">CFP</button>
-    <div class="ss-track" id="ssTrack"></div>
-    <button class="ss-arrow" id="ssNext" aria-label="Scroll scores">&#8250;</button>
-  </div>
-  <nav class="espn-nav">
-    <button class="espn-brand" id="navBrand" title="Home">CFP</button>
+  <header class="game-topbar">
+    <button class="game-profile" id="navBrand" title="Dynasty home">
+      <span class="game-profile-mark" id="gameProfileMark">CFP</span>
+      <span class="game-profile-copy"><b id="gameLeagueName">DYNASTY LEAGUE</b><small id="gameSeasonLabel">2027 &middot; SELECTION WEEK</small></span>
+    </button>
+    <div class="game-week-state"><span>POSTSEASON</span><b id="gameWeekState">COMMITTEE WEEK</b></div>
+    <div class="spacer"></div>
+    <span class="game-save-state"><i></i><b>CLOUD SAVE</b><small id="gameSaveLabel">LOCAL</small></span>
+    <button class="account-trigger chrome-account" type="button" aria-label="Save with Google">
+      <i class="cloud-icon">&#9729;</i><span>Sign in</span>
+    </button>
+    <button class="en-watch" id="navShow"><i>&#9654;</i> Selection Show</button>
+  </header>
+  <nav class="espn-nav game-mode-tabs">
+    <span class="game-mode-label">DYNASTY CENTRAL</span>
     <div class="en-links" id="enLinks">
-      <button data-go="room">The Field</button>
-      <button data-go="final">Bracket</button>
-      <button data-go="results">Play It Out</button>
-      <button data-go="pickem">Pick&rsquo;em</button>
-      <button data-go="history">History</button>
-    </div>
-    <div class="en-right">
-      <button class="account-trigger chrome-account" type="button" aria-label="Save with Google">
-        <i class="cloud-icon">&#9729;</i><span>Save &amp; sign in</span>
-      </button>
-      <button class="en-watch" id="navShow">&#9654; Watch</button>
+      <button data-go="room">Committee</button>
+      <button data-go="final">CFP Bracket</button>
+      <button data-go="results">Results</button>
+      <button data-go="pickem">Projections</button>
+      <button data-go="history">Dynasty History</button>
     </div>
   </nav>
+  <div class="scorestrip game-season-rail">
+    <button class="ss-league" id="ssLeague">CFP</button>
+    <div class="ss-track" id="ssTrack"></div>
+    <button class="ss-arrow" id="ssNext" aria-label="Scroll season rail">&#8250;</button>
+  </div>
 </div>
 
 <!-- =====================================================================
      SCREEN 0 — HOME
      ================================================================== -->
-<section id="home" class="screen active">
+<section id="home" class="screen active game27-home">
   <video class="roomfilm" id="homeFilm" muted loop playsinline preload="none"
          poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
   <div class="roomfilm-scrim"></div>
-  <div class="carbon home-carbon"></div>
-  <div class="grid-floor home-floor"></div>
-  <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
-  <div class="vignette"></div>
+  <div class="game-home-texture" aria-hidden="true"></div>
 
-  <nav class="site-nav prime-site-nav">
-    <div class="prime-brand" aria-label="CFP Dynasty Studio">
-      <span class="prime-brand-mark">CFP</span>
-      <span><b>DYNASTY STUDIO</b><small>Selection Night</small></span>
-    </div>
-    <div class="spacer"></div>
-    <span class="prime-nav-note">Built for online leagues</span>
-    <button class="account-trigger home-account" type="button" aria-label="Save with Google">
-      <i class="cloud-icon">&#9729;</i><span>Save &amp; sign in</span>
-    </button>
-    <button class="btn ghost" id="navHowTo">How it works</button>
-  </nav>
+  <main class="game-home-layout">
+    <aside class="game-home-menu" aria-label="Dynasty Studio menu">
+      <div class="game-home-kicker"><i></i> POSTSEASON HUB</div>
+      <h1>DYNASTY<br>STUDIO</h1>
+      <p id="resumeNote"></p>
 
-  <div class="home-scroll">
-    <div class="hero prime-hero">
-      <div class="prime-hero-copy">
-        <div class="kicker anim-in-up"><i></i> THE DYNASTY EVENT PLATFORM</div>
-        <h1 class="anim-in-up d1">MAKE YOUR DYNASTY<br><span>PRIME TIME.</span></h1>
-        <p class="anim-in-up d2">
-          Build the twelve-team field in private. Bring the league together.
-          Then premiere every pick, every snub and the full road to the title.
-        </p>
-        <div class="hero-cta anim-in-up d3">
-          <button class="btn primary big" id="goCommish"><span>Open Commissioner Studio</span><i>&#9654;</i></button>
-          <button class="btn big" id="goWatch"><span>Watch an Invitation</span></button>
-        </div>
-        <div class="hero-note anim-in-up d3" id="resumeNote"></div>
-        <div class="prime-proof anim-in-up d3" aria-label="Product highlights">
-          <span><b>136</b><small>FBS teams</small></span>
-          <span><b>12</b><small>dramatic reveals</small></span>
-          <span><b>1</b><small>league-wide moment</small></span>
-        </div>
+      <div class="game-menu-stack">
+        <button class="game-menu-item featured" id="goCommish"><span>01</span><b>Committee Room</b><em>Build the field</em><i>&#8250;</i></button>
+        <button class="game-menu-item hub-card" data-go="final"><span>02</span><b>CFP Bracket</b><em id="hubField">0 of 12 seeded</em><i>&#8250;</i></button>
+        <button class="game-menu-item hub-card" data-go="results"><span>03</span><b>Results</b><em id="hubResults">Not started</em><i>&#8250;</i></button>
+        <button class="game-menu-item hub-card" data-go="pickem"><span>04</span><b>Projections</b><em id="hubPickem">No entries yet</em><i>&#8250;</i></button>
+        <button class="game-menu-item hub-card" data-go="history"><span>05</span><b>Dynasty History</b><em id="hubHistory">Nothing archived yet</em><i>&#8250;</i></button>
+        <button class="game-menu-item" id="goWatch"><span>06</span><b>Watch Invitation</b><em>Open a league event</em><i>&#8250;</i></button>
       </div>
 
-      <aside class="prime-event-card anim-in-up d3" aria-label="Selection night workflow">
-        <div class="pec-live"><i></i> EVENT CONTROL</div>
-        <div class="pec-title">SELECTION<br>NIGHT</div>
-        <div class="pec-rule"></div>
-        <div class="pec-row"><span>01</span><b>Build the field</b><em>Private</em></div>
-        <div class="pec-row"><span>02</span><b>Premiere the show</b><em>Cinematic</em></div>
-        <div class="pec-row"><span>03</span><b>Play the bracket</b><em>Live</em></div>
-        <div class="pec-foot">EVERY SEASON BECOMES HISTORY</div>
-      </aside>
-    </div>
-
-    <section class="command-center anim-in-up d3" aria-labelledby="commandTitle">
-      <div class="command-head">
-        <div>
-          <span class="section-kicker">YOUR LEAGUE. ONE CONTROL ROOM.</span>
-          <h2 id="commandTitle">RUN THE WHOLE POSTSEASON</h2>
-        </div>
-        <p>Selection Night is the beginning. Predictions, results and league history stay together after the field is revealed.</p>
+      <div class="game-menu-utility">
+        <button class="account-trigger home-account" type="button"><b>Cloud Save</b><span>Sign in with Google</span></button>
+        <button id="navHowTo"><b>How To Play</b><span>Quick guide</span></button>
       </div>
+    </aside>
 
-      <div class="hub">
-        <button class="hub-card" data-go="results">
-          <span class="hub-num">01</span><i class="hub-ic">&#9202;</i>
-          <b>Play it out</b>
-          <span>Enter final scores and watch the bracket advance itself.</span>
-          <em id="hubResults"></em>
-        </button>
-        <button class="hub-card" data-go="pickem">
-          <span class="hub-num">02</span><i class="hub-ic">&#9998;</i>
-          <b>League challenge</b>
-          <span>Everyone predicts the field. You run the live leaderboard.</span>
-          <em id="hubPickem"></em>
-        </button>
-        <button class="hub-card" data-go="history">
-          <span class="hub-num">03</span><i class="hub-ic">&#127942;</i>
-          <b>Dynasty archive</b>
-          <span>Preserve every champion, bracket and season-defining run.</span>
-          <em id="hubHistory"></em>
-        </button>
-        <button class="hub-card" data-go="final">
-          <span class="hub-num">04</span><i class="hub-ic">&#9783;</i>
-          <b>The field</b>
-          <span>Open the official bracket and share it with one tap.</span>
-          <em id="hubField"></em>
-        </button>
+    <section class="game-home-world" aria-label="Current dynasty postseason">
+      <div class="game-feature-card">
+        <span>FEATURED</span><b>SELECTION<br>NIGHT</b>
+        <small>BUILD IT. REVEAL IT. PLAY IT OUT.</small>
+      </div>
+      <div class="game-tabletop" aria-hidden="true">
+        <div class="tabletop-scoreboard"><span id="gameHomeMark">CFP</span><b id="gameHomeTeam">THE PLAYOFF</b><small id="gameHomeRecord">12 TEAMS &middot; 1 CHAMPION</small></div>
+        <div class="mini-field"><i></i><i></i><i></i><i></i><i></i><b>CFP</b></div>
+        <div class="mini-stands left"></div><div class="mini-stands right"></div>
+        <div class="mini-trophy"></div>
+      </div>
+      <div class="game-home-status">
+        <div><span>ACTIVE WEEK</span><b id="gameHomeWeek">SELECTION WEEK</b></div>
+        <div><span>FIELD STATUS</span><b id="gameHomeField">0 / 12</b></div>
+        <div><span>LEAGUE</span><b id="gameHomeLeague">DYNASTY LEAGUE</b></div>
       </div>
     </section>
+  </main>
 
-    <div class="feature-strip prime-process">
-      <div><i>01</i><b>Rank it</b><span>Full commissioner control</span></div>
-      <div><i>02</i><b>Premiere it</b><span>Video, voices and reveal FX</span></div>
-      <div><i>03</i><b>Share it</b><span>One spoiler-free league link</span></div>
-      <div><i>04</i><b>Remember it</b><span>A permanent dynasty archive</span></div>
-    </div>
-    <footer class="prime-footer">
-      <span>CFP DYNASTY STUDIO</span>
-      <p>An independent fan-made tool. Not affiliated with or endorsed by the NCAA, College Football Playoff, ESPN, EA Sports, or any school.</p>
-      <nav aria-label="Legal"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
-    </footer>
-  </div>
+  <footer class="game-footer"><span><b>A</b> Select</span><span><b>B</b> Back</span><span><b>Y</b> Selection Show</span><i></i><small>Independent fan-made dynasty companion</small><a href="/privacy">Privacy</a><a href="/terms">Terms</a></footer>
 </section>
 
 <!-- =====================================================================

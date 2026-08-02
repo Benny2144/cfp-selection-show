@@ -790,120 +790,146 @@ async function copyShare() {
 /* ======================================================================
    FINAL BRACKET  (geometry in % of the 16:9 canvas)
    ====================================================================== */
-const BK = {
-  rows: { topA: 18.5, topB: 29.2, mid1: 45.4, mid2: 64.5, botA: 81.0, botB: 91.7 },
-  r1Y: 23.85, qfTopY: 34.6, qfBotY: 75.4, r1BotY: 86.35,
-  boxHalf: 4.15,
-  x: { r1L: 23, qfL: 34, sf: 45.25, qfR: 56.5, r1R: 67.5,
-       r1Lc: 27.75, qfLc: 38.75, qfRc: 61.25, r1Rc: 72.25 },
-  boxW: 9.5
-};
-
-/** Draw the bracket into any container — the final screen uses one, the
-    show keeps a second that fills in as the picks land. */
+/** Draw the bracket in the same left-to-right tournament language used by
+    College Football 27. The twelve original seed plates retain `.bk-seed`
+    hooks because the selection show lands them here one at a time. */
 function renderBracket(target) {
   const bk = target || $('#bracket');
   if (!bk) return;
   bk.innerHTML = '';
-  const R = BK.rows, X = BK.x;
+  bk.classList.add('game-bracket');
+  const solved = Bracket.solve();
 
-  const trophy = document.createElement('div');
-  trophy.className = 'trophy dim';
-  bk.appendChild(trophy);
+  const title = document.createElement('div');
+  title.className = 'bk-title game-bracket-title';
+  title.innerHTML = `<span>${esc(STATE.season)} COLLEGE FOOTBALL PLAYOFF</span>` +
+    `<small>${esc(STATE.league)} &middot; THE ROAD TO THE NATIONAL CHAMPIONSHIP</small>`;
+  bk.appendChild(title);
 
-  const t = document.createElement('div');
-  t.className = 'bk-title';
-  t.innerHTML = `${esc(STATE.title)}<small>${esc(STATE.league)} &middot; ${esc(STATE.season)}</small>`;
-  bk.appendChild(t);
-
-  const line = (x, y, w, h) => {
-    const d = document.createElement('div');
-    d.className = 'bk-line';
-    d.style.cssText = `left:${x}%;top:${y}%;width:${w}%;height:${h}%`;
-    bk.appendChild(d);
+  const label = (text, x, cls = '') => {
+    const node = document.createElement('div');
+    node.className = `bk-bowl game-round-label ${cls}`;
+    node.style.left = x + '%';
+    node.innerHTML = text;
+    bk.appendChild(node);
   };
-  const V = 0.2, H = 0.35;
-  const vert = (cx, y1, y2) => line(cx - V / 2, y1, V, y2 - y1);
-  const horz = (x1, x2, y)  => line(x1, y - H / 2, x2 - x1, H);
+  label('FIRST ROUND', 2);
+  label('QUARTERFINAL', 29);
+  label('SEMIFINAL', 54);
+  label('NATIONAL CHAMPIONSHIP', 75, 'bk-natty');
 
-  vert(X.r1Lc, BK.r1Y + BK.boxHalf, R.mid1);
-  horz(X.r1Lc, X.qfL, BK.qfTopY);
-  vert(X.r1Lc, R.mid2, BK.r1BotY - BK.boxHalf);
-  horz(X.r1Lc, X.qfL, BK.qfBotY);
+  const line = (x, y, w, h, kind) => {
+    const node = document.createElement('div');
+    node.className = `bk-line ${kind || (w > h ? 'horizontal' : 'vertical')}`;
+    node.style.cssText = `left:${x}%;top:${y}%;width:${w}%;height:${h}%`;
+    bk.appendChild(node);
+  };
+  const h = (x1, x2, y) => line(x1, y, x2 - x1, .28, 'horizontal');
+  const v = (x, y1, y2) => line(x, y1, .16, y2 - y1, 'vertical');
 
-  vert(X.r1Rc, BK.r1Y + BK.boxHalf, R.mid1);
-  horz(X.qfR + BK.boxW, X.r1Rc, BK.qfTopY);
-  vert(X.r1Rc, R.mid2, BK.r1BotY - BK.boxHalf);
-  horz(X.qfR + BK.boxW, X.r1Rc, BK.qfBotY);
-
-  vert(X.qfLc, BK.qfTopY + BK.boxHalf, 51.4);
-  vert(X.qfLc, 58.0, BK.qfBotY - BK.boxHalf);
-  horz(X.qfLc, X.sf, R.mid1);
-  vert(X.qfRc, BK.qfTopY + BK.boxHalf, 51.4);
-  vert(X.qfRc, 58.0, BK.qfBotY - BK.boxHalf);
-  horz(X.sf + BK.boxW, X.qfRc, R.mid2);
-
-  [[X.r1L, BK.r1Y], [X.r1L, BK.r1BotY],
-   [X.qfL, BK.qfTopY], [X.qfL, BK.qfBotY],
-   [X.sf,  R.mid1],    [X.sf,  R.mid2],
-   [X.qfR, BK.qfTopY], [X.qfR, BK.qfBotY],
-   [X.r1R, BK.r1Y],    [X.r1R, BK.r1BotY]].forEach(([x, y]) => {
-    const d = document.createElement('div');
-    d.className = 'bk-box';
-    d.style.left = x + '%'; d.style.top = y + '%';
-    d.style.transform = 'translateY(-50%)';
-    bk.appendChild(d);
-  });
-
-  const LEFT  = [[9, R.topA], [8, R.topB], [1, R.mid1],
-                 [4, R.mid2], [5, R.botA], [12, R.botB]];
-  const RIGHT = [[7, R.topA], [10, R.topB], [2, R.mid1],
-                 [3, R.mid2], [6, R.botA], [11, R.botB]];
-
-  const place = (arr, side) => arr.forEach(([seed, y]) => {
-    const s = STATE.seeds[seed - 1];
+  const seedRow = (seedNo, gameState, side) => {
+    const selection = STATE.seeds[seedNo - 1];
     const row = document.createElement('div');
-    row.className = 'bk-seed' + (side === 'R' ? ' right' : '');
-    row.dataset.seed = seed;
-    row.style.top = y + '%';
-    row.style[side === 'L' ? 'left' : 'right'] = '1.5%';
-    row.style.transform = 'translateY(-50%)';
-
-    const sn = document.createElement('div');
-    sn.className = 'sn'; sn.textContent = seed;
-    row.appendChild(sn);
-
-    if (s) row.appendChild(bannerEl(s.id, { flip: side === 'R' }));
+    row.className = 'bk-seed game-bracket-team';
+    row.dataset.seed = seedNo;
+    if (gameState?.winner) row.classList.add(gameState.winner === seedNo ? 'winner' : 'eliminated');
+    const rank = document.createElement('span');
+    rank.className = 'sn'; rank.textContent = seedNo;
+    row.appendChild(rank);
+    if (selection) row.appendChild(bannerEl(selection.id));
     else {
-      const ph = document.createElement('div');
-      ph.className = 'banner'; ph.style.flex = '1';
-      ph.innerHTML = '<div class="tag" style="min-width:100%;color:#39414d">TBD</div>';
-      row.appendChild(ph);
+      const placeholder = document.createElement('div');
+      placeholder.className = 'game-slot-placeholder'; placeholder.textContent = 'TBD';
+      row.appendChild(placeholder);
     }
-    bk.appendChild(row);
-  });
-  place(LEFT, 'L'); place(RIGHT, 'R');
+    const score = document.createElement('b');
+    score.className = 'game-bracket-score';
+    score.textContent = gameState?.[side === 'a' ? 'sa' : 'sb'] ?? '';
+    row.appendChild(score);
+    return row;
+  };
 
-  [[23.5, BK.qfTopY + 1.2, 'ROSE<br>BOWL'],
-   [23.5, BK.qfBotY - 1.2, 'COTTON<br>BOWL'],
-   [X.qfLc, 54.7, 'FIESTA<br>BOWL'],
-   [X.qfRc, 54.7, 'PEACH<br>BOWL'],
-   [76.5, BK.qfTopY + 1.2, 'SUGAR<br>BOWL'],
-   [76.5, BK.qfBotY - 1.2, 'ORANGE<br>BOWL']].forEach(([x, y, txt]) => {
-    const d = document.createElement('div');
-    d.className = 'bk-bowl';
-    d.style.left = x + '%'; d.style.top = y + '%';
-    d.style.transform = 'translate(-50%,-50%)';
-    d.innerHTML = txt;
-    bk.appendChild(d);
+  const firstRound = [
+    { id: 'fr2', seeds: [12, 5], y: 18 },
+    { id: 'fr1', seeds: [9, 8], y: 38 },
+    { id: 'fr4', seeds: [11, 6], y: 62 },
+    { id: 'fr3', seeds: [10, 7], y: 82 }
+  ];
+  firstRound.forEach(item => {
+    const state = solved[item.id];
+    const game = document.createElement('div');
+    game.className = 'game-bracket-match game-first-round' + (state.winner ? ' decided' : '');
+    game.dataset.game = item.id;
+    game.style.cssText = `left:2%;top:${item.y}%;width:20%`;
+    game.append(seedRow(item.seeds[0], state, state.a === item.seeds[0] ? 'a' : 'b'));
+    game.append(seedRow(item.seeds[1], state, state.a === item.seeds[1] ? 'a' : 'b'));
+    bk.appendChild(game);
+    h(22, 29, item.y);
   });
 
-  const nat = document.createElement('div');
-  nat.className = 'bk-natty';
-  nat.style.left = '50%'; nat.style.top = '54.7%';
-  nat.style.transform = 'translate(-50%,-50%)';
-  nat.innerHTML = 'NATIONAL<br>CHAMPIONSHIP';
-  bk.appendChild(nat);
+  const gameRow = (seedNo, placeholder, score, winner) => {
+    const row = document.createElement('div');
+    row.className = 'game-bracket-team game-advanced-team' +
+      (winner && seedNo ? (winner === seedNo ? ' winner' : ' eliminated') : '');
+    const rank = document.createElement('span');
+    rank.className = 'sn'; rank.textContent = seedNo || '';
+    row.appendChild(rank);
+    if (seedNo && STATE.seeds[seedNo - 1]) row.appendChild(bannerEl(STATE.seeds[seedNo - 1].id));
+    else {
+      const waiting = document.createElement('div');
+      waiting.className = 'game-slot-placeholder'; waiting.textContent = placeholder;
+      row.appendChild(waiting);
+    }
+    const points = document.createElement('b');
+    points.className = 'game-bracket-score'; points.textContent = score ?? '';
+    row.appendChild(points);
+    return row;
+  };
+
+  const bracketGame = (id, x, y, width) => {
+    const g = GAME_BY_ID[id];
+    const state = solved[id];
+    const node = document.createElement('div');
+    node.className = 'bk-box game-bracket-match game-advanced-match' +
+      (state.winner ? ' decided' : '') + (state.a && state.b && !state.winner ? ' ready' : '');
+    node.dataset.game = id;
+    node.style.cssText = `left:${x}%;top:${y}%;width:${width}%`;
+    node.appendChild(gameRow(state.a, Bracket.slotName(state.a, solved, g.a), state.sa, state.winner));
+    node.appendChild(gameRow(state.b, Bracket.slotName(state.b, solved, g.b), state.sb, state.winner));
+    const name = document.createElement('small');
+    name.textContent = g.name.toUpperCase();
+    node.appendChild(name);
+    bk.appendChild(node);
+    return node;
+  };
+
+  const qf = [
+    { id: 'qf2', y: 18 }, { id: 'qf1', y: 38 },
+    { id: 'qf4', y: 62 }, { id: 'qf3', y: 82 }
+  ];
+  qf.forEach(item => bracketGame(item.id, 29, item.y, 18));
+  bracketGame('sf1', 54, 28, 17);
+  bracketGame('sf2', 54, 72, 17);
+  bracketGame('nc', 75, 50, 16);
+
+  [[18, 38, 28], [62, 82, 72]].forEach(([a, b, mid]) => {
+    h(47, 50.5, a); h(47, 50.5, b); v(50.5, a, b); h(50.5, 54, mid);
+  });
+  h(71, 73, 28); h(71, 73, 72); v(73, 28, 72); h(73, 75, 50);
+  h(91, 94, 50);
+
+  const champion = document.createElement('div');
+  champion.className = 'game-bracket-champion';
+  champion.innerHTML = '<div class="game-bracket-trophy"></div>';
+  const champSeed = solved.nc.winner;
+  const championCopy = document.createElement('span');
+  if (champSeed && STATE.seeds[champSeed - 1]) {
+    const selection = STATE.seeds[champSeed - 1];
+    champion.classList.add('crowned');
+    championCopy.innerHTML = `<b>${esc(team(selection.id).abbr)}</b><small>NATIONAL CHAMPION</small>`;
+  } else championCopy.innerHTML = '<b>LAS VEGAS, NV</b><small>ONE CHAMPION</small>';
+  champion.appendChild(championCopy);
+  bk.appendChild(champion);
 
   if (bk.id === 'bracket') renderFieldList();
 }
@@ -1100,6 +1126,7 @@ function showScreen(name) {
      because every link in it leads somewhere they are not allowed. */
   document.body.classList.toggle('chromed', name !== 'show' && !VIEWER);
   if (name !== 'show' && !VIEWER) { Dynasty.renderStrip(); Dynasty.markNav(name); }
+  refreshGameShell();
 
   applyRoomFilm(name);
   if (name === 'final')   renderBracket();
@@ -1158,6 +1185,46 @@ function refreshHub() {
 
   const seeded = STATE.seeds.filter(Boolean).length;
   set('hubField', `${seeded} of 12 seeded`);
+  refreshGameShell();
+}
+
+/** The installed game builds every management screen around the active
+    program's identity. Our equivalent follows the No. 1 seed once one exists,
+    then falls back to CFP navy and gold while the board is empty. */
+function refreshGameShell() {
+  const selection = STATE.seeds[0];
+  const lead = selection && team(selection.id);
+  const primary = lead?.primary || '#17345f';
+  const secondary = lead?.secondary || '#d9a441';
+  document.documentElement.style.setProperty('--game-team', primary);
+  document.documentElement.style.setProperty('--game-team-2', secondary);
+
+  const set = (id, value) => { const node = $('#' + id); if (node) node.textContent = value; };
+  const seeded = STATE.seeds.filter(Boolean).length;
+  const played = Bracket.played();
+  const champion = Bracket.champion();
+  const leadLabel = lead ? lead.school.toUpperCase() : 'THE PLAYOFF';
+  const week = champion ? 'SEASON COMPLETE' : played ? 'PLAYOFF IN PROGRESS'
+    : seeded === 12 ? 'FIELD LOCKED' : 'COMMITTEE WEEK';
+
+  set('gameProfileMark', lead?.abbr || 'CFP');
+  set('gameLeagueName', String(STATE.league || 'Dynasty League').toUpperCase());
+  set('gameSeasonLabel', `${STATE.season} · ${leadLabel}`);
+  set('gameWeekState', week);
+  set('gameHomeMark', lead?.abbr || 'CFP');
+  set('gameHomeTeam', leadLabel);
+  set('gameHomeRecord', selection
+    ? [selection.record, lead?.conf].filter(Boolean).join(' · ').toUpperCase()
+    : '12 TEAMS · 1 CHAMPION');
+  set('gameHomeWeek', week);
+  set('gameHomeField', `${seeded} / 12`);
+  set('gameHomeLeague', String(STATE.league || 'Dynasty League').toUpperCase());
+
+  const cloudState = typeof CloudSync !== 'undefined' ? CloudSync.state() : null;
+  const cloudLabel = typeof CloudSync !== 'undefined' && CloudSync.isSignedIn()
+    ? cloudState?.saving ? 'SAVING' : cloudState?.dirty ? 'PENDING' : 'SYNCED'
+    : 'LOCAL';
+  set('gameSaveLabel', cloudLabel);
 }
 
 const OUT_WORD = { 2: 'First Two Out', 4: 'First Four Out' };
@@ -1580,6 +1647,8 @@ async function boot() {
 
   Dynasty.init();
   CloudSync.bind();
+  document.addEventListener('cfp:state', refreshGameShell);
+  document.addEventListener('cfp:cloud', refreshGameShell);
   renderPool();
   renderSeeds();
   refreshHub();

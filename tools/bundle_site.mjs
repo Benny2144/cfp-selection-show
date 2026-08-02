@@ -8,7 +8,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const DOCS = join(ROOT, 'docs');
 
 const styles = [
-  'broadcast.css', 'dynasty.css', 'espn.css', 'cinematic.css', 'prime.css',
+  'broadcast.css', 'dynasty.css', 'espn.css', 'cinematic.css', 'prime.css', 'game27.css',
 ];
 const scripts = [
   'teams.js', 'logos.js', 'recorder.js', 'cloud.js', 'app.js', 'dynasty.js',
