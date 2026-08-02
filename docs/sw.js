@@ -1,4 +1,4 @@
-const CACHE = 'cfp-dynasty-shell-v3';
+const CACHE = 'cfp-dynasty-shell-v4';
 const SHELL = [
   '/', '/manifest.webmanifest?v=3', '/assets/cfp-icon-192.png',
   '/assets/cfp-icon-512.png', '/assets/room-bg.webp'

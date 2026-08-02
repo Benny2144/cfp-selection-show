@@ -26,6 +26,37 @@ const Dynasty = (() => {
     return s ? team(s.id) : null;
   };
 
+  /* A changed winner invalidates every score or prediction fed by that game.
+     Walking the graph keeps the reset surgical: the other side of the bracket
+     is never touched. */
+  function downstreamGames(gameId) {
+    const affected = new Set([gameId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      GAMES.forEach(g => {
+        if (affected.has(g.id)) return;
+        if ((g.a.win && affected.has(g.a.win)) || (g.b.win && affected.has(g.b.win))) {
+          affected.add(g.id); changed = true;
+        }
+      });
+    }
+    affected.delete(gameId);
+    return [...affected];
+  }
+
+  function clearDownstreamResults(gameId) {
+    downstreamGames(gameId).forEach(id => { delete STATE.results[id]; });
+  }
+
+  function clearDownstreamProjection(gameId) {
+    downstreamGames(gameId).forEach(id => {
+      const index = GAMES.findIndex(g => g.id === id);
+      if (index >= 0) myPicks[index] = null;
+      delete STATE.projectionScores[id];
+    });
+  }
+
   /* ======================================================================
      RESULTS — play the bracket out
      ====================================================================== */
@@ -34,6 +65,7 @@ const Dynasty = (() => {
     const wrap = $('#resultsBody');
     if (!wrap) return;
     wrap.innerHTML = '';
+    wrap.className = 'playoff-bracket-board result-bracket-board';
 
     const solved = Bracket.solve();
     const rounds = ['r1', 'qf', 'sf', 'nc'];
@@ -87,13 +119,15 @@ const Dynasty = (() => {
     const st = solved[g.id];
     const card = document.createElement('div');
     card.className = 'gcard' + (st.winner ? ' done' : '') +
-                     (st.a && st.b && !st.winner ? ' live' : '');
+                     (st.a && st.b && !st.winner ? ' live' : '') +
+                     (st.decidedBy === 'advance' ? ' manual' : '');
+    card.dataset.game = g.id;
 
     const h = document.createElement('div');
     h.className = 'g-head';
     const where = g.site === 'campus' && st.a
       ? `at ${(seedTeam(st.a) || {}).school || 'the higher seed'}`
-      : g.site === 'campus' ? 'campus site' : '';
+      : g.site === 'campus' ? 'campus site' : 'tap a team or enter score';
     h.innerHTML = `<b>${esc(g.name)}</b><span>${esc(where)}</span>`;
     card.appendChild(h);
 
@@ -108,6 +142,11 @@ const Dynasty = (() => {
     const row = document.createElement('div');
     row.className = 'g-side';
     if (st.winner) row.classList.add(st.winner === seedNo ? 'won' : 'lost');
+    if (seedNo) {
+      row.classList.add('can-advance');
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+    }
 
     const n = document.createElement('span');
     n.className = 'g-seed';
@@ -123,6 +162,12 @@ const Dynasty = (() => {
       row.appendChild(ph);
     }
 
+    const advance = document.createElement('span');
+    advance.className = 'g-advance';
+    advance.textContent = st.winner === seedNo ? 'ADVANCED' : 'ADVANCE';
+    advance.setAttribute('aria-hidden', 'true');
+    row.appendChild(advance);
+
     const inp = document.createElement('input');
     inp.className = 'g-score';
     inp.type = 'text';
@@ -130,18 +175,50 @@ const Dynasty = (() => {
     inp.maxLength = 3;
     inp.placeholder = '—';
     inp.disabled = !seedNo;
+    inp.dataset.game = g.id;
+    inp.dataset.side = which;
     inp.setAttribute('aria-label', seedNo && STATE.seeds[seedNo - 1]
       ? `${team(STATE.seeds[seedNo - 1].id).school} score in ${g.name}`
       : `Score in ${g.name}`);
     inp.value = (STATE.results[g.id] || {})[which] ?? '';
+    inp.onclick = event => event.stopPropagation();
+    inp.onkeydown = event => event.stopPropagation();
     inp.oninput = () => {
+      const before = Bracket.solve()[g.id].winner;
       inp.value = inp.value.replace(/[^0-9]/g, '');
       STATE.results[g.id] = Object.assign({}, STATE.results[g.id]);
       STATE.results[g.id][which] = inp.value;
+      delete STATE.results[g.id].w;
+      const after = Bracket.solve()[g.id].winner;
+      if (before !== after) clearDownstreamResults(g.id);
       persist();
       scheduleResultsPaint();
     };
     row.appendChild(inp);
+
+    const advanceTeam = () => {
+      if (!seedNo) return;
+      const before = Bracket.solve()[g.id].winner;
+      const result = Object.assign({}, STATE.results[g.id]);
+      const other = which === 'a' ? 'b' : 'a';
+      const selectedScore = Bracket.numOrNull(result[which]);
+      const otherScore = Bracket.numOrNull(result[other]);
+      /* If a completed score points the other way, a deliberate tap updates
+         the visible score too so the bracket can never contradict itself. */
+      if (selectedScore !== null && otherScore !== null && selectedScore <= otherScore)
+        result[which] = String(otherScore + 1);
+      result.w = which;
+      STATE.results[g.id] = result;
+      const after = Bracket.solve()[g.id].winner;
+      if (before !== after) clearDownstreamResults(g.id);
+      persist(); renderResults();
+    };
+    row.onclick = advanceTeam;
+    row.onkeydown = event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault(); advanceTeam();
+      }
+    };
 
     return row;
   }
@@ -154,10 +231,11 @@ const Dynasty = (() => {
     paintTimer = setTimeout(() => {
       const act = document.activeElement;
       const mark = act && act.classList.contains('g-score')
-        ? [...document.querySelectorAll('.g-score')].indexOf(act) : -1;
+        ? `${act.dataset.game || ''}:${act.dataset.side || ''}` : '';
       renderResults();
-      if (mark >= 0) {
-        const back = document.querySelectorAll('.g-score')[mark];
+      if (mark) {
+        const [game, side] = mark.split(':');
+        const back = document.querySelector(`.g-score[data-game="${game}"][data-side="${side}"]`);
         if (back) { back.focus(); back.setSelectionRange(back.value.length, back.value.length); }
       }
     }, 420);
@@ -174,8 +252,16 @@ const Dynasty = (() => {
      PICK'EM
      ====================================================================== */
 
-  let myPicks = new Array(GAMES.length).fill(0);
+  let myPicks = [];
   let pickMode = 'make';                 // 'make' | 'board'
+  let projectionPaintTimer = null;
+
+  function saveProjection() {
+    STATE.projectionPicks = myPicks.slice(0, GAMES.length);
+    while (STATE.projectionPicks.length < GAMES.length) STATE.projectionPicks.push(null);
+    STATE.projectionScores = STATE.projectionScores || {};
+    persist();
+  }
 
   function renderPickem() {
     $$('#pickem .pk-tab').forEach(b =>
@@ -188,62 +274,154 @@ const Dynasty = (() => {
   function renderPickForm() {
     const wrap = $('#pkGames');
     wrap.innerHTML = '';
+    wrap.className = 'playoff-bracket-board projection-bracket-board';
     const mine = Pickem.resolve(myPicks);
 
     ['r1', 'qf', 'sf', 'nc'].forEach(r => {
       const games = GAMES.filter(g => g.round === r);
+      const section = document.createElement('section');
+      section.className = 'res-round projection-round r-' + r;
       const head = document.createElement('div');
-      head.className = 'pk-round';
+      head.className = 'res-head pk-round';
       head.innerHTML = `<b>${esc(ROUND_INFO[r].label)}</b>` +
         `<span>${ROUND_INFO[r].points} pt${ROUND_INFO[r].points === 1 ? '' : 's'} each</span>`;
-      wrap.appendChild(head);
+      section.appendChild(head);
 
+      const grid = document.createElement('div');
+      grid.className = 'res-grid';
       games.forEach(g => {
         const i = GAMES.indexOf(g);
         const st = mine[g.id];
-        const card = document.createElement('div');
-        card.className = 'pk-card';
-        card.innerHTML = `<div class="pk-name">${esc(g.name)}</div>`;
-
-        ['a', 'b'].forEach(side => {
-          const seedNo = st[side];
-          const btn = document.createElement('button');
-          btn.className = 'pk-pick' + (st.choice === side ? ' on' : '') +
-                          (seedNo ? '' : ' blank');
-          btn.disabled = !seedNo;
-          if (seedNo && STATE.seeds[seedNo - 1]) {
-            const sp = document.createElement('span');
-            sp.className = 'pk-seed'; sp.textContent = seedNo;
-            btn.append(sp, plate(STATE.seeds[seedNo - 1].id, 38));
-          } else {
-            btn.textContent = Bracket.slotName(seedNo, mine, g[side]);
-          }
-          btn.onclick = () => {
-            myPicks[i] = side === 'b' ? 1 : 0;
-            /* A change upstream can orphan a later pick — the team they had
-               winning the final might not be in it any more. Leaving those
-               alone is fine: resolve() always reads the live slots, so the
-               bracket stays consistent whatever is stored. */
-            renderPickForm();
-            updateCode();
-          };
-          card.appendChild(btn);
-        });
-        wrap.appendChild(card);
+        grid.appendChild(projectionGameCard(g, i, st, mine));
       });
+      section.appendChild(grid);
+      wrap.appendChild(section);
     });
     updateCode();
+  }
+
+  function projectionGameCard(g, index, st, mine) {
+    const card = document.createElement('div');
+    card.className = 'gcard projection-card' + (st.winner ? ' picked' : '') +
+      (st.a && st.b && !st.winner ? ' live' : '');
+    card.dataset.game = g.id;
+
+    const head = document.createElement('div');
+    head.className = 'g-head';
+    const where = g.site === 'campus' && st.a
+      ? `at ${(seedTeam(st.a) || {}).school || 'the higher seed'}`
+      : `${ROUND_INFO[g.round].points} point${ROUND_INFO[g.round].points === 1 ? '' : 's'}`;
+    head.innerHTML = `<b>${esc(g.name)}</b><span>${esc(where)}</span>`;
+    card.appendChild(head);
+    card.appendChild(projectionSideRow(g, index, st, mine, 'a'));
+    card.appendChild(projectionSideRow(g, index, st, mine, 'b'));
+    return card;
+  }
+
+  function projectionSideRow(g, index, st, mine, side) {
+    const seedNo = st[side];
+    const row = document.createElement('div');
+    row.className = 'g-side prediction-side' + (st.choice === side ? ' won selected' : '') +
+      (st.choice && st.choice !== side ? ' lost' : '');
+    if (seedNo) {
+      row.classList.add('can-advance');
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+    }
+
+    const seed = document.createElement('span');
+    seed.className = 'g-seed';
+    seed.textContent = seedNo || '';
+    row.appendChild(seed);
+
+    if (seedNo && STATE.seeds[seedNo - 1]) {
+      row.appendChild(plate(STATE.seeds[seedNo - 1].id, 40));
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'dy-plate empty';
+      placeholder.textContent = Bracket.slotName(seedNo, mine, g[side]);
+      row.appendChild(placeholder);
+    }
+
+    const advance = document.createElement('span');
+    advance.className = 'g-advance';
+    advance.textContent = st.choice === side ? 'PICKED' : 'PICK';
+    advance.setAttribute('aria-hidden', 'true');
+    row.appendChild(advance);
+
+    const input = document.createElement('input');
+    input.className = 'g-score projection-score';
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.maxLength = 3;
+    input.placeholder = '—';
+    input.disabled = !seedNo;
+    input.dataset.game = g.id;
+    input.dataset.side = side;
+    input.setAttribute('aria-label', seedNo && STATE.seeds[seedNo - 1]
+      ? `${team(STATE.seeds[seedNo - 1].id).school} predicted score in ${g.name}`
+      : `Predicted score in ${g.name}`);
+    input.value = (STATE.projectionScores[g.id] || {})[side] ?? '';
+    input.onclick = event => event.stopPropagation();
+    input.onkeydown = event => event.stopPropagation();
+    input.oninput = () => {
+      input.value = input.value.replace(/[^0-9]/g, '');
+      STATE.projectionScores[g.id] = Object.assign({}, STATE.projectionScores[g.id]);
+      STATE.projectionScores[g.id][side] = input.value;
+      const score = STATE.projectionScores[g.id];
+      const a = Bracket.numOrNull(score.a), b = Bracket.numOrNull(score.b);
+      const previous = myPicks[index];
+      if (st.a && st.b && a !== null && b !== null && a !== b)
+        myPicks[index] = a > b ? 0 : 1;
+      if (previous !== myPicks[index]) clearDownstreamProjection(g.id);
+      saveProjection();
+      scheduleProjectionPaint(input);
+    };
+    row.appendChild(input);
+
+    const choose = () => {
+      if (!seedNo) return;
+      const choice = side === 'b' ? 1 : 0;
+      if (myPicks[index] !== choice) clearDownstreamProjection(g.id);
+      myPicks[index] = choice;
+      saveProjection(); renderPickForm();
+    };
+    row.onclick = choose;
+    row.onkeydown = event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault(); choose();
+      }
+    };
+    return row;
+  }
+
+  function scheduleProjectionPaint(activeInput) {
+    clearTimeout(projectionPaintTimer);
+    const mark = `${activeInput.dataset.game}:${activeInput.dataset.side}`;
+    projectionPaintTimer = setTimeout(() => {
+      renderPickForm();
+      const [game, side] = mark.split(':');
+      const back = document.querySelector(`.projection-score[data-game="${game}"][data-side="${side}"]`);
+      if (back) { back.focus(); back.setSelectionRange(back.value.length, back.value.length); }
+    }, 420);
   }
 
   function updateCode() {
     const name = $('#pkName').value;
     const champ = Pickem.championOf(myPicks);
     const t = champ && seedTeam(champ);
-    $('#pkChampion').innerHTML = t
-      ? `Your champion: <b>${esc(t.school)}</b>`
-      : 'Pick a winner in every game to finish your bracket.';
-    $('#pkCode').value = name.trim() ? Pickem.encode(name, myPicks) : '';
-    $('#pkCopy').disabled = !name.trim();
+    const picked = myPicks.filter(value => value === 0 || value === 1).length;
+    const complete = picked === GAMES.length && !!champ;
+    const scored = Object.values(STATE.projectionScores || {}).some(score =>
+      score && (score.a !== '' && score.a != null || score.b !== '' && score.b != null));
+    $('#pkChampion').innerHTML = complete && t
+      ? `Your champion: <b>${esc(t.school)}</b>${scored ? ' · predicted scores included' : ''}`
+      : `${picked} of ${GAMES.length} winners picked. Tap a team to advance it.`;
+    $('#pkCode').value = name.trim() && complete
+      ? Pickem.encode(name, myPicks, STATE.projectionScores) : '';
+    $('#pkCode').placeholder = complete ? 'add your name' : 'finish every round to unlock';
+    $('#pkCopy').disabled = !name.trim() || !complete;
+    $('#pkCount').textContent = `${picked}/${GAMES.length} picks`;
   }
 
   function renderBoard() {
@@ -307,7 +485,7 @@ const Dynasty = (() => {
     const code = $('#pkPaste').value.trim();
     if (!code) return;
     /* people paste a whole chat line — take every code-shaped thing in it */
-    const found = code.match(/[A-Z0-9_ ]{1,16}-[0-9A-Z]+/gi) || [];
+    const found = code.match(/[A-Z0-9_ ]{1,16}-[0-9A-Z]+(?:~[0-9A-Z._]+)?/gi) || [];
     let n = 0;
     found.forEach(c => { if (Pickem.add(c)) n++; });
     if (!n) { toast('That does not look like an entry code'); return; }
@@ -641,6 +819,11 @@ const Dynasty = (() => {
 
   function init() {
     STATE.results = STATE.results || {};
+    STATE.projectionScores = STATE.projectionScores || {};
+    myPicks = Array.isArray(STATE.projectionPicks) && STATE.projectionPicks.length === GAMES.length
+      ? STATE.projectionPicks.map(value => value === 0 || value === 1 ? value : null)
+      : new Array(GAMES.length).fill(null);
+    STATE.projectionPicks = myPicks.slice();
 
     /* ---- results ---- */
     $('#resClear').onclick = clearResults;
@@ -663,6 +846,15 @@ const Dynasty = (() => {
       catch (e) { $('#pkCode').select(); toast('Press Ctrl+C to copy'); }
     };
     $('#pkAdd').onclick = addEntry;
+    $('#pkReset').onclick = () => {
+      if (!myPicks.some(value => value === 0 || value === 1) &&
+          !Object.keys(STATE.projectionScores).length) return;
+      if (!confirm('Clear your projection winners and predicted scores?')) return;
+      myPicks = new Array(GAMES.length).fill(null);
+      STATE.projectionScores = {};
+      saveProjection(); renderPickForm();
+      toast('Projection reset');
+    };
     $('#pkClear').onclick = () => {
       if (!confirm('Remove every entry?')) return;
       Pickem.clear(); renderBoard(); toast('Entries cleared');

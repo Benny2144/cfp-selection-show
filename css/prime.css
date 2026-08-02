@@ -946,3 +946,158 @@ body.screen-shifting .prime-page-wipe{animation:primeWipe .68s cubic-bezier(.76,
 @media (prefers-reduced-motion:reduce){
   .deck-lighting{display:none}.decision-progress i,.runway-meter i{transition:none!important}#room.selection-deck .seedrow.newly-filled{animation:none!important}
 }
+
+/* =====================================================================
+   THE INTERACTIVE BRACKET ROOM
+   Results and projections now share one visual and interaction system.
+   ===================================================================== */
+#results,#pickem{
+  background:
+    linear-gradient(180deg,rgba(3,5,8,.78),rgba(3,5,8,.96)),
+    url('../assets/board-bracket.webp') center/cover no-repeat fixed;
+}
+#results::before,#pickem::before{
+  opacity:.3;filter:saturate(.82) contrast(1.12);
+  background-image:
+    radial-gradient(55% 42% at 50% 18%,rgba(244,194,92,.19),transparent 72%),
+    linear-gradient(180deg,rgba(3,5,8,.1),#030508 94%),
+    url('../assets/board-bracket.webp');
+}
+#results .dy-body,#pickem .dy-body{position:relative;z-index:1}
+
+.bracket-guide{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+  margin:0 0 24px;border:1px solid rgba(244,194,92,.17);
+  background:rgba(244,194,92,.16);box-shadow:0 20px 55px rgba(0,0,0,.2);
+}
+.bracket-guide span{
+  display:flex;align-items:center;gap:10px;min-height:47px;padding:9px 13px;
+  background:linear-gradient(145deg,rgba(16,22,31,.94),rgba(6,10,15,.96));
+  color:#7f8b99;font-size:8px;letter-spacing:.7px;text-transform:uppercase;
+}
+.bracket-guide i{
+  flex:none;font-family:var(--cond);font-style:normal;font-size:19px;color:var(--prime-gold);
+}
+.bracket-guide b{color:#eef2f6;font-weight:900}
+
+.playoff-bracket-board{
+  position:relative;display:grid;grid-template-columns:repeat(4,minmax(235px,1fr));
+  align-items:start;gap:15px;min-width:0;padding:13px;
+  border:1px solid rgba(244,194,92,.2);
+  background:
+    linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),
+    linear-gradient(160deg,rgba(13,19,28,.91),rgba(3,6,10,.96));
+  background-size:46px 46px,46px 46px,auto;
+  box-shadow:inset 0 1px rgba(255,255,255,.07),0 32px 85px rgba(0,0,0,.42);
+  overflow:hidden;
+}
+.playoff-bracket-board::before{
+  content:'ROAD TO THE CHAMPIONSHIP';position:absolute;right:16px;top:5px;
+  color:rgba(244,194,92,.18);font-family:var(--cond);font-size:42px;line-height:1;
+  letter-spacing:1px;pointer-events:none;white-space:nowrap;
+}
+.playoff-bracket-board .res-round{position:relative;z-index:1;min-width:0;margin:0}
+.playoff-bracket-board .res-head{
+  min-height:43px;margin:0 0 9px;padding:5px 4px 8px;border-color:rgba(244,194,92,.17);
+}
+.playoff-bracket-board .res-head b{font-size:11px;letter-spacing:1.2px}
+.playoff-bracket-board .res-head span{margin-left:auto;font-size:6px;letter-spacing:1px}
+.playoff-bracket-board .res-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.playoff-bracket-board .r-sf .res-grid{padding-top:68px;gap:142px}
+.playoff-bracket-board .r-nc .res-grid{padding-top:206px}
+@media (min-width:981px){
+  .playoff-bracket-board .res-round:not(.r-nc)::after{
+    content:'';position:absolute;z-index:-1;right:-15px;top:52%;width:15px;height:1px;
+    background:linear-gradient(90deg,rgba(244,194,92,.64),rgba(244,194,92,.12));
+    box-shadow:0 0 8px rgba(244,194,92,.24);
+  }
+}
+
+.playoff-bracket-board .gcard{
+  position:relative;border-color:rgba(202,215,231,.16);border-radius:2px;
+  background:linear-gradient(145deg,rgba(22,30,42,.96),rgba(7,11,17,.98));
+  box-shadow:0 15px 35px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.035);
+}
+.playoff-bracket-board .gcard::before{
+  content:'';position:absolute;z-index:2;left:0;top:0;bottom:0;width:2px;
+  background:#44505f;transition:background .2s,box-shadow .2s;
+}
+.playoff-bracket-board .gcard.live::before{background:var(--prime-orange);box-shadow:0 0 14px var(--prime-orange)}
+.playoff-bracket-board .gcard.done::before,
+.playoff-bracket-board .projection-card.picked::before{background:var(--prime-gold);box-shadow:0 0 14px rgba(244,194,92,.55)}
+.playoff-bracket-board .g-head{min-height:38px;padding:8px 10px 8px 12px;background:rgba(1,3,6,.36)}
+.playoff-bracket-board .g-head b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;letter-spacing:.65px}
+.playoff-bracket-board .g-head span{flex:none;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7px}
+.playoff-bracket-board .g-side{
+  position:relative;min-height:56px;padding:5px 8px;gap:7px;background:rgba(4,8,13,.3);
+  transition:background .2s,opacity .2s,box-shadow .2s;
+}
+.playoff-bracket-board .g-side.can-advance{cursor:pointer}
+.playoff-bracket-board .g-side.can-advance:hover,
+.playoff-bracket-board .g-side.can-advance:focus-visible{
+  z-index:1;outline:none;background:rgba(244,194,92,.07);
+  box-shadow:inset 0 0 0 1px rgba(244,194,92,.3);
+}
+.playoff-bracket-board .g-side.won{
+  opacity:1;background:linear-gradient(90deg,rgba(244,194,92,.1),rgba(244,194,92,.018));
+  box-shadow:inset 3px 0 0 var(--prime-gold);
+}
+.playoff-bracket-board .g-side.lost{opacity:.46}
+.playoff-bracket-board .g-seed{width:17px;font-family:var(--cond);font-size:17px;color:#8b96a5}
+.playoff-bracket-board .g-side .dy-plate{--bh:42px}
+.playoff-bracket-board .g-side .banner{border-color:rgba(255,255,255,.19)}
+.playoff-bracket-board .g-side .banner .tag{min-width:58px;--tagsize:16px}
+.playoff-bracket-board .g-advance{
+  flex:none;min-width:43px;text-align:right;color:#566170;font-size:5.5px;font-weight:900;
+  letter-spacing:.9px;transition:color .2s;
+}
+.playoff-bracket-board .g-side:hover .g-advance{color:var(--prime-gold)}
+.playoff-bracket-board .g-side.won .g-advance{color:var(--prime-gold)}
+.playoff-bracket-board .g-score{
+  flex:none;width:38px;height:33px;border-radius:2px!important;font-family:var(--cond);
+  font-size:18px!important;background:#020508!important;
+}
+.playoff-bracket-board .dy-plate.empty{height:42px;border-radius:2px;font-size:8px;letter-spacing:.8px}
+
+.gcard.done.manual .g-head b::after{content:'ADVANCED';color:var(--prime-gold)}
+.projection-card.live .g-head b::after{
+  content:'PICK';background:rgba(244,194,92,.14);color:var(--prime-gold);
+}
+.projection-card.picked .g-head b::after{
+  content:'PICKED';margin-left:7px;font-size:7px;letter-spacing:1px;color:var(--prime-gold);
+}
+.projection-card .projection-score{border-style:dashed!important;color:#aeb9c7!important}
+.projection-card .projection-score:focus{border-style:solid!important;color:#fff!important}
+.projection-bracket-board{margin-top:18px}
+.projection-guide{margin-bottom:16px}
+.pk-coderow input{font-family:var(--ui);font-size:12px;letter-spacing:.55px}
+
+@media (max-width:1180px) and (min-width:981px){
+  .playoff-bracket-board{grid-template-columns:repeat(4,minmax(215px,1fr));overflow-x:auto}
+  .playoff-bracket-board .g-advance{display:none}
+}
+@media (max-width:980px){
+  #results,#pickem{background-attachment:scroll}
+  .playoff-bracket-board{display:block;padding:10px;overflow:visible}
+  .playoff-bracket-board::before{font-size:28px;right:10px}
+  .playoff-bracket-board .res-round{margin-bottom:24px}
+  .playoff-bracket-board .res-round:last-child{margin-bottom:0}
+  .playoff-bracket-board .r-sf .res-grid,
+  .playoff-bracket-board .r-nc .res-grid{padding-top:0;gap:10px}
+  .playoff-bracket-board .res-head{position:sticky;top:var(--chrome-h);z-index:4;padding:8px;
+    background:rgba(4,8,13,.94);backdrop-filter:blur(15px)}
+}
+@media (max-width:620px){
+  .bracket-guide{grid-template-columns:1fr;margin-bottom:14px}
+  .bracket-guide span{min-height:37px;padding:6px 10px}
+  .bracket-guide i{font-size:16px}
+  .playoff-bracket-board{margin-left:-4px;margin-right:-4px;padding:7px}
+  .playoff-bracket-board .g-side{min-height:60px;padding:6px 7px}
+  .playoff-bracket-board .g-side .dy-plate{--bh:45px}
+  .playoff-bracket-board .g-side .banner .tag{min-width:61px;--tagsize:17px}
+  .playoff-bracket-board .g-advance{display:none}
+  .playoff-bracket-board .g-score{width:42px;height:36px;font-size:19px!important}
+  #pickem .pk-top{margin-bottom:13px}
+  #pickem .dy-head>div:first-child,#results .dy-head>div:first-child{min-width:205px}
+}

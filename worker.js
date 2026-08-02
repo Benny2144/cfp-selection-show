@@ -368,6 +368,7 @@ function validPublishedPayload(payload) {
     for (const [gameId, score] of Object.entries(payload.rs)) {
       if (!/^[a-z0-9-]{1,32}$/i.test(gameId) || !score || typeof score !== 'object' || Array.isArray(score)) return false;
       if (!['a', 'b'].every(side => score[side] == null || /^[0-9]{0,3}$/.test(String(score[side])))) return false;
+      if (score.w != null && !['a', 'b'].includes(score.w)) return false;
     }
   }
   if (payload.v != null) {

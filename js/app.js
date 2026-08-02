@@ -32,6 +32,8 @@ const STATE = {
   logoPattern: '',
   premiere: 0,                         // epoch ms, or 0 for "whenever you like"
   results: {},                         // gameId -> {a,b} scores, once it is played
+  projectionPicks: Array(11).fill(null), // null | 0 (top) | 1 (bottom), one per game
+  projectionScores: {},                // gameId -> {a,b} optional predicted scores
   cloudEventId: '',                    // private id for updating a published event
   shareCode: '',                       // public short code for that event
   leagueRoomId: '',                    // shared Cloudflare league workspace currently loaded
@@ -229,6 +231,8 @@ const isSeeded = id => STATE.seeds.some(s => s && s.id === id) ||
     publishing the new field and let the chrome repaint from one state event. */
 function persistFieldChange() {
   if (STATE.results && Object.keys(STATE.results).length) STATE.results = {};
+  STATE.projectionPicks = Array(11).fill(null);
+  STATE.projectionScores = {};
   persist();
 }
 
@@ -605,6 +609,8 @@ function applySharedPayload(p) {
     if (p.g) STATE.logoPattern = p.g;
     STATE.premiere = p.pm || 0;
     STATE.results  = p.rs || {};
+    STATE.projectionPicks = Array(11).fill(null);
+    STATE.projectionScores = {};
     STATE.seeds = (p.d || []).map(x =>
       x ? { id: x[0], record: x[1], champ: !!x[2] } : null);
     while (STATE.seeds.length < 12) STATE.seeds.push(null);
@@ -716,6 +722,8 @@ function loadDemoEvent() {
   ];
   STATE.outCount = 2;
   STATE.results = {};
+  STATE.projectionPicks = Array(11).fill(null);
+  STATE.projectionScores = {};
   STATE.shareCode = '';
   STATE.cloudEventId = '';
   VIEWER = true;
@@ -1062,6 +1070,11 @@ function restore() {
       STATE.v = 2;
     }
     if (!STATE.results || typeof STATE.results !== 'object') STATE.results = {};
+    if (!Array.isArray(STATE.projectionPicks) || STATE.projectionPicks.length !== 11)
+      STATE.projectionPicks = Array(11).fill(null);
+    else STATE.projectionPicks = STATE.projectionPicks.map(x => x === 0 || x === 1 ? x : null);
+    if (!STATE.projectionScores || typeof STATE.projectionScores !== 'object' ||
+        Array.isArray(STATE.projectionScores)) STATE.projectionScores = {};
   } catch (e) {}
 }
 

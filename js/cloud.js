@@ -166,6 +166,11 @@ const CloudSync = (() => {
       if (!Array.isArray(STATE.out) || STATE.out.length !== 4)
         STATE.out = Array(4).fill(null);
       if (!STATE.results || typeof STATE.results !== 'object') STATE.results = {};
+      if (!Array.isArray(STATE.projectionPicks) || STATE.projectionPicks.length !== 11)
+        STATE.projectionPicks = Array(11).fill(null);
+      else STATE.projectionPicks = STATE.projectionPicks.map(x => x === 0 || x === 1 ? x : null);
+      if (!STATE.projectionScores || typeof STATE.projectionScores !== 'object' ||
+          Array.isArray(STATE.projectionScores)) STATE.projectionScores = {};
 
       if (typeof replaceCustomTeams === 'function') replaceCustomTeams(snapshot.customTeams || []);
       OVERRIDES = snapshot.overrides && typeof snapshot.overrides === 'object'

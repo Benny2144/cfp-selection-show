@@ -37,6 +37,14 @@ describe('Worker contract validation', () => {
     expect(testable.validPublishedPayload(payload)).toBe(false);
   });
 
+  it('accepts a tapped winner marker and rejects an invalid result side', () => {
+    const payload = validEventPayload();
+    payload.rs = { fr1: { a: '', b: '', w: 'a' } };
+    expect(testable.validPublishedPayload(payload)).toBe(true);
+    payload.rs.fr1.w = 'home';
+    expect(testable.validPublishedPayload(payload)).toBe(false);
+  });
+
   it('parses normal, open-ended, and suffix byte ranges', () => {
     expect(testable.parseRange('bytes=10-19', 100)).toEqual({ offset: 10, length: 10 });
     expect(testable.parseRange('bytes=90-', 100)).toEqual({ offset: 90, length: 10 });

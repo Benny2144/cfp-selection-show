@@ -529,7 +529,7 @@
     <button class="btn" id="fView">Full Bracket</button>
     <button class="btn" id="fRoom">Committee Room</button>
     <button class="btn" id="fShow">Replay Show</button>
-    <button class="btn" id="fResults">Play It Out</button>
+    <button class="btn" id="fResults">Interactive Bracket</button>
     <button class="btn" id="fImage">Save Image</button>
     <button class="btn" id="fVideo" hidden>Save Video</button>
     <button class="btn" id="fVideoShare" hidden>Send To Phone</button>
@@ -544,13 +544,13 @@
   <div class="carbon"></div>
   <header class="dy-head">
     <div>
-      <span class="dy-eyebrow">POSTSEASON CONTROL</span>
-      <h1>PLAYOFF LIVE DESK</h1>
-      <div class="sub">Enter the finals. Winners advance. Your league story updates in real time.</div>
+      <span class="dy-eyebrow">INTERACTIVE POSTSEASON</span>
+      <h1>BRACKET ROOM</h1>
+      <div class="sub">Tap a team to advance it instantly, or enter the final score. Every later round rewires itself.</div>
     </div>
     <div class="spacer"></div>
     <span class="dy-progress" id="resProgress"></span>
-    <button class="btn ghost" id="resBracketBtn">Bracket</button>
+    <button class="btn ghost" id="resBracketBtn">Field View</button>
     <button class="btn ghost" id="resArchive">Archive Season</button>
     <button class="btn ghost danger" id="resClear">Clear Scores</button>
     <button class="btn primary" id="resRoom">Done</button>
@@ -558,6 +558,11 @@
   <div class="dy-bar"><i id="resBar"></i></div>
 
   <div class="dy-body">
+    <div class="bracket-guide" aria-label="Bracket controls">
+      <span><i>01</i><b>Tap a team</b> to advance</span>
+      <span><i>02</i><b>Type scores</b> for a final</span>
+      <span><i>03</i><b>Later rounds</b> rebuild live</span>
+    </div>
     <div class="crown" id="resCrown"></div>
     <div id="resultsBody"></div>
   </div>
@@ -570,22 +575,28 @@
   <div class="carbon"></div>
   <header class="dy-head">
     <div>
-      <span class="dy-eyebrow">LEAGUE-WIDE COMPETITION</span>
-      <h1>BRACKET CHALLENGE</h1>
-      <div class="sub">Make every game matter before kickoff. Predict the champion and own the leaderboard.</div>
+      <span class="dy-eyebrow">YOUR ROAD TO THE TITLE</span>
+      <h1>PROJECTION BRACKET</h1>
+      <div class="sub">The same cinematic bracket, now in your hands. Pick every winner and add your predicted scores.</div>
     </div>
     <div class="spacer"></div>
     <span class="dy-progress" id="pkCount"></span>
+    <button class="btn ghost danger" id="pkReset">Reset Projection</button>
     <button class="btn primary" id="pkRoom">Done</button>
   </header>
 
   <div class="pk-tabs">
-    <button class="pk-tab on" data-mode="make">Build my bracket</button>
+    <button class="pk-tab on" data-mode="make">My projection</button>
     <button class="pk-tab" data-mode="board">League leaderboard</button>
   </div>
 
   <div class="dy-body">
     <div id="pkMake">
+      <div class="bracket-guide projection-guide" aria-label="Projection controls">
+        <span><i>01</i><b>Tap winners</b> through every round</span>
+        <span><i>02</i><b>Add scores</b> if you want them</span>
+        <span><i>03</i><b>Copy one code</b> with everything</span>
+      </div>
       <div class="pk-top">
         <div class="field">
           <label for="pkName">Your name</label>
