@@ -1446,12 +1446,12 @@ function initSoundtrack() {
       ? (unlocked ? 'Turn background music off' : 'Start background music')
       : 'Turn background music on');
   };
-  const start = () => {
+  const start = async () => {
     enabled = true;
-    unlocked = true;
     savePreference();
-    Show.setSoundtrackEnabled(true);
+    unlocked = await Show.setSoundtrackEnabled(true);
     paint();
+    return unlocked;
   };
   const stop = () => {
     enabled = false;
@@ -1463,10 +1463,12 @@ function initSoundtrack() {
   if (!enabled) Show.setSoundtrackEnabled(false);
   paint();
 
-  button.onclick = () => {
+  button.onclick = async () => {
     if (!enabled || !unlocked) {
-      start();
-      CFPFoundation.live.announce('Background music on');
+      const started = await start();
+      CFPFoundation.live.announce(started
+        ? 'Background music on'
+        : 'Background music is ready. Tap Music to try again.');
     } else {
       stop();
       CFPFoundation.live.announce('Background music off');

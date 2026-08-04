@@ -61,6 +61,11 @@ describe('Worker contract validation', () => {
     expect(testable.parseRange('bytes=100-120', 100)).toBeNull();
   });
 
+  it('allows the persistent soundtrack through the protected R2 media route', () => {
+    expect(testable.isAllowedMedia('music.mp3')).toBe(true);
+    expect(testable.isAllowedMedia('../music.mp3')).toBe(false);
+  });
+
   it('requires an exact same-origin mutation marker', () => {
     const allowed = new Request('https://studio.example/api/account', {
       method: 'PUT', headers: { origin: 'https://studio.example', 'x-cfp-request': '1' },

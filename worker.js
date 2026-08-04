@@ -3,7 +3,9 @@ import { DurableObject } from 'cloudflare:workers';
 
 const MEDIA_PREFIX = '/media/';
 const API_PREFIX = '/api/';
-const ALLOWED_MEDIA = new Set(['committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4']);
+const ALLOWED_MEDIA = new Set([
+  'committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4', 'music.mp3',
+]);
 const GOOGLE_JWKS = createRemoteJWKSet(
   new URL('https://www.googleapis.com/oauth2/v3/certs'),
   { cooldownDuration: 30_000, cacheMaxAge: 3_600_000 },
@@ -1527,6 +1529,8 @@ function mediaHeaders(object, length) {
   return headers;
 }
 
+const isAllowedMedia = key => ALLOWED_MEDIA.has(key);
+
 function parseRange(value, size) {
   const match = /^bytes=(\d*)-(\d*)$/.exec(value || '');
   if (!match || (!match[1] && !match[2])) return null;
@@ -1550,7 +1554,7 @@ function parseRange(value, size) {
 }
 
 async function serveMedia(request, env, key) {
-  if (!ALLOWED_MEDIA.has(key)) return new Response('Not found', { status: 404 });
+  if (!isAllowedMedia(key)) return new Response('Not found', { status: 404 });
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('Method not allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
   }
@@ -1623,6 +1627,7 @@ function isAppScreenRoute(pathname) {
 
 export const testable = Object.freeze({
   parseRange,
+  isAllowedMedia,
   validSnapshot,
   validPublishedPayload,
   publishedFieldReady,

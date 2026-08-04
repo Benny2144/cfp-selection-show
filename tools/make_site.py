@@ -27,7 +27,7 @@ DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall', '.well-known']
 # base these are left out of the build and served from R2 by worker.js;
 # when it is blank they are copied as usual and the site is self-contained.
 # Keep this in step with CDN_FILES in js/show.js.
-CDN_FILES = {'committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4'}
+CDN_FILES = {'committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4', 'music.mp3'}
 PAGES_FILE_CAP = 25 * 1024 * 1024
 
 # Subfolders worth following. Everything else (voice/_transcripts and the

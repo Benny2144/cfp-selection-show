@@ -24,7 +24,9 @@ const MEDIA_BASE = (() => {
 /* Only these are big enough to be worth hosting apart. Everything else is
    comfortably under the cap and stays with the site, where it needs no
    CORS and no second thing to go wrong. */
-const CDN_FILES = new Set(['committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4']);
+const CDN_FILES = new Set([
+  'committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4', 'music.mp3',
+]);
 
 const mediaUrl = f => (MEDIA_BASE && CDN_FILES.has(f)) ? MEDIA_BASE + '/' + f : f;
 
@@ -676,7 +678,7 @@ const Show = (() => {
     bedWanted = true;
     watchBed(true);
     Bus.wake();
-    if (!m.getAttribute('src')) m.src = MUSIC_FILE;
+    if (!m.getAttribute('src')) m.src = mediaUrl(MUSIC_FILE);
     if (bedStarted && !m.paused) {
       setBedVolume();
       return Promise.resolve(true);
@@ -1675,7 +1677,7 @@ const Show = (() => {
     /* restart the bed from the top for the show */
     const m = el.music;
     if (bedWanted) {
-      if (!m.getAttribute('src')) m.src = MUSIC_FILE;
+      if (!m.getAttribute('src')) m.src = mediaUrl(MUSIC_FILE);
       try { m.currentTime = 0; } catch (e) {}
       Bus.set(m, 0, 0);
       m.play().then(() => { bedStarted = true; setBedVolume(); }).catch(() => {});
