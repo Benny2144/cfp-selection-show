@@ -502,6 +502,7 @@ const Show = (() => {
      the video, then Pat, then Boone — and setting a volume cannot un-pause
      anything. So we track intent and put it back. */
   let bedWanted = false, bedWatch = null;
+  let soundtrackEnabled = true, soundtrackActivated = false;
 
   function ensureBed(why) {
     const m = el.music;
@@ -670,13 +671,41 @@ const Show = (() => {
   /** Start the music bed and keep it running everywhere in the app. */
   function startBed() {
     const m = el.music;
-    if (!m) return;
+    if (!m || !soundtrackEnabled) return Promise.resolve(false);
+    soundtrackActivated = true;
+    bedWanted = true;
+    watchBed(true);
     Bus.wake();
     if (!m.getAttribute('src')) m.src = MUSIC_FILE;
-    if (bedStarted && !m.paused) return;
+    if (bedStarted && !m.paused) {
+      setBedVolume();
+      return Promise.resolve(true);
+    }
     Bus.set(m, 0, 0);
-    m.play().then(() => { bedStarted = true; fadeTo(bedVol(), 2500); })
-            .catch(() => { bedStarted = false; });
+    return m.play().then(() => {
+      bedStarted = true;
+      fadeTo(bedVol(), 2500);
+      return true;
+    }).catch(() => {
+      bedStarted = false;
+      return false;
+    });
+  }
+
+  function setSoundtrackEnabled(enabled) {
+    soundtrackEnabled = !!enabled;
+    if (soundtrackEnabled) return startBed();
+    bedWanted = false;
+    watchBed(false);
+    fadeTo(0, 220);
+    setTimeout(() => {
+      if (soundtrackEnabled) return;
+      try { el.music.pause(); } catch (e) {}
+      el.music.removeAttribute('src');
+      try { el.music.load(); } catch (e) {}
+      bedStarted = false;
+    }, 260);
+    return Promise.resolve(false);
   }
 
   function setBedVolume() {
@@ -904,7 +933,7 @@ const Show = (() => {
     primeSeedTalk();
     primePickArt();
     showPickArt(null, 'off');
-    startBed();
+    if (soundtrackActivated) startBed();
     setBedVolume();
     startAmbient();
 
@@ -1053,9 +1082,9 @@ const Show = (() => {
       el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
       try { v.pause(); v.ontimeupdate = null; } catch (e) {}
       /* the bed comes back from the top, so the voices open over its start */
-      bedWanted = true;
-      watchBed(true);
-      try { el.music.currentTime = 0; } catch (e) {}
+      bedWanted = soundtrackEnabled && soundtrackActivated;
+      watchBed(bedWanted);
+      if (bedWanted) try { el.music.currentTime = 0; } catch (e) {}
       runVoiceOpen();
     };
     v.onended = go;
@@ -1634,8 +1663,8 @@ const Show = (() => {
   }
 
   function begin() {
-    bedWanted = true;
-    watchBed(true);
+    bedWanted = soundtrackEnabled && soundtrackActivated;
+    watchBed(bedWanted);
     el.gate.style.display = 'none';
     AmbientFilm.unmount();
     running = true; paused = false;
@@ -1645,10 +1674,12 @@ const Show = (() => {
 
     /* restart the bed from the top for the show */
     const m = el.music;
-    if (!m.getAttribute('src')) m.src = MUSIC_FILE;
-    try { m.currentTime = 0; } catch (e) {}
-    Bus.set(m, 0, 0);
-    m.play().then(() => { bedStarted = true; setBedVolume(); }).catch(() => {});
+    if (bedWanted) {
+      if (!m.getAttribute('src')) m.src = MUSIC_FILE;
+      try { m.currentTime = 0; } catch (e) {}
+      Bus.set(m, 0, 0);
+      m.play().then(() => { bedStarted = true; setBedVolume(); }).catch(() => {});
+    }
 
     startAmbient();
     runFilm();
@@ -2139,13 +2170,15 @@ const Show = (() => {
 
       showScreen('final');
       buildBracket();                    // the plates fly in one at a time
-      /* let the bracket breathe, then close the recording and the music */
+      /* Let the bracket breathe, then return the persistent app bed to its
+         normal level. Recording ends; the soundtrack continues. */
       timer = setTimeout(() => {
-        fadeTo(0, 3000);
-        setTimeout(() => {
-          bedWanted = false; watchBed(false);
-          el.music.pause(); bedStarted = false;
-        }, 3100);
+        if (soundtrackEnabled && soundtrackActivated) {
+          bedWanted = true;
+          watchBed(true);
+          ensureBed('post-show');
+          fadeTo(bedVol(), 1800);
+        }
         if (Recorder.active) Recorder.stop();
       }, 11000);
     }, 5000);
@@ -2198,8 +2231,8 @@ const Show = (() => {
       if (callAudio) try { callAudio.pause(); } catch (e) {}
       if (seedAudio) try { seedAudio.pause(); } catch (e) {}
     } else {
-      bedWanted = true; watchBed(true);
-      el.music.play().catch(() => {});
+      bedWanted = soundtrackEnabled && soundtrackActivated; watchBed(bedWanted);
+      if (bedWanted) el.music.play().catch(() => {});
       if (phase === 'film')  el.film.play().catch(() => {});
       else if (phase === 'intro') el.intro.play().catch(() => {});
       else if (phase === 'boone') el.boone.play().catch(() => {});
@@ -2320,7 +2353,7 @@ const Show = (() => {
     else req.call(de).catch(() => {});
   }
 
-  /** Leave the show — kill the voice track but keep the bed playing. */
+  /** Leave the show: unload show-only media while the app soundtrack stays. */
   function stop() {
     running = false; phase = 'idle';
     revealGen += 1;
@@ -2328,7 +2361,8 @@ const Show = (() => {
     if (mixer?.classList.contains('on')) CFPFoundation.panel.close(mixer);
     document.getElementById('show').classList.remove('film-playing');
     setCinemaPhase(null);
-    bedWanted = false; watchBed(false);
+    bedWanted = soundtrackEnabled && soundtrackActivated;
+    watchBed(bedWanted);
     clearTimeout(timer); clearTimeout(markTimer); clearTimeout(suspenseTimer);
     [el.intro, el.boone].forEach(a => {
       try { a.pause(); a.ontimeupdate = null; a.onended = null; } catch (e) {}
@@ -2353,12 +2387,14 @@ const Show = (() => {
     hideCold();
     stopAmbient();
     setBedVolume();
-    [el.intro, el.boone, el.music, el.film].forEach(media => {
+    [el.intro, el.boone, el.film].forEach(media => {
       if (!media) return;
       try { media.pause(); } catch (e) {}
       media.removeAttribute('src');
       try { media.load(); } catch (e) {}
     });
+    if (bedWanted) ensureBed('leave-show');
+    else try { el.music.pause(); } catch (e) {}
     Object.keys(callCache).forEach(key => {
       const media = callCache[key];
       if (media && media !== false) {
@@ -2374,11 +2410,10 @@ const Show = (() => {
       delete seedCache[key];
     });
     Object.keys(pickWarm).forEach(key => { delete pickWarm[key]; });
-    bedStarted = false;
     AmbientFilm.unmount();
   }
 
-  return { init, arm, play, next, prev, stop, startBed, setBedVolume,
+  return { init, arm, play, next, prev, stop, startBed, setSoundtrackEnabled, setBedVolume,
            applyLevels, fadeTo,
            get usingWebAudio() { return Bus.usingWebAudio; },
            get routedSources() { return Bus.routed; },

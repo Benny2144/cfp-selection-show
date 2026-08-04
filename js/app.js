@@ -1421,6 +1421,70 @@ function buildMixer() {
   });
 }
 
+/* Browsers will not autoplay sound. The first intentional gesture unlocks a
+   single music element that lives outside the routed screens, so the same bed
+   continues through the hub, committee, brackets, results and history. */
+function initSoundtrack() {
+  const button = $('#soundtrackToggle');
+  const state = $('#soundtrackState');
+  if (!button || !state) return;
+
+  const preferenceKey = 'cfp27.soundtrack';
+  let enabled = true;
+  let unlocked = false;
+  try { enabled = localStorage.getItem(preferenceKey) !== 'off'; } catch (e) {}
+
+  const savePreference = () => {
+    try { localStorage.setItem(preferenceKey, enabled ? 'on' : 'off'); } catch (e) {}
+  };
+  const paint = () => {
+    const label = enabled ? (unlocked ? 'On' : 'Ready') : 'Off';
+    state.textContent = label;
+    button.classList.toggle('is-off', !enabled);
+    button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    button.setAttribute('aria-label', enabled
+      ? (unlocked ? 'Turn background music off' : 'Start background music')
+      : 'Turn background music on');
+  };
+  const start = () => {
+    enabled = true;
+    unlocked = true;
+    savePreference();
+    Show.setSoundtrackEnabled(true);
+    paint();
+  };
+  const stop = () => {
+    enabled = false;
+    savePreference();
+    Show.setSoundtrackEnabled(false);
+    paint();
+  };
+
+  if (!enabled) Show.setSoundtrackEnabled(false);
+  paint();
+
+  button.onclick = () => {
+    if (!enabled || !unlocked) {
+      start();
+      CFPFoundation.live.announce('Background music on');
+    } else {
+      stop();
+      CFPFoundation.live.announce('Background music off');
+    }
+  };
+
+  const unlock = event => {
+    if (event.target?.closest?.('#soundtrackToggle') || !enabled) return;
+    start();
+  };
+  ['pointerdown', 'keydown'].forEach(eventName =>
+    addEventListener(eventName, unlock, { once: true, capture: true }));
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && enabled && unlocked) Show.startBed();
+  });
+}
+
 function applyOutLabel() {
   const t = outLabelText().toUpperCase();
   const a = $('#outHead'), b = $('#foHead');
@@ -1869,6 +1933,7 @@ async function boot() {
   refreshHub();
   refreshLogoCount();
   Show.init();
+  initSoundtrack();
 
   /* The network remains the source of truth for pages, while a small service
      worker gives commissioners a resilient app shell if a venue connection
@@ -1877,7 +1942,6 @@ async function boot() {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  /* Music bed runs everywhere. Browsers need one gesture first. */
   CFPFoundation.initScreens();
 
   const openRoute = (screen, options = {}) => {

@@ -60,6 +60,10 @@
     <div class="game-week-state"><span>POSTSEASON</span><b id="gameWeekState">COMMITTEE WEEK</b></div>
     <div class="spacer"></div>
     <span class="game-save-state"><i></i><b>CLOUD SAVE</b><small id="gameSaveLabel">LOCAL</small></span>
+    <button class="soundtrack-toggle" id="soundtrackToggle" type="button"
+            aria-pressed="true" aria-label="Start background music">
+      <i aria-hidden="true">&#9835;</i><span>Music <b id="soundtrackState">Ready</b></span>
+    </button>
     <button class="account-trigger chrome-account" type="button" aria-label="Save with Google">
       <i class="cloud-icon">&#9729;</i><span>Sign in</span>
     </button>
@@ -81,6 +85,10 @@
     <button class="ss-arrow" id="ssNext" aria-label="Scroll season rail">&#8250;</button>
   </div>
 </div>
+
+<!-- One persistent soundtrack element survives route changes. It does not
+     download or play until the first user gesture unlocks browser audio. -->
+<audio id="music" preload="none" loop></audio>
 
 <!-- =====================================================================
      SCREEN 0 — HOME
@@ -464,7 +472,6 @@
 
   <audio id="intro" preload="none"></audio>
   <audio id="boone" preload="none"></audio>
-  <audio id="music" preload="none" loop></audio>
 
 </section>
 

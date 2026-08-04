@@ -121,6 +121,16 @@ button:disabled,[aria-disabled="true"]{cursor:not-allowed;filter:saturate(.45);o
 .game-save-state{grid-template-columns:10px auto;padding:0 17px;column-gap:9px}
 .game-save-state i{width:8px;height:8px;box-shadow:0 0 0 4px rgba(85,197,140,.1)}
 .game-save-state b{font-size:8px;letter-spacing:.14em}.game-save-state small{font-size:7px}
+.soundtrack-toggle{
+  align-self:center;display:grid;grid-template-columns:20px auto;align-items:center;column-gap:7px;
+  min-height:38px;margin-right:5px;padding:0 11px;border:1px solid var(--bs-line);border-radius:2px;
+  background:#0d1620;color:var(--bs-cream);font-size:8px;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;transition:background-color .16s ease,border-color .16s ease,color .16s ease;
+}
+.soundtrack-toggle:hover{border-color:#68788a;background:#192533;color:#fff}
+.soundtrack-toggle i{font-size:16px;font-style:normal;color:var(--bs-gold)}
+.soundtrack-toggle span{display:flex;gap:5px;white-space:nowrap}.soundtrack-toggle b{color:var(--bs-green)}
+.soundtrack-toggle.is-off i,.soundtrack-toggle.is-off b{color:#7b8793}
 .game-topbar .account-trigger{height:38px;min-height:38px;padding:0 14px;border-color:var(--bs-line);font-size:8px}
 .game-topbar .en-watch{
   height:40px;min-height:40px;margin-right:14px;padding:0 18px;border:1px solid var(--bs-gold-hi);
@@ -541,6 +551,8 @@ body.chromed #pickem,body.chromed #history,body.chromed #final{padding-top:var(-
   .game-profile{min-width:0;flex:1;padding:7px 10px;border:0}.game-profile-mark{width:40px;height:40px}
   .game-profile-copy b{font-size:16px}.game-profile-copy small{font-size:7px}
   .game-week-state,.game-save-state,.chrome-account{display:none!important}
+  .soundtrack-toggle{display:grid;grid-template-columns:1fr;width:44px;min-width:44px;height:44px;min-height:44px;margin:7px 5px 7px 0;padding:0}
+  .soundtrack-toggle span{display:none}.soundtrack-toggle i{font-size:18px}
   .game-topbar .en-watch{flex:none;width:auto;min-width:104px;height:44px;min-height:44px;margin:7px 8px 7px 0;padding:0 12px;font-size:8px}
   .game-topbar .en-watch::after{content:none!important}
   .espn-nav.game-mode-tabs{position:relative;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
