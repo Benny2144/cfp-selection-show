@@ -1,0 +1,24 @@
+{
+  "name": "CFP Dynasty Studio",
+  "short_name": "Dynasty Studio",
+  "description": "Build, premiere, and preserve your online dynasty playoff.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#030509",
+  "theme_color": "#030509",
+  "icons": [
+    {
+      "src": "/assets/cfp-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/cfp-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

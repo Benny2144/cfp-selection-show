@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /join/
+
+Sitemap: https://cfp-selection-show.benarp2144.workers.dev/sitemap.xml

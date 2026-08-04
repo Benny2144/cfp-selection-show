@@ -2,180 +2,241 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<base href="/">
 <meta name="theme-color" content="#07080b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>CFP Selection Show — Dynasty Committee</title>
+<title>CFP Dynasty Studio — Build the Field</title>
+
+<!-- The 55 MB intro film is stored in the private R2 bucket configured in
+     wrangler.jsonc. The Worker exposes that bucket read-only at /media while
+     the rest of the site stays in Cloudflare's static asset layer.
+
+     Leave this EMPTY only for a self-contained local/GitHub Pages build.
+     tools/make_site.py reads the value and omits R2-hosted files whenever it
+     is set. See CLOUDFLARE.md. -->
+<meta name="media-base" content="/media">
 <meta name="description" content="Run a broadcast-style College Football Playoff selection show for your online dynasty. Set the 12-team field, hit play, reveal it like TV.">
-<meta property="og:title" content="CFP Selection Show">
-<meta property="og:description" content="Set the field. Hit play. Reveal it like the real thing.">
+<meta name="theme-color" content="#030509">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="canonical" href="https://cfp-selection-show.benarp2144.workers.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CFP Dynasty Studio">
+<meta property="og:title" content="CFP Dynasty Studio">
+<meta property="og:description" content="Build the field, project every round, score the games, and premiere Selection Night for your online dynasty.">
+<meta property="og:url" content="https://cfp-selection-show.benarp2144.workers.dev/">
+<meta property="og:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/game27-dynasty-preview.png">
+<meta property="og:image:alt" content="A cinematic college football playoff bracket leading to a gold championship trophy">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CFP Dynasty Studio">
+<meta name="twitter:description" content="Build the field, project every round, score the games, and premiere Selection Night for your online dynasty.">
+<meta name="twitter:image" content="https://cfp-selection-show.benarp2144.workers.dev/assets/game27-dynasty-preview.png">
+<meta name="color-scheme" content="dark">
+<link rel="preload" as="image" href="assets/room-bg.webp" fetchpriority="high">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
+<link rel="manifest" href="manifest.webmanifest?v=3">
 <link rel="stylesheet" href="css/broadcast.css">
 <link rel="stylesheet" href="css/dynasty.css">
 <link rel="stylesheet" href="css/espn.css">
+<link rel="stylesheet" href="css/cinematic.css">
+<link rel="stylesheet" href="css/prime.css">
+<link rel="stylesheet" href="css/game27.css">
+<link rel="stylesheet" href="css/foundation.css">
+<link rel="stylesheet" href="css/broadcast-system.css">
 </head>
 <body>
 
 <!-- =====================================================================
-     ESPN CHROME — the scores strip and the nav bar that sit above every
-     screen except the show itself. Modelled on espn.com: a horizontally
-     scrolling rail of game cells, then a brand block and flat nav.
+     DYNASTY SHELL — the compact identity, mode and season rails used by
+     every management screen. The full-screen selection show stays clean.
      ================================================================== -->
 <div class="chrome" id="chrome">
-  <div class="scorestrip">
-    <button class="ss-league" id="ssLeague">CFP</button>
-    <div class="ss-track" id="ssTrack"></div>
-    <button class="ss-arrow" id="ssNext" aria-label="Scroll scores">&#8250;</button>
-  </div>
-  <nav class="espn-nav">
-    <button class="espn-brand" id="navBrand" title="Home">CFP</button>
+  <header class="game-topbar">
+    <button class="game-profile" id="navBrand" title="Dynasty home">
+      <span class="game-profile-mark" id="gameProfileMark">CFP</span>
+      <span class="game-profile-copy"><b id="gameLeagueName">DYNASTY LEAGUE</b><small id="gameSeasonLabel">2027 &middot; SELECTION WEEK</small></span>
+    </button>
+    <div class="game-week-state"><span>POSTSEASON</span><b id="gameWeekState">COMMITTEE WEEK</b></div>
+    <div class="spacer"></div>
+    <span class="game-save-state"><i></i><b>CLOUD SAVE</b><small id="gameSaveLabel">LOCAL</small></span>
+    <button class="soundtrack-toggle" id="soundtrackToggle" type="button"
+            aria-pressed="true" aria-label="Start background music">
+      <i aria-hidden="true">&#9835;</i><span>Music <b id="soundtrackState">Ready</b></span>
+    </button>
+    <button class="account-trigger chrome-account" type="button" aria-label="Save with Google">
+      <i class="cloud-icon">&#9729;</i><span>Sign in</span>
+    </button>
+    <button class="en-watch" id="navShow"><i>&#9654;</i> Selection Show</button>
+  </header>
+  <nav class="espn-nav game-mode-tabs">
+    <span class="game-mode-label">DYNASTY CENTRAL</span>
     <div class="en-links" id="enLinks">
-      <button data-go="room">The Field</button>
-      <button data-go="final">Bracket</button>
-      <button data-go="results">Play It Out</button>
-      <button data-go="pickem">Pick&rsquo;em</button>
-      <button data-go="history">History</button>
-    </div>
-    <div class="en-right">
-      <button class="en-watch" id="navShow">&#9654; Watch</button>
+      <button data-go="room">Committee</button>
+      <button data-go="final">CFP Bracket</button>
+      <button data-go="results">Results</button>
+      <button data-go="pickem">Projections</button>
+      <button data-go="history">Dynasty History</button>
     </div>
   </nav>
+  <div class="scorestrip game-season-rail">
+    <button class="ss-league" id="ssLeague">CFP</button>
+    <div class="ss-track" id="ssTrack"></div>
+    <button class="ss-arrow" id="ssNext" aria-label="Scroll season rail">&#8250;</button>
+  </div>
 </div>
+
+<!-- One persistent soundtrack element survives route changes. It does not
+     download or play until the first user gesture unlocks browser audio. -->
+<audio id="music" preload="none" loop></audio>
 
 <!-- =====================================================================
      SCREEN 0 — HOME
      ================================================================== -->
-<section id="home" class="screen active">
-  <video class="roomfilm" id="homeFilm" muted loop playsinline preload="none"
-         poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+<section id="home" class="screen active game27-home">
+  <div class="roomfilm roomfilm-slot" data-ambient-film aria-hidden="true"></div>
   <div class="roomfilm-scrim"></div>
-  <div class="carbon home-carbon"></div>
-  <div class="grid-floor home-floor"></div>
-  <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
-  <div class="vignette"></div>
+  <div class="game-home-texture" aria-hidden="true"></div>
 
-  <nav class="site-nav">
-    <span class="nm">Selection Show</span>
-    <div class="spacer"></div>
-    <button class="btn ghost" id="navHowTo">How it works</button>
-  </nav>
+  <main class="game-home-layout">
+    <aside class="game-home-menu" aria-label="Dynasty Studio menu">
+      <div class="game-home-kicker"><i></i> POSTSEASON HUB</div>
+      <h1>Dynasty<br>Studio</h1>
+      <p id="resumeNote"></p>
 
-  <div class="home-scroll">
-    <div class="hero">
-      <div class="kicker anim-in-up">For your online dynasty</div>
-      <h1 class="anim-in-up d1">COLLEGE FOOTBALL<br>PLAYOFF</h1>
-      <div class="rule anim-in-up d1"></div>
-      <h2 class="anim-in-up d2">SELECTION SHOW</h2>
-      <p class="anim-in-up d3">
-        Set the twelve. Nobody sees it but you. Then hit play and reveal the whole
-        bracket like it's live on air.
-      </p>
-      <div class="hero-cta anim-in-up d3">
-        <button class="btn primary big" id="goCommish">Build the field &#9654;</button>
-        <button class="btn big" id="goWatch">I have a link</button>
+      <div class="game-menu-stack">
+        <button class="game-menu-item featured" id="goCommish"><span>01</span><b>Committee Room</b><em>Build the field</em><i>&#8250;</i></button>
+        <button class="game-menu-item hub-card" data-go="final"><span>02</span><b>CFP Bracket</b><em id="hubField">0 of 12 seeded</em><i>&#8250;</i></button>
+        <button class="game-menu-item hub-card" data-go="results"><span>03</span><b>Results</b><em id="hubResults">Not started</em><i>&#8250;</i></button>
+        <button class="game-menu-item hub-card" data-go="pickem"><span>04</span><b>Projections</b><em id="hubPickem">No entries yet</em><i>&#8250;</i></button>
+        <button class="game-menu-item hub-card" data-go="history"><span>05</span><b>Dynasty History</b><em id="hubHistory">Nothing archived yet</em><i>&#8250;</i></button>
+        <button class="game-menu-item" id="goWatch"><span>06</span><b>Watch Invitation</b><em>Open a league event</em><i>&#8250;</i></button>
       </div>
-      <div class="hero-note anim-in-up d3" id="resumeNote"></div>
-    </div>
 
-    <div class="hub anim-in-up d3">
-      <button class="hub-card" data-go="results">
-        <i class="hub-ic">&#9202;</i>
-        <b>Play it out</b>
-        <span>Enter the scores and advance the bracket to a champion.</span>
-        <em id="hubResults"></em>
-      </button>
-      <button class="hub-card" data-go="pickem">
-        <i class="hub-ic">&#9998;</i>
-        <b>League pick&rsquo;em</b>
-        <span>Everyone predicts the bracket. Live, scored leaderboard.</span>
-        <em id="hubPickem"></em>
-      </button>
-      <button class="hub-card" data-go="history">
-        <i class="hub-ic">&#127942;</i>
-        <b>Dynasty history</b>
-        <span>Every season you have run, and who lifted the trophy.</span>
-        <em id="hubHistory"></em>
-      </button>
-      <button class="hub-card" data-go="final">
-        <i class="hub-ic">&#9783;</i>
-        <b>The bracket</b>
-        <span>The full field, and a one-tap image for the group chat.</span>
-        <em id="hubField"></em>
-      </button>
-    </div>
+      <div class="game-menu-utility">
+        <button class="account-trigger home-account" type="button"><b>Cloud Save</b><span>Sign in with Google</span></button>
+        <button id="navHowTo"><b>How To Play</b><span>Quick guide</span></button>
+      </div>
+    </aside>
 
-    <div class="feature-strip">
-      <div><b>136 teams</b><span>Every FBS program, colours and all</span></div>
-      <div><b>Cold open</b><span>Hype package before the first pick</span></div>
-      <div><b>Zero spoilers</b><span>Nothing leaks until you reveal it</span></div>
-      <div><b>One link</b><span>Send the whole bracket to the league</span></div>
-    </div>
-  </div>
+    <section class="game-home-world" aria-label="Current dynasty postseason">
+      <div class="game-feature-card">
+        <span>FEATURED</span><b>SELECTION<br>NIGHT</b>
+        <small>BUILD IT. REVEAL IT. PLAY IT OUT.</small>
+      </div>
+      <div class="game-tabletop" aria-hidden="true">
+        <div class="tabletop-scoreboard"><span id="gameHomeMark">CFP</span><b id="gameHomeTeam">THE PLAYOFF</b><small id="gameHomeRecord">12 TEAMS &middot; 1 CHAMPION</small></div>
+        <div class="mini-field"><i></i><i></i><i></i><i></i><i></i><b>CFP</b></div>
+        <div class="mini-stands left"></div><div class="mini-stands right"></div>
+        <div class="mini-trophy"></div>
+      </div>
+      <div class="game-home-status">
+        <div><span>ACTIVE WEEK</span><b id="gameHomeWeek">SELECTION WEEK</b></div>
+        <div><span>FIELD STATUS</span><b id="gameHomeField">0 / 12</b></div>
+        <div><span>LEAGUE</span><b id="gameHomeLeague">DYNASTY LEAGUE</b></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="game-footer"><span><b>A</b> Select</span><span><b>B</b> Back</span><span><b>Y</b> Selection Show</span><i></i><small>Independent fan-made dynasty companion</small><a href="/privacy">Privacy</a><a href="/terms">Terms</a></footer>
 </section>
 
 <!-- =====================================================================
      SCREEN 1 — COMMITTEE ROOM (commissioner only)
      ================================================================== -->
-<section id="room" class="screen">
-  <!-- the intro film, silent, behind the board -->
-  <video class="roomfilm" id="roomFilm" muted loop playsinline preload="none"
-         poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+<section id="room" class="screen selection-deck">
+  <div class="roomfilm roomfilm-slot" data-ambient-film aria-hidden="true"></div>
   <div class="roomfilm-scrim"></div>
   <div class="carbon"></div>
+  <div class="deck-lighting" aria-hidden="true"><i></i><i></i><i></i></div>
 
-  <header class="room-head">
-    <div>
-      <h1 id="roomHome" title="Back to the home screen">SELECTION COMMITTEE</h1>
-      <div class="sub">Commissioner control &mdash; not shared until you say so</div>
+  <header class="room-head deck-masthead">
+    <div class="deck-title">
+      <span class="room-eyebrow"><i></i> EYES ONLY &middot; COMMISSIONER SESSION</span>
+      <h1 id="roomHome" title="Back to the home screen">The Selection Deck</h1>
+      <div class="sub">Build the ranking in four rounds. Every decision becomes part of the premiere.</div>
     </div>
     <div class="spacer"></div>
-    <button class="btn ghost" id="btnLogos">Logos <span id="logoCount"></span></button>
-    <button class="btn ghost" id="btnLeague">League Setup</button>
-    <button class="btn ghost" id="btnAddTeam">+ Custom Team</button>
-    <button class="btn ghost" id="btnClear">Clear Board</button>
+    <div class="deck-tools" aria-label="Selection Deck tools">
+      <button class="deck-tool" id="btnLogos"><span>01</span><b>Team Branding</b><em id="logoCount"></em></button>
+      <button class="deck-tool" id="btnLeague"><span>02</span><b>League Identity</b><em>Show</em></button>
+      <button class="deck-tool" id="btnAddTeam"><span>03</span><b>Add Program</b><em>Custom</em></button>
+      <button class="deck-tool danger" id="btnClear"><span>04</span><b>Clear Board</b><em>Reset</em></button>
+    </div>
   </header>
 
-  <div class="room-tabs" id="roomTabs">
-    <button data-tab="pool" class="on">Teams</button>
-    <button data-tab="board">The Field <span id="tabCount"></span></button>
+  <section class="decision-rail" aria-label="Current selection status">
+    <div class="decision-round">
+      <span>ACTIVE BALLOT</span>
+      <b id="decisionRound">ROUND ONE</b>
+      <small id="decisionRoundNote">Rank the four first-round byes</small>
+    </div>
+    <div class="decision-stat">
+      <span>FIELD</span><b id="decisionFilled">0<small>/12</small></b><em>selected</em>
+    </div>
+    <div class="decision-stat">
+      <span>AUTO BIDS</span><b id="decisionAqs">0<small>/5</small></b><em>flagged</em>
+    </div>
+    <div class="decision-next">
+      <span>NEXT DECISION</span>
+      <b id="decisionNext">NO. 1 &middot; BYE LINE</b>
+      <div class="decision-progress" aria-hidden="true"><i id="decisionProgress"></i></div>
+    </div>
+    <div class="decision-key"><kbd>/</kbd><span>Search teams</span></div>
+  </section>
+
+  <div class="room-tabs deck-tabs" id="roomTabs">
+    <button data-tab="pool" class="on"><span>01</span> Candidate Vault</button>
+    <button data-tab="board"><span>02</span> Ballot Board <b id="tabCount"></b></button>
   </div>
 
-  <div class="room-body" id="roomBody" data-tab="pool">
-    <div class="pool">
-      <div class="pool-bar">
-        <input type="text" id="search" placeholder="Search school, mascot or abbreviation&hellip;" autocomplete="off">
-        <select id="confFilter"><option value="">All Conferences</option></select>
+  <main class="room-body deck-workspace" id="roomBody" data-tab="pool">
+    <section class="pool candidate-vault" aria-labelledby="vaultTitle">
+      <header class="vault-head">
+        <div><span>136 PROGRAMS &middot; ONE FIELD</span><h2 id="vaultTitle">CANDIDATE VAULT</h2></div>
+        <p>Choose a program to place it in the next open decision slot.</p>
+      </header>
+      <div class="pool-bar vault-controls">
+        <label class="vault-search"><span>SEARCH</span><input type="text" id="search" aria-label="Search teams" placeholder="School, mascot or abbreviation&hellip;" autocomplete="off"></label>
+        <label class="vault-filter"><span>CONFERENCE</span><select id="confFilter" aria-label="Filter teams by conference"><option value="">All Conferences</option></select></label>
         <span class="count" id="poolCount"></span>
       </div>
-      <div class="pool-grid" id="poolGrid"></div>
-    </div>
+      <div class="pool-grid candidate-grid" id="poolGrid"></div>
+    </section>
 
-    <div class="board">
-      <div class="board-head">
-        <h2>THE FIELD</h2>
-        <span class="hint">click a team to seed &middot; drag rows to reorder</span>
-      </div>
-      <div class="seed-list" id="seedList"></div>
+    <aside class="board field-ledger" aria-labelledby="ledgerTitle">
+      <header class="board-head ledger-head">
+        <div><span>COMPOSITE BALLOT</span><h2 id="ledgerTitle">THE TWELVE</h2></div>
+        <span class="hint"><i></i> drag any team to reorder</span>
+      </header>
+      <div class="seed-list tier-board" id="seedList"></div>
 
       <div class="bid-note" id="bidNote"></div>
 
-      <div class="board-head sub-head">
-        <h2 id="outHead">FIRST TWO OUT</h2>
-        <span class="hint">the ones who just missed</span>
-      </div>
-      <div class="out-list" id="outList"></div>
-    </div>
-  </div>
+      <section class="bubble-desk" aria-labelledby="outHead">
+        <header class="board-head sub-head">
+          <div><span>ROUND FOUR &middot; OUTSIDE THE CUT</span><h2 id="outHead">FIRST TWO OUT</h2></div>
+          <span class="hint">the argument starts here</span>
+        </header>
+        <div class="out-list" id="outList"></div>
+      </section>
+    </aside>
+  </main>
 
-  <div class="room-actions">
-    <div class="go-row">
-          <button class="btn" id="btnSetup">Show Setup</button>
-          <button class="btn" id="btnShare">Copy Share Link</button>
-          <button class="btn" id="btnBracket">Bracket</button>
-          <button class="btn primary" id="btnGo">Go To Show &#9654;</button>
+  <footer class="room-actions broadcast-runway">
+    <div class="runway-status">
+      <span class="room-ready"><i></i><b id="roomReadyLabel">0/12 &middot; FIELD IN PROGRESS</b></span>
+      <div class="runway-meter" aria-hidden="true"><i id="runwayProgress"></i></div>
+      <small class="readiness-reason" id="roomReadyReason">Fill all 12 seeds and mark five conference champions.</small>
     </div>
-  </div>
+    <div class="go-row">
+      <button class="btn runway-btn" id="btnSetup"><span>PRODUCE</span>Show Setup</button>
+      <button class="btn runway-btn" id="btnShare"><span>INVITE</span>League Link</button>
+      <button class="btn runway-btn" id="btnBracket"><span>REVIEW</span>Bracket</button>
+      <button class="btn runway-btn runway-review" id="btnOverride" type="button"><span>REVIEW</span>Requirements</button>
+      <button class="btn primary runway-premiere" id="btnGo"><span>FINAL STEP</span>Enter Premiere <i>&#9654;</i></button>
+    </div>
+  </footer>
 </section>
 
 <!-- =====================================================================
@@ -184,6 +245,9 @@
 <section id="show" class="screen">
   <div class="stage" id="stage">
     <div class="carbon"></div>
+    <div class="stage-depth" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
     <div class="trophy dim breathe" id="showTrophy"></div>
     <div class="grid-floor" id="floor"></div>
     <div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
@@ -195,10 +259,19 @@
 
   <!-- corner HUD framing -->
   <div class="hud"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
+  <div class="broadcast-bug" aria-hidden="true"><span>CFP</span><b>SELECTION NIGHT</b></div>
+  <div class="cinema-matte" aria-hidden="true"><i></i><i></i></div>
 
   <!-- the intro film, full bleed -->
   <div class="filmstage" id="filmStage">
-    <video id="film" playsinline preload="auto"></video>
+    <video id="film" playsinline preload="none"></video>
+    <div class="film-grade" aria-hidden="true"></div>
+    <div class="film-credit" id="filmCredit" aria-hidden="true">
+      <span><i></i> A CFP DYNASTY STUDIO ORIGINAL <i></i></span>
+      <b>SELECTION<br>NIGHT</b>
+      <em>THE COMMITTEE HAS SPOKEN</em>
+    </div>
+    <div class="film-livebug" aria-hidden="true"><span>CFP</span><b>ROAD TO GLORY</b></div>
     <div class="film-bar">
       <div class="fb-track"><i id="fbFill"></i></div>
       <div class="fb-times">
@@ -223,6 +296,31 @@
     <div class="cold-count" id="coldCount"></div>
   </div>
 
+  <!-- authored chapter cards break the twelve picks into a real show -->
+  <div class="pickchapter" id="pickChapter" aria-live="polite">
+    <span class="pc-kicker" id="pcKicker">CHAPTER ONE</span>
+    <b class="pc-index" id="pcIndex">01—04</b>
+    <h2 id="pcTitle">THE FOUR BYES</h2>
+    <p id="pcSub">Four teams go straight to the quarter-finals.</p>
+    <div class="pc-track"><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <!-- locks in after the second team in each opening-round pairing lands -->
+  <div class="matchmoment" id="matchMoment" aria-live="polite">
+    <div class="mm-kicker"><i></i> FIRST-ROUND MATCHUP LOCKED <i></i></div>
+    <div class="mm-grid">
+      <div class="mm-team" id="mmLeft"></div>
+      <div class="mm-vs"><span>VS</span><b id="mmSite">CAMPUS SITE</b></div>
+      <div class="mm-team" id="mmRight"></div>
+    </div>
+  </div>
+
+  <!-- the complete field gets one hero moment before the final bracket -->
+  <div class="fieldwall" id="fieldWall" aria-live="polite">
+    <div class="fw-head"><span>THE COMMITTEE HAS SPOKEN</span><b>THE TWELVE</b><em id="fwMeta">ONE FIELD · ONE CHAMPION</em></div>
+    <div class="fw-grid" id="fieldWallGrid"></div>
+  </div>
+
   <!-- the bracket, filling in as the picks land -->
   <div class="livebracket" id="liveWrap">
     <div class="lb-head"><b>THE BRACKET</b><span id="lbCount"></span></div>
@@ -235,14 +333,44 @@
   <!-- reveal -->
   <div class="reveal" id="revealLayer">
     <div class="bloom" id="bloom"></div>
-    <div class="seed-numeral" id="bigNum">1</div>
-    <div class="seed-chip" id="seedChip">NO. 1 SEED</div>
-    <div class="banner-stage" id="bannerStage"></div>
-    <div class="bidrow" id="bidRow">
-      <span class="bid-tag" id="bidTag"></span>
-      <span class="move-tag" id="moveTag"></span>
+    <div class="reveal-headline">
+      <span id="revealEyebrow">COMMITTEE SELECTION</span>
+      <i></i>
+      <b id="revealCount">PICK 01 / 12</b>
+      <div class="director-rundown" id="directorRundown" aria-hidden="true">
+        <span id="directorAct">ACT I &middot; THE FOUR BYES</span>
+        <div class="director-track" id="directorTrack"></div>
+      </div>
     </div>
-    <div class="info" id="teamInfo"></div>
+    <div class="pick-lock" id="pickLock" aria-hidden="true">
+      <span><i></i> THE PICK IS IN</span>
+      <b id="pickLockSeed">01</b>
+      <em id="pickLockPrompt">WHO TAKES THE TOP SEED?</em>
+      <div><i></i><i></i><i></i></div>
+    </div>
+    <div class="team-ghost" id="teamGhost" aria-hidden="true"></div>
+    <div class="hero-crest" id="heroCrest" aria-hidden="true"></div>
+    <div class="hero-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="seed-numeral" id="bigNum">1</div>
+    <div class="pick-main" id="pickMain">
+      <div class="seed-chip" id="seedChip">NO. 1 SEED</div>
+      <div class="banner-stage" id="bannerStage"></div>
+      <div class="bidrow" id="bidRow">
+        <span class="bid-tag" id="bidTag"></span>
+        <span class="move-tag" id="moveTag"></span>
+      </div>
+      <div class="info" id="teamInfo"></div>
+    </div>
+    <aside class="pick-story" id="pickStory" aria-live="polite">
+      <span id="pickStoryKicker">THE STANDARD</span>
+      <b id="pickStoryTitle">NO. 1 IN THE NATION</b>
+      <p id="pickStoryBody"></p>
+      <i></i>
+    </aside>
+    <div class="milestone-stamp" id="milestoneStamp" aria-hidden="true">
+      <span id="milestoneNumber">01</span>
+      <b id="milestoneText">NO. 1 IN THE NATION</b>
+    </div>
   </div>
 
   <!-- last team in, first team out — the argument of the night -->
@@ -298,20 +426,23 @@
   </div>
 
   <div class="ctl" id="ctl">
-    <button id="cMix">Mix</button>
-    <button id="cPrev">&#9664; Prev</button>
+    <button id="cMix" title="Audio mixer">Audio</button>
+    <button id="cPrev" title="Previous pick">&#9664; Previous</button>
     <button id="cPlay" class="go">Pause</button>
-    <button id="cNext">Next &#9654;</button>
+    <button id="cNext" title="Next pick">Next &#9654;</button>
     <span class="sep"></span>
-    <button id="cSkip">Skip Intro</button>
+    <button id="cSkip">Skip Film</button>
     <button id="cRestart">Restart</button>
-    <button id="cBracket">Bracket</button>
+    <button id="cBracket">View Bracket</button>
     <button id="cFull">Fullscreen</button>
     <button id="cRoom">Exit</button>
   </div>
 
   <div class="gate" id="gate">
+    <div class="gate-film gate-film-slot" data-ambient-film aria-hidden="true"></div>
+    <div class="gate-film-scrim"></div>
     <div class="gate-glow"></div>
+    <div class="gate-overline"><i></i> CFP DYNASTY STUDIO PRESENTS <i></i></div>
     <div class="kick" id="gateKick">The field is set</div>
     <h1 id="gateTitle">College Football Playoff<br>Selection Show</h1>
     <p id="gateSub">12 teams &middot; press play when everyone is watching</p>
@@ -322,8 +453,9 @@
       <span class="pre-when" id="preWhen"></span>
     </div>
 
-    <button class="playbtn" id="btnPlay" aria-label="Play the show">
+    <button class="playbtn" id="btnPlay" aria-label="Roll the opening film">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <span>ROLL THE OPENING FILM</span>
     </button>
     <label class="rec-opt" id="recOpt">
       <input type="checkbox" id="optRecord">
@@ -338,12 +470,20 @@
   <!-- recording indicator -->
   <div class="reclamp" id="recLamp"><i></i>REC</div>
 
+  <audio id="intro" preload="none"></audio>
+  <audio id="boone" preload="none"></audio>
+
 </section>
 
 <!-- =====================================================================
      SCREEN 3 — FINAL BRACKET
      ================================================================== -->
 <section id="final" class="screen">
+  <div class="final-status" aria-hidden="true">
+    <span><i></i> <b id="finalFieldState">FIELD IN PROGRESS</b></span>
+    <b>THE ROAD TO THE CHAMPIONSHIP</b>
+    <em id="finalStatusMeta">12 TEAMS &middot; 11 GAMES &middot; 1 CHAMPION</em>
+  </div>
   <div class="bracket-wrap" id="bracketWrap">
     <div class="bracket" id="bracket"></div>
   </div>
@@ -352,7 +492,7 @@
     <button class="btn" id="fView">Full Bracket</button>
     <button class="btn" id="fRoom">Committee Room</button>
     <button class="btn" id="fShow">Replay Show</button>
-    <button class="btn" id="fResults">Play It Out</button>
+    <button class="btn" id="fResults">Interactive Bracket</button>
     <button class="btn" id="fImage">Save Image</button>
     <button class="btn" id="fVideo" hidden>Save Video</button>
     <button class="btn" id="fVideoShare" hidden>Send To Phone</button>
@@ -367,12 +507,13 @@
   <div class="carbon"></div>
   <header class="dy-head">
     <div>
-      <h1>PLAY IT OUT</h1>
-      <div class="sub">Type the score as each game finishes &mdash; the bracket advances itself</div>
+      <span class="dy-eyebrow">INTERACTIVE POSTSEASON</span>
+      <h1>Bracket Room</h1>
+      <div class="sub">Tap a team to advance it instantly, or enter the final score. Every later round rewires itself.</div>
     </div>
     <div class="spacer"></div>
     <span class="dy-progress" id="resProgress"></span>
-    <button class="btn ghost" id="resBracketBtn">Bracket</button>
+    <button class="btn ghost" id="resBracketBtn">Field View</button>
     <button class="btn ghost" id="resArchive">Archive Season</button>
     <button class="btn ghost danger" id="resClear">Clear Scores</button>
     <button class="btn primary" id="resRoom">Done</button>
@@ -380,6 +521,11 @@
   <div class="dy-bar"><i id="resBar"></i></div>
 
   <div class="dy-body">
+    <div class="bracket-guide" aria-label="Bracket controls">
+      <span><i>01</i><b>Tap a team</b> to advance</span>
+      <span><i>02</i><b>Type scores</b> for a final</span>
+      <span><i>03</i><b>Later rounds</b> rebuild live</span>
+    </div>
     <div class="crown" id="resCrown"></div>
     <div id="resultsBody"></div>
   </div>
@@ -392,28 +538,35 @@
   <div class="carbon"></div>
   <header class="dy-head">
     <div>
-      <h1>LEAGUE PICK&rsquo;EM</h1>
-      <div class="sub">Everybody fills in the bracket &mdash; the commissioner keeps score</div>
+      <span class="dy-eyebrow">YOUR ROAD TO THE TITLE</span>
+      <h1>Projection Bracket</h1>
+      <div class="sub">The same cinematic bracket, now in your hands. Pick every winner and add your predicted scores.</div>
     </div>
     <div class="spacer"></div>
     <span class="dy-progress" id="pkCount"></span>
+    <button class="btn ghost danger" id="pkReset">Reset Projection</button>
     <button class="btn primary" id="pkRoom">Done</button>
   </header>
 
   <div class="pk-tabs">
-    <button class="pk-tab on" data-mode="make">Make my picks</button>
-    <button class="pk-tab" data-mode="board">Leaderboard</button>
+    <button class="pk-tab on" data-mode="make">My projection</button>
+    <button class="pk-tab" data-mode="board">League leaderboard</button>
   </div>
 
   <div class="dy-body">
     <div id="pkMake">
+      <div class="bracket-guide projection-guide" aria-label="Projection controls">
+        <span><i>01</i><b>Tap winners</b> through every round</span>
+        <span><i>02</i><b>Add scores</b> if you want them</span>
+        <span><i>03</i><b>Copy one code</b> with everything</span>
+      </div>
       <div class="pk-top">
         <div class="field">
-          <label>Your name</label>
+          <label for="pkName">Your name</label>
           <input type="text" id="pkName" placeholder="Ben" maxlength="16" autocomplete="off">
         </div>
         <div class="pk-codebox">
-          <label>Your entry code</label>
+          <label for="pkCode">Your entry code</label>
           <div class="pk-coderow">
             <input type="text" id="pkCode" class="linkbox" readonly placeholder="fill in your name">
             <button class="btn primary" id="pkCopy" disabled>Copy</button>
@@ -427,7 +580,7 @@
     <div id="pkBoard" hidden>
       <div class="pk-top">
         <div class="field wide">
-          <label>Paste entry codes &mdash; one per line, or a whole chat log</label>
+          <label for="pkPaste">Paste entry codes &mdash; one per line, or a whole chat log</label>
           <textarea id="pkPaste" class="linkbox" rows="3"
                     placeholder="BEN-1JZ&#10;MARCUS-K4"></textarea>
         </div>
@@ -448,8 +601,9 @@
   <div class="carbon"></div>
   <header class="dy-head">
     <div>
-      <h1>DYNASTY HISTORY</h1>
-      <div class="sub">Every playoff this league has run</div>
+      <span class="dy-eyebrow">YOUR LEAGUE LEGACY</span>
+      <h1>Dynasty Archive</h1>
+      <div class="sub">Every field. Every champion. Every season your league still talks about.</div>
     </div>
     <div class="spacer"></div>
     <button class="btn ghost" id="histSave">Archive this season</button>
@@ -467,12 +621,12 @@
   <div class="card">
     <h3 id="mTeamTitle">EDIT TEAM</h3>
     <div class="preview" id="mTeamPreview"></div>
-    <div class="field"><label>School</label><input type="text" id="fSchool"></div>
-    <div class="field"><label>Mascot</label><input type="text" id="fMascot"></div>
-    <div class="field"><label>Abbrev.</label><input type="text" id="fAbbr" maxlength="6"></div>
-    <div class="field"><label>Conference</label><input type="text" id="fConf"></div>
-    <div class="field"><label>Primary</label><input type="color" id="fPrim"><input type="text" id="fPrimHex"></div>
-    <div class="field"><label>Secondary</label><input type="color" id="fSec"><input type="text" id="fSecHex"></div>
+    <div class="field"><label for="fSchool">School</label><input type="text" id="fSchool"></div>
+    <div class="field"><label for="fMascot">Mascot</label><input type="text" id="fMascot"></div>
+    <div class="field"><label for="fAbbr">Abbrev.</label><input type="text" id="fAbbr" maxlength="6"></div>
+    <div class="field"><label for="fConf">Conference</label><input type="text" id="fConf"></div>
+    <div class="field"><label for="fPrim">Primary</label><input type="color" id="fPrim"><input type="text" id="fPrimHex" aria-label="Primary color hex value"></div>
+    <div class="field"><label for="fSec">Secondary</label><input type="color" id="fSec"><input type="text" id="fSecHex" aria-label="Secondary color hex value"></div>
     <div class="drop" id="logoDrop">Drop a logo image here &mdash; or click to browse</div>
     <input type="file" id="logoFile" accept="image/*" hidden>
     <p class="note">Logos are stored on this computer only. You can also bulk-load them by
@@ -490,14 +644,14 @@
   <div class="card">
     <h3>SHOW SETUP</h3>
         <div class="setting">
-          <label>Reveal order</label>
+          <label for="optOrder">Reveal order</label>
           <select id="optOrder">
             <option value="asc">No. 1 &rarr; No. 12</option>
             <option value="desc">No. 12 &rarr; No. 1 (countdown)</option>
           </select>
         </div>
         <div class="setting">
-          <label>Pace</label>
+          <label for="optPace">Pace</label>
           <select id="optPace">
             <option value="manual">Manual &mdash; I advance each pick</option>
             <option value="7000">Auto &mdash; 7s per team</option>
@@ -507,7 +661,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Cold open</label>
+          <label for="optCold">Cold open</label>
           <select id="optCold">
             <option value="full">Full &mdash; play the intro audio</option>
             <option value="short">Short &mdash; title card only</option>
@@ -515,7 +669,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Just missed</label>
+          <label for="optOutCount">Just missed</label>
           <select id="optOutCount">
             <option value="2">First two out &mdash; seeds 13 and 14</option>
             <option value="4">First four out &mdash; seeds 13 to 16</option>
@@ -523,7 +677,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Seed talk</label>
+          <label for="optSeedTalk">Seed talk</label>
           <select id="optSeedTalk">
             <option value="lead">Build-up only &mdash; before each pick</option>
             <option value="both">Build-up and reaction</option>
@@ -531,14 +685,14 @@
           </select>
         </div>
         <div class="setting">
-          <label>Team calls</label>
+          <label for="optCalls">Team calls</label>
           <select id="optCalls">
             <option value="on">On &mdash; announcer calls each team</option>
             <option value="off">Off &mdash; sound effects only</option>
           </select>
         </div>
         <div class="setting">
-          <label>Effects</label>
+          <label for="optFx">Effects</label>
           <select id="optFx">
             <option value="max">Maximum</option>
             <option value="normal">Normal</option>
@@ -546,7 +700,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Room video</label>
+          <label for="optRoomFilm">Room video</label>
           <select id="optRoomFilm">
             <option value="on">On &mdash; film playing behind the board</option>
             <option value="still">Still frame only &mdash; lighter</option>
@@ -554,7 +708,7 @@
           </select>
         </div>
         <div class="setting">
-          <label>Audio</label>
+          <span class="setting-label">Audio</span>
           <button class="btn ghost mixbtn" id="btnMix">Open the mix &nbsp;&#9835;</button>
         </div>
     <div class="row"><button class="btn primary" id="mSetupClose">Done</button></div>
@@ -564,14 +718,14 @@
 <div class="modal" id="mLeague">
   <div class="card">
     <h3>LEAGUE SETUP</h3>
-    <div class="field"><label>League name</label><input type="text" id="fLeague" placeholder="Sunday Night Dynasty"></div>
-    <div class="field"><label>Season</label><input type="text" id="fSeason" placeholder="2027"></div>
-    <div class="field"><label>Show title</label><input type="text" id="fTitle" placeholder="College Football Playoff"></div>
-    <div class="field"><label>Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
-    <div class="field"><label>Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
-    <div class="field"><label>Just-missed</label><input type="text" id="fOutLabel" placeholder="auto — First Two Out"></div>
+    <div class="field"><label for="fLeague">League name</label><input type="text" id="fLeague" placeholder="Sunday Night Dynasty"></div>
+    <div class="field"><label for="fSeason">Season</label><input type="text" id="fSeason" placeholder="2027"></div>
+    <div class="field"><label for="fTitle">Show title</label><input type="text" id="fTitle" placeholder="College Football Playoff"></div>
+    <div class="field"><label for="fSubtitle">Show subtitle</label><input type="text" id="fSubtitle" placeholder="Selection Show"></div>
+    <div class="field"><label for="fTicker">Ticker text</label><input type="text" id="fTicker" placeholder="extra headlines, separated by  |"></div>
+    <div class="field"><label for="fOutLabel">Just-missed</label><input type="text" id="fOutLabel" placeholder="auto — First Two Out"></div>
     <div class="field">
-      <label>Premiere at</label>
+      <label for="fPremiere">Premiere at</label>
       <input type="datetime-local" id="fPremiere">
       <button class="btn ghost sm" id="preClearBtn" type="button">Clear</button>
     </div>
@@ -621,7 +775,7 @@
     <div class="bar"><i id="bulkBar"></i></div>
     <div class="note" id="bulkStatus">No logos imported yet.</div>
     <div class="field" style="margin-top:16px">
-      <label>Logo URL</label>
+      <label for="fLogoPattern">Logo URL</label>
       <input type="text" id="fLogoPattern" placeholder="https://your-host.com/logos/{id}.png">
     </div>
     <p class="note">Optional. If you host logos somewhere, put the address here with
@@ -638,21 +792,50 @@
 <div class="modal" id="mShare">
   <div class="card">
     <h3>SEND IT TO THE LEAGUE</h3>
+    <div class="share-mode" id="shareMode">PORTABLE PREVIEW</div>
     <p class="note" style="margin-bottom:12px" id="shareNote"></p>
-    <textarea id="shareUrl" class="linkbox" readonly rows="3"></textarea>
+    <textarea id="shareUrl" class="linkbox" aria-label="Share link" readonly rows="3"></textarea>
     <div class="sharegrid">
       <div><b id="shareCount">0</b><span>Teams seeded</span></div>
       <div><b id="shareOut">0</b><span>Just missed</span></div>
       <div><b id="shareLen">0</b><span>Link length</span></div>
     </div>
-    <p class="note">Whoever opens this lands on the play button and nothing else.
-      They can't reach the committee room, so the field stays secret until they
-      press play. The picks ride inside the link itself &mdash; there's no server
-      and nothing to keep running.</p>
+    <p class="note">Portable previews carry the field inside the URL. A signed-in
+      commissioner can publish a short permanent Cloudflare event instead, update
+      that same link, see its activity and revoke it at any time.</p>
     <div class="row">
       <button class="btn ghost" id="mShareClose">Close</button>
       <button class="btn" id="mShareOpen">Open It Myself</button>
       <button class="btn primary" id="mShareCopy">Copy Link</button>
+      <button class="btn event-publish" id="mSharePublish">Publish Permanent Event</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mReadiness" role="dialog" aria-modal="true" aria-labelledby="readyTitle">
+  <div class="card readiness-card">
+    <div class="readiness-kicker">BROADCAST CONTROL · PRE-FLIGHT</div>
+    <h3 id="readyTitle">SELECTION NIGHT IS NOT READY TO AIR</h3>
+    <div class="readiness-score"><b id="readyCount">0/12</b><span>SEEDS LOCKED</span></div>
+    <div class="readiness-track"><i id="readyBar"></i></div>
+    <ul class="readiness-reasons" id="readyReasons"></ul>
+    <p id="readyMissing">Missing seeds: No. 1 through No. 12</p>
+    <p class="note">A permanent event requires the complete field. Preview mode is
+      available for production rehearsals and is clearly marked as unfinished.</p>
+    <div class="row">
+      <button class="btn primary" id="readyReturn">Return to the Field</button>
+      <button class="btn ghost" id="readyPreview">Rehearse Incomplete Show</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mConfirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="card confirm-card">
+    <h3 id="confirmTitle">Confirm action</h3>
+    <p id="confirmMessage">Are you sure?</p>
+    <div class="row">
+      <button class="btn ghost" id="confirmCancel" type="button">Cancel</button>
+      <button class="btn" id="confirmAccept" type="button">Continue</button>
     </div>
   </div>
 </div>
@@ -674,35 +857,136 @@
   <div class="card">
     <h3>OPEN A SHARED BRACKET</h3>
     <p class="note" style="margin-bottom:12px">Paste the link your commissioner sent you.</p>
-    <div class="field"><label>Link</label><input type="text" id="fLink" placeholder="https://&hellip;#show=&hellip;"></div>
+    <div class="field"><label for="fLink">Link</label><input type="text" id="fLink" placeholder="https://&hellip;/watch/&hellip;"></div>
     <div class="row">
       <button class="btn ghost" id="mLinkCancel">Cancel</button>
+      <button class="btn" id="mLinkDemo">Watch the Full Demo</button>
       <button class="btn primary" id="mLinkGo">Load it</button>
     </div>
   </div>
 </div>
 
+<div class="modal" id="mEventUnavailable" role="alertdialog" aria-modal="true" aria-labelledby="eventUnavailableTitle">
+  <div class="card event-unavailable-card">
+    <div class="readiness-kicker">CFP DYNASTY STUDIO</div>
+    <h3 id="eventUnavailableTitle">THIS BROADCAST IS OFF AIR</h3>
+    <p id="eventUnavailableMessage">This Selection Night event is unavailable.</p>
+    <button class="btn primary full" id="mEventUnavailableClose">Go to Dynasty Studio</button>
+  </div>
+</div>
+
 <!-- live mixer, usable while the show is running -->
-  <div class="mixer" id="mixer">
-    <div class="mx-head">AUDIO MIX <i id="mxClose">&times;</i></div>
+  <div class="mixer" id="mixer" role="dialog" aria-label="Live audio mixer" aria-modal="false" aria-hidden="true" inert>
+    <div class="mx-head">AUDIO MIX <button id="mxClose" type="button" data-panel-close aria-label="Close audio mixer">&times;</button></div>
     <div class="mx-rows" id="mxRows"></div>
     <div class="mx-foot">Changes are live &mdash; nothing pauses.</div>
   </div>
 
 <div class="toast" id="toast"></div>
 
-<audio id="intro" preload="auto"></audio>
-<audio id="boone" preload="auto"></audio>
-<audio id="music" preload="auto" loop></audio>
+<!-- Account center: Google identifies the commissioner; Cloudflare stores
+     the working board, archive, pick'em entries, branding, and custom teams. -->
+<div class="modal account-modal" id="mAccount" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+  <div class="modal-card account-card">
+    <button class="modal-x" id="mAccountClose" type="button" aria-label="Close account center">&times;</button>
+    <div id="accountSignedOut">
+      <div class="account-eyebrow"><i></i> CFP CLOUD</div>
+      <h2 id="accountTitle">YOUR DYNASTY.<br><span>EVERYWHERE.</span></h2>
+      <p class="account-lead">Sign in once and your field, league setup, custom teams, branding, predictions and dynasty history stay protected across devices.</p>
+      <p class="account-invite-notice" id="accountInviteNotice" hidden></p>
+      <div class="google-signin" id="googleSignIn" aria-live="polite"></div>
+      <div class="account-benefits">
+        <div><i>&#10003;</i><span><b>Automatic cloud saves</b><small>Every meaningful board change is synced.</small></span></div>
+        <div><i>&#10003;</i><span><b>Multi-device recovery</b><small>Start on desktop. Run Selection Night from your phone.</small></span></div>
+        <div><i>&#10003;</i><span><b>Private by design</b><small>Your commissioner board stays tied to your account.</small></span></div>
+      </div>
+      <p class="account-legal">By continuing, you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and acknowledge the <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+    </div>
+    <div id="accountSignedIn" hidden>
+      <div class="account-eyebrow"><i class="live"></i> CONNECTED TO CLOUDFLARE</div>
+      <div class="account-profile">
+        <div class="account-avatar" id="accountAvatar">C</div>
+        <div><h2 id="accountName">Commissioner</h2><p id="accountEmail"></p></div>
+      </div>
+      <div class="account-save-panel">
+        <i class="account-shield">&#10003;</i>
+        <div><b id="accountSaveState">Protected in Cloudflare</b><span id="accountLastSaved">Saved just now</span></div>
+        <span class="account-pulse"></span>
+      </div>
+      <div class="account-data-grid">
+        <div><b>FIELD</b><span>Seeds, out teams &amp; scores</span></div>
+        <div><b>STUDIO</b><span>Settings &amp; custom branding</span></div>
+        <div><b>DYNASTY</b><span>History &amp; pick'em entries</span></div>
+        <div><b>LOGOS</b><span>Private commissioner uploads</span></div>
+      </div>
+      <section class="account-security" aria-labelledby="accountSecurityTitle">
+        <div class="account-events-head">
+          <div><span>PRIVACY &amp; ACCESS</span><b id="accountSecurityTitle">ACCOUNT CONTROL</b></div>
+          <i aria-hidden="true">&#10003;</i>
+        </div>
+        <div class="account-security-grid">
+          <div><b>Take your data with you</b><span>Download your workspace, broadcasts, league memberships and security activity as JSON.</span></div>
+          <button class="event-action" id="accountExport" type="button">Download my data</button>
+          <div><b>Close old sessions</b><span>Keep this device signed in and immediately sign out every other browser.</span></div>
+          <button class="event-action" id="accountSignOutOthers" type="button">Sign out other devices</button>
+        </div>
+      </section>
+      <section class="account-leagues" aria-labelledby="accountLeaguesTitle">
+        <div class="account-events-head">
+          <div><span>SHARED COMMISSIONER WORKSPACES</span><b id="accountLeaguesTitle">LEAGUE ROOMS</b></div>
+          <i id="accountLeagueCount">0</i>
+        </div>
+        <p class="league-room-note">Invite the league, promote co-commissioners, and publish one conflict-safe board everyone can load.</p>
+        <div class="league-room-controls">
+          <button class="event-action league-create" id="accountCreateLeague" type="button">Create room from this board</button>
+          <label for="accountJoinCode">Invite code</label>
+          <input id="accountJoinCode" name="league-invite-code" inputmode="text" maxlength="8" autocomplete="off" placeholder="8 characters">
+          <button class="event-action" id="accountJoinLeague" type="button">Join room</button>
+        </div>
+        <div id="accountLeaguesList" aria-live="polite"></div>
+      </section>
+      <section class="account-events" aria-labelledby="accountEventsTitle">
+        <div class="account-events-head">
+          <div><span>PUBLIC EVENT CONTROL</span><b id="accountEventsTitle">PUBLISHED BROADCASTS</b></div>
+          <i id="accountEventCount">0</i>
+        </div>
+        <div id="accountEventsList" aria-live="polite"></div>
+      </section>
+      <button class="btn primary full" id="accountSyncNow" type="button">Sync this device now</button>
+      <div class="account-actions">
+        <button class="btn ghost" id="accountSignOut" type="button">Sign out</button>
+        <button class="account-delete" id="accountDelete" type="button">Delete cloud account</button>
+      </div>
+      <p class="account-legal"><a href="/privacy" target="_blank" rel="noopener">Privacy</a> &middot; <a href="/terms" target="_blank" rel="noopener">Terms</a></p>
+    </div>
+  </div>
+</div>
+
+<div class="modal conflict-modal" id="mSyncConflict" role="alertdialog" aria-modal="true" aria-labelledby="conflictTitle">
+  <div class="modal-card conflict-card">
+    <div class="conflict-mark">!</div>
+    <span class="section-kicker">TWO DEVICES. TWO VERSIONS.</span>
+    <h2 id="conflictTitle">CHOOSE THE OFFICIAL BOARD</h2>
+    <p>Another device saved after this one opened. Nothing was overwritten. Choose which copy should become the official cloud version.</p>
+    <button class="btn primary full" id="conflictLocal" type="button">Use this device</button>
+    <button class="btn full" id="conflictCloud" type="button">Restore the cloud copy</button>
+  </div>
+</div>
+
+<div class="visually-hidden-live" id="appLiveStatus" role="status" aria-live="polite" aria-atomic="true"></div>
+<div class="undo-bar" id="undoBar" role="status" hidden inert><span></span><button type="button">Undo</button></div>
 
 <script src="js/teams.js"></script>
 <script src="js/logos.js"></script>
 <script src="js/recorder.js"></script>
+<script src="js/cloud.js"></script>
+<script src="js/foundation.js"></script>
 <script src="js/app.js"></script>
 <script src="js/dynasty.js"></script>
 <script src="js/pickem.js"></script>
 <script src="js/export.js"></script>
 <script src="js/ui-dynasty.js"></script>
 <script src="js/show.js"></script>
+<script src="js/experience.js"></script>
 </body>
 </html>

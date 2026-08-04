@@ -427,34 +427,117 @@ const BracketImage = (() => {
     const imgs = {};
     await Promise.all(ids.map(async id => { imgs[id] = await logo(id); }));
 
-    backdrop(c);
-    header(c);
-    connectors(c);
+    /* The game uses one continuous, left-to-right playoff canvas. */
+    c.fillStyle = '#141519'; c.fillRect(0, 0, W, H);
+    const wash = c.createLinearGradient(0, 0, W, H);
+    const lead = STATE.seeds[0] && team(STATE.seeds[0].id);
+    wash.addColorStop(0, lead?.primary || '#17345f');
+    wash.addColorStop(.34, '#29292e'); wash.addColorStop(1, '#0e0f12');
+    c.globalAlpha = .42; c.fillStyle = wash; c.fillRect(0, 0, W, H); c.globalAlpha = 1;
+    c.save(); c.globalAlpha = .035; c.strokeStyle = '#fff'; c.lineWidth = 2;
+    for (let x = -H; x < W; x += 9) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x + H, H); c.stroke(); }
+    c.restore();
 
-    const beaten = seed => GAMES.some(g => solved[g.id].loser === seed);
+    c.textAlign = 'left'; c.fillStyle = '#fff';
+    c.font = `900 56px ${COND}`;
+    c.fillText(`${STATE.season} COLLEGE FOOTBALL PLAYOFF`, 58, 80);
+    c.fillStyle = '#c8c9cd'; c.font = `800 15px ${UI}`; c.letterSpacing = '4px';
+    c.fillText(`${String(STATE.league || '').toUpperCase()}  ·  THE ROAD TO THE NATIONAL CHAMPIONSHIP`, 61, 112);
+    c.letterSpacing = '0px';
+    c.fillStyle = GOLD; c.font = `400 20px ${COND}`;
+    [['FIRST ROUND',58],['QUARTERFINAL',560],['SEMIFINAL',1030],['NATIONAL CHAMPIONSHIP',1400]]
+      .forEach(([text, x]) => c.fillText(text, x, 165));
 
-    LEFT.forEach(([seed, row]) =>
-      plate(c, seed, P.rows[row], 'L', imgs[(STATE.seeds[seed - 1] || {}).id],
-            { eliminated: beaten(seed) }));
-    RIGHT.forEach(([seed, row]) =>
-      plate(c, seed, P.rows[row], 'R', imgs[(STATE.seeds[seed - 1] || {}).id],
-            { eliminated: beaten(seed) }));
+    const rowH = 43, matchGap = 5;
+    const centres = [270, 455, 660, 845];
+    const first = [
+      { id:'fr2', seeds:[12,5] }, { id:'fr1', seeds:[9,8] },
+      { id:'fr4', seeds:[11,6] }, { id:'fr3', seeds:[10,7] }
+    ];
+    const qf = ['qf2','qf1','qf4','qf3'];
 
-    /* first-round boxes, then the bowls */
-    bowlBox(c, P.x.r1L, P.r1Y,    'FIRST\nROUND', solved.fr1.winner);
-    bowlBox(c, P.x.r1L, P.r1BotY, 'FIRST\nROUND', solved.fr2.winner);
-    bowlBox(c, P.x.r1R, P.r1Y,    'FIRST\nROUND', solved.fr3.winner);
-    bowlBox(c, P.x.r1R, P.r1BotY, 'FIRST\nROUND', solved.fr4.winner);
+    const teamSlot = (seed, x, y, width, score, winner, placeholder) => {
+      const selection = seed && STATE.seeds[seed - 1];
+      const t = selection && team(selection.id);
+      c.save();
+      round(c, x, y, width, rowH, 3);
+      c.fillStyle = t ? t.primary : '#34353b'; c.fill();
+      c.strokeStyle = winner && seed === winner ? '#f3c652' : 'rgba(255,255,255,.3)';
+      c.lineWidth = winner && seed === winner ? 3 : 1.5; c.stroke(); c.clip();
+      c.fillStyle = '#121317'; c.fillRect(x, y, 58, rowH);
+      if (t) { c.fillStyle = t.secondary; c.fillRect(x + 56, y, 4, rowH); }
+      c.textAlign = 'center'; c.fillStyle = seed ? '#fff' : '#777a82';
+      c.font = `400 25px ${COND}`; c.fillText(seed || '', x + 27, y + 30);
+      if (t) {
+        const image = imgs[selection.id];
+        if (image) {
+          const scale = Math.min(31 / image.naturalHeight, 38 / image.naturalWidth);
+          const dw = image.naturalWidth * scale, dh = image.naturalHeight * scale;
+          c.drawImage(image, x + 69, y + (rowH - dh) / 2, dw, dh);
+        }
+        c.textAlign = 'left';
+        const textX = x + (image ? 114 : 72);
+        c.fillStyle = luma(t.primary) > .47 ? '#101114' : '#fff';
+        const nameSize = fit(c, t.school.toUpperCase(), width - (textX - x) - 48, 20, COND, 400);
+        c.font = `400 ${nameSize}px ${COND}`; c.fillText(t.school.toUpperCase(), textX, y + 27);
+      } else {
+        c.textAlign = 'left'; c.fillStyle = '#8a8c93'; c.font = `700 14px ${UI}`;
+        c.fillText(String(placeholder || 'TBD').toUpperCase(), x + 72, y + 27);
+      }
+      c.fillStyle = 'rgba(247,245,240,.94)'; c.fillRect(x + width - 42, y, 42, rowH);
+      c.textAlign = 'center'; c.fillStyle = '#1b1c20'; c.font = `400 23px ${COND}`;
+      c.fillText(score ?? '', x + width - 21, y + 29);
+      c.restore();
+    };
 
-    bowlBox(c, P.x.qfL, P.qfTopY, 'ROSE\nBOWL',   solved.qf1.winner);
-    bowlBox(c, P.x.qfL, P.qfBotY, 'COTTON\nBOWL', solved.qf2.winner);
-    bowlBox(c, P.x.qfR, P.qfTopY, 'SUGAR\nBOWL',  solved.qf3.winner);
-    bowlBox(c, P.x.qfR, P.qfBotY, 'ORANGE\nBOWL', solved.qf4.winner);
+    const initialMatch = (item, centre) => {
+      const state = solved[item.id];
+      item.seeds.forEach((seed, index) => {
+        const side = state.a === seed ? 'a' : 'b';
+        teamSlot(seed, 58, centre - rowH - matchGap / 2 + index * (rowH + matchGap), 390,
+          state[side === 'a' ? 'sa' : 'sb'], state.winner);
+      });
+    };
+    const laterMatch = (id, x, centre, width) => {
+      const g = GAME_BY_ID[id], state = solved[id];
+      teamSlot(state.a, x, centre - rowH - matchGap / 2, width, state.sa, state.winner,
+        Bracket.slotName(state.a, solved, g.a));
+      teamSlot(state.b, x, centre + matchGap / 2, width, state.sb, state.winner,
+        Bracket.slotName(state.b, solved, g.b));
+      c.textAlign = 'left'; c.fillStyle = '#85878f'; c.font = `700 10px ${UI}`;
+      c.fillText(g.name.toUpperCase(), x + 4, centre + rowH + 17);
+    };
 
-    bowlBox(c, P.x.sf, P.rows.mid1, 'FIESTA\nBOWL', solved.sf1.winner);
-    bowlBox(c, P.x.sf, P.rows.mid2, 'PEACH\nBOWL',  solved.sf2.winner);
+    c.strokeStyle = 'rgba(238,236,230,.72)'; c.lineWidth = 3;
+    const hLine = (x1, x2, y) => { c.beginPath(); c.moveTo(x1, y); c.lineTo(x2, y); c.stroke(); };
+    const vLine = (x, y1, y2) => { c.beginPath(); c.moveTo(x, y1); c.lineTo(x, y2); c.stroke(); };
+    centres.forEach(y => hLine(448, 560, y));
+    [[centres[0],centres[1],362],[centres[2],centres[3],752]].forEach(([a,b,mid]) => {
+      hLine(890, 975, a); hLine(890, 975, b); vLine(975, a, b); hLine(975, 1030, mid);
+    });
+    hLine(1325, 1360, 362); hLine(1325, 1360, 752); vLine(1360, 362, 752); hLine(1360, 1400, 557);
+    hLine(1690, 1740, 557);
 
-    centrepiece(c, solved);
+    first.forEach((item, index) => initialMatch(item, centres[index]));
+    qf.forEach((id, index) => laterMatch(id, 560, centres[index], 330));
+    laterMatch('sf1', 1030, 362, 295); laterMatch('sf2', 1030, 752, 295);
+    laterMatch('nc', 1400, 557, 290);
+
+    const trophy = await new Promise(resolve => {
+      const image = new Image(); image.onload = () => resolve(image); image.onerror = () => resolve(null);
+      image.src = 'assets/trophy-cut.webp';
+    });
+    if (trophy) c.drawImage(trophy, 1740, 300, 150, 500);
+    const champSeed = solved.nc.winner;
+    c.textAlign = 'center';
+    if (champSeed && STATE.seeds[champSeed - 1]) {
+      c.fillStyle = '#fff'; c.font = `400 24px ${COND}`;
+      c.fillText(team(STATE.seeds[champSeed - 1].id).school.toUpperCase(), 1814, 845);
+      c.fillStyle = GOLD; c.font = `800 11px ${UI}`; c.fillText('NATIONAL CHAMPION', 1814, 868);
+    } else {
+      c.fillStyle = '#fff'; c.font = `400 22px ${COND}`; c.fillText('LAS VEGAS, NV', 1814, 845);
+      c.fillStyle = GOLD; c.font = `800 11px ${UI}`; c.fillText('ONE CHAMPION', 1814, 868);
+    }
     footer(c, solved);
 
     return cvs;

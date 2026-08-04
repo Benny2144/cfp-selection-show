@@ -1,0 +1,55 @@
+# Cloudflare Pages reads this file. Netlify reads it too, so one copy
+# serves both and there is nothing to keep in step.
+
+# Default: let the browser check back. index.html must never be cached
+# hard or an update will not reach anybody.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; media-src 'self' blob:; connect-src 'self' https://accounts.google.com; frame-src https://accounts.google.com; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+# make_site.py stamps a content hash onto every css and js URL, so these
+# can be cached hard and for ever — a change produces a new URL.
+/css/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/js/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Media never changes under the same name. A year is safe and it is the
+# difference between the show starting instantly on a rewatch and pulling
+# forty megabytes again.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/logos/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/voice/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/seedcall/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.mp3
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.mp4
+  Cache-Control: public, max-age=31536000, immutable
+
+# Service-worker updates must never wait behind the general immutable JS rule.
+/sw.js
+  Cache-Control: no-store
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate

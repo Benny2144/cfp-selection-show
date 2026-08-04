@@ -13,6 +13,8 @@ const LogoStore = (() => {
   const decoded = {};                // id -> an <img> already loaded and ready
   const misses = {};                 // id -> true once every source has failed
   const waiting = {};                // id -> [callbacks]
+  let bundledPaths = null;           // id -> one known file (no extension probing)
+  const cloudIds = new Set();        // private account logos available via Worker
 
   function open() {
     return new Promise((res, rej) => {
@@ -34,6 +36,9 @@ const LogoStore = (() => {
         mem[id] = URL.createObjectURL(blob);
         delete misses[id]; delete decoded[id];
         res();
+        if (typeof CloudSync !== 'undefined') {
+          void CloudSync.logoChanged(id, blob).catch(() => {});
+        }
       };
       tx.onerror = () => rej(tx.error);
     });
@@ -47,6 +52,9 @@ const LogoStore = (() => {
       tx.oncomplete = () => {
         if (mem[id] && mem[id].startsWith('blob:')) URL.revokeObjectURL(mem[id]);
         delete mem[id]; delete misses[id]; delete decoded[id]; res();
+        if (typeof CloudSync !== 'undefined') {
+          void CloudSync.logoDeleted(id).catch(() => {});
+        }
       };
     });
   }
@@ -61,15 +69,55 @@ const LogoStore = (() => {
         Object.keys(mem).forEach(k => delete mem[k]);
         Object.keys(misses).forEach(k => delete misses[k]);
         res();
+        if (typeof CloudSync !== 'undefined') {
+          void CloudSync.clearLogos().catch(() => {});
+        }
       };
     });
   }
 
+  async function localBlobs() {
+    let d;
+    try { d = await open(); } catch (e) { return []; }
+    return new Promise(res => {
+      const tx = d.transaction(STORE, 'readonly');
+      const st = tx.objectStore(STORE);
+      const keys = st.getAllKeys(), vals = st.getAll();
+      tx.oncomplete = () => res(keys.result.map((id, i) => ({ id, blob: vals.result[i] })));
+      tx.onerror = () => res([]);
+    });
+  }
+
+  async function refreshCloud() {
+    try {
+      const response = await fetch('/api/logos', { credentials: 'same-origin' });
+      if (!response.ok) return 0;
+      const body = await response.json();
+      cloudIds.clear();
+      (body.logos || []).forEach(x => cloudIds.add(x.team_id));
+      return cloudIds.size;
+    } catch (e) { return 0; }
+  }
+
+  async function loadManifest() {
+    try {
+      const response = await fetch('logos/manifest.json', { cache: 'force-cache' });
+      if (!response.ok) return;
+      const body = await response.json();
+      bundledPaths = body && body.paths && typeof body.paths === 'object' ? body.paths : {};
+    } catch (e) { bundledPaths = null; }
+  }
+
   /* Pull every stored logo into memory once, at boot. */
   async function hydrate() {
+    /* /api/logos is private. Anonymous visitors should never generate a
+       predictable 401 in the console just to discover they are signed out. */
+    const cloud = typeof CloudSync !== 'undefined' && CloudSync.isSignedIn()
+      ? refreshCloud() : Promise.resolve(0);
+    const manifests = Promise.all([loadManifest(), cloud]);
     let d;
-    try { d = await open(); } catch (e) { return 0; }
-    return new Promise(res => {
+    try { d = await open(); } catch (e) { await manifests; return 0; }
+    const local = await new Promise(res => {
       const tx = d.transaction(STORE, 'readonly');
       const st = tx.objectStore(STORE);
       const keys = st.getAllKeys(), vals = st.getAll();
@@ -79,6 +127,8 @@ const LogoStore = (() => {
       };
       tx.onerror = () => res(0);
     });
+    await manifests;
+    return local;
   }
 
   const count = () => Object.keys(mem).length;
@@ -124,10 +174,16 @@ const LogoStore = (() => {
       delete waiting[id];
     };
 
-    /* candidate list: local folder first, then the configured pattern */
-    const cands = EXT.map(e => `logos/${id}.${e}`);
+    /* One manifest lookup replaces up to five guaranteed 404 requests for a
+       school without a bundled crest. Local source previews without a build
+       retain the extension fallback. */
+    const cands = [];
+    if (cloudIds.has(id)) cands.push(`/api/logos/${encodeURIComponent(id)}`);
+    if (bundledPaths && bundledPaths[id]) cands.push(bundledPaths[id]);
+    else if (bundledPaths === null) cands.push(...EXT.map(e => `logos/${id}.${e}`));
     const pat = (typeof STATE !== 'undefined' && STATE.logoPattern) || '';
     if (pat.includes('{id}')) cands.push(pat.replace(/\{id\}/g, id));
+    if (!cands.length) return fail();
 
     let i = 0;
     const tryNext = () => {
@@ -195,6 +251,6 @@ const LogoStore = (() => {
     return { added, skipped, total: list.length };
   }
 
-  return { hydrate, get, put, del, clear, count, has, imageFor,
+  return { hydrate, refreshCloud, localBlobs, get, put, del, clear, count, has, imageFor,
            importFiles, matchFile, buildIndex };
 })();

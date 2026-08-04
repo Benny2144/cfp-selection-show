@@ -1,9 +1,10 @@
 # CFP Selection Show
 
-A broadcast-style College Football Playoff selection show for your CFB 27 online
-dynasty. Whoever's running it sets the twelve in private, hits play, and the site
-reveals the field like live TV — spoken cold open, slam-in team banners,
-team-color confetti, lower thirds, a ticker, and the full bracket at the end.
+A cinematic College Football Playoff event studio for a CFB 27 online dynasty.
+The commissioner sets the twelve in private, rolls a 15-second Selection Night
+film, and reveals the field through chapter cards, suspense beats, team-color
+impacts, matchup lockups, live bracket placement, the bubble, and a full-field
+finale.
 
 Works on phones. Records the whole show to a video file.
 
@@ -11,8 +12,50 @@ Works on phones. Records the whole show to a video file.
 
 ## Put it online
 
-The repo is already initialized and committed, and `docs/` holds the built site
-(15.8 MB — the 80 MB source audio and the .avif originals are gitignored).
+The repo is already initialized and committed. `docs/` holds the normal web
+assets, while show films are served from a private Cloudflare R2 bucket through
+the Worker.
+
+### Cloudflare Workers + R2
+
+Live site: <https://cfp-selection-show.benarp2144.workers.dev>
+
+The production setup is checked into this repository:
+
+- `wrangler.jsonc` defines the Worker, static assets, and private R2 binding.
+- `worker.js` exposes only allow-listed show films at `/media/`, supports
+  browser byte-range requests, verifies Google sign-in, and provides the
+  authenticated account API.
+- D1 stores versioned account snapshots, hashed sessions, and permanent
+  Selection Night events; R2 stores private account logos alongside the public
+  show media.
+- Signed-in commissioners publish a short `/watch/CODE` URL, update the same
+  URL without spoiling the field, see aggregate opens and activity, and revoke
+  the event from the account center.
+- League Rooms add permanent invite codes, owner/admin/member roles, shared
+  boards, member management, activity history, and optimistic version checks
+  that stop two commissioners from silently overwriting one another. An active
+  room checks for a newer official board while the studio is open.
+- Each active League Room is coordinated by its own hibernating Cloudflare
+  Durable Object, showing who is live and delivering board-publish notices to
+  every connected commissioner immediately.
+- Cloudflare-native rate-limit bindings protect sign-in, cloud writes, invites,
+  publishing, and account security actions without storing an IP address in D1.
+- The account center can export the signed-in user's portable JSON data and
+  revoke every other active session while keeping the current device connected.
+- GitHub Actions runs syntax checks, Workers-runtime contract tests, a production
+  build, generated-binding validation, a Wrangler dry run, and dependency audit.
+- `tools/make_site.py` builds `docs/` without copying R2-hosted films.
+
+After authenticating Wrangler, deploy with:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm run verify
+pnpm run deploy
+```
+
+See `CLOUDFLARE.md` for the bucket and media replacement commands.
 
 ### GitHub Pages
 
@@ -59,7 +102,20 @@ python -m http.server 8777
 Then <http://localhost:8777>. Recording and clipboard need `http://localhost` or
 `https://` — they don't work from a double-clicked file.
 
-Once it's live, **Copy Share Link** produces a URL that works for anyone.
+Once it's live, **Create League Link → Publish Permanent Event** produces a
+short URL that works for anyone. The complete twelve-team field is required
+before a permanent event can go on air. A portable URL-only preview remains
+available for rehearsals.
+
+## League rooms and co-commissioners
+
+Open **Save & sign in → League Rooms** to create a shared room from the current
+board. Send its short `/join/CODE` invitation anywhere in the country. Members
+can load the official room board; the owner can promote trusted members to
+co-commissioner, and owners/admins can publish a new board version. If somebody
+else publishes between load and save, the older write is rejected and must be
+reloaded first. The room keeps a member-visible activity trail of joins, role
+changes, and board publishes.
 
 ---
 
@@ -83,7 +139,8 @@ The whole site works on a phone.
 - The committee room splits into **Teams** and **The Field** tabs, so each gets
   the full screen. The tab shows your progress (`7/12`).
 - Reorder seeds with the **▲▼** buttons — dragging doesn't work on touch.
-- In the show, tap the **right side to advance**, left side to go back.
+- In the show, use the visible **Previous / Pause / Next** control dock; tapping
+  the stage brings the controls back without accidentally skipping a reveal.
 - The final screen becomes a readable stacked list: byes, then each first-round
   game, then the bowl path. **Full Bracket** switches to the wide 16:9 version
   with horizontal scroll.
@@ -135,7 +192,7 @@ If you cancel the capture prompt the show plays normally, just without recording
 |---|---|
 | Reveal order | `No. 1 → No. 12`, or `No. 12 → No. 1` for a countdown |
 | Pace | Auto every 7/10/14/20s, or **Manual** — you advance every pick |
-| Cold open | **Full** plays the spoken intro; **Short** is a 13s title package; **Off** goes straight to the picks |
+| Cold open | **Full** starts with the supplied 15s film, then the spoken open; **Short** keeps the film and uses a condensed title package; **Off** goes straight to the picks |
 | Effects | **Maximum**, **Normal**, or **Calm** (no shake, flash or glitch) |
 | Music | Volume of the background bed |
 
@@ -144,11 +201,16 @@ If you cancel the capture prompt the show plays normally, just without recording
 **Go To Show** lands on the play button. Nothing moves until you press it.
 Fullscreen, then play.
 
-1. The music restarts from the top and ducks down low.
-2. The spoken intro rolls over a hype package — the CFP mark punches in, title
-   slates, twelve empty seed slots, then a five-second countdown.
-3. Music comes back up, picks start dropping.
-4. Closing "The Field Is Set" card, then the bracket.
+1. The supplied committee film rolls full-screen in 1080p with its original
+   audio, title treatment, timer, and broadcast grade.
+2. The spoken open takes over with title slates and a countdown.
+3. The picks are divided into three acts: **The Four Byes**, **Campus Lights**,
+   and **The Cut Line**.
+4. Every team gets a suspense lock, hero reveal, announcer call, bracket landing,
+   and team-color impact.
+5. Each completed opening-round pairing receives a full-screen matchup lockup.
+6. The bubble comparison and first teams out lead into **The Twelve** hero wall,
+   the closing card, and the finished bracket.
 
 | Key | Action |
 |---|---|
@@ -229,14 +291,17 @@ levels are `DUCK_UNDER_VOICE` and `DUCK_UNDER_HIT` in the same file.
 ```
 index.html              home, committee room, show, bracket
 css/broadcast.css       styling, animations, responsive layout
+css/prime.css           cinematic design system and authored show moments
 js/teams.js             136-team database
 js/logos.js             logo storage, bulk import, filename matching
 js/recorder.js          screen capture to a video file
 js/app.js               home, room, banners, share links, bracket, field list
 js/show.js              cold open, reveal engine, audio, effects
+js/experience.js        route transitions, live status, and film lifecycle
 assets/                 trophy background plates
 logos/                  drop logo files here
 tools/trim_music.py     shrink the audio without re-encoding
 tools/make_site.py      build the publish folder
+tools/import_assets.py  regenerate optimized art and both committee-film cuts
 docs/                   the built site — this is what gets served
 ```

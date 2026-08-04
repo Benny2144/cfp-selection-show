@@ -137,15 +137,20 @@ const Bracket = (() => {
       const sc = r[g.id] || {};
       const sa = numOrNull(sc.a), sb = numOrNull(sc.b);
 
-      let winner = null, loser = null;
+      let winner = null, loser = null, decidedBy = null;
       /* Only a finished game with two different scores advances anybody.
          A tie sits there rather than picking arbitrarily — overtime is a
          thing, and a half-typed score should not move the bracket. */
       if (a && b && sa !== null && sb !== null && sa !== sb) {
         winner = sa > sb ? a : b;
         loser  = sa > sb ? b : a;
+        decidedBy = 'score';
+      } else if (a && b && (sc.w === 'a' || sc.w === 'b')) {
+        winner = sc.w === 'a' ? a : b;
+        loser = sc.w === 'a' ? b : a;
+        decidedBy = 'advance';
       }
-      out[g.id] = { id: g.id, a, b, sa, sb, winner, loser, game: g };
+      out[g.id] = { id: g.id, a, b, sa, sb, winner, loser, decidedBy, game: g };
     });
 
     return out;
@@ -207,9 +212,14 @@ const History = (() => {
   }
 
   function write(list) {
-    try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, 40))); }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(list.slice(0, 40)));
+      document.dispatchEvent(new CustomEvent('cfp:local-change', { detail: { source: 'history' } }));
+    }
     catch (e) {}
   }
+
+  function replace(list) { write(Array.isArray(list) ? list : []); }
 
   /** A season's worth of the board, small enough to keep dozens of. */
   function snapshot() {
@@ -275,7 +285,7 @@ const History = (() => {
     return Object.values(tally).sort((a, b) => b.n - a.n);
   }
 
-  return { all, save, remove, previous, restoreSeason, rollOfHonour, snapshot };
+  return { all, save, remove, replace, previous, restoreSeason, rollOfHonour, snapshot };
 })();
 
 

@@ -10,14 +10,25 @@ The folder is called `docs` because GitHub Pages can serve a site straight
 out of it (Settings -> Pages -> deploy from branch -> main -> /docs).
 It works just as well dragged onto https://app.netlify.com/drop
 """
-import os, re, shutil, sys, hashlib
+import os, re, shutil, sys, hashlib, json
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'docs')
 
-FILES = ['index.html', 'netlify.toml', '.nojekyll', 'music.mp3',
-         'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4', 'committee.mp4']
-DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall']
+FILES = ['index.html', 'privacy.html', 'terms.html', 'manifest.webmanifest', 'sw.js',
+         'robots.txt', 'sitemap.xml',
+         'netlify.toml', '_headers', '.nojekyll', 'music.mp3',
+         'patmac.mp3', 'coachboone.mp3', 'intro-video.mp4',
+         'selection-night-open.mp4', 'committee.mp4']
+DIRS = ['css', 'js', 'assets', 'logos', 'voice', 'seedcall', '.well-known']
+
+# Anything Cloudflare's static asset layer will not take. Its hard cap is
+# 25 MiB per asset and the intro film is 55 MB. When index.html names a media
+# base these are left out of the build and served from R2 by worker.js;
+# when it is blank they are copied as usual and the site is self-contained.
+# Keep this in step with CDN_FILES in js/show.js.
+CDN_FILES = {'committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4', 'music.mp3'}
+PAGES_FILE_CAP = 25 * 1024 * 1024
 
 # Subfolders worth following. Everything else (voice/_transcripts and the
 # like) is working material and stays out of the build.
@@ -46,6 +57,19 @@ def keep(name):
     return os.path.splitext(name)[1].lower() not in SKIP_EXT
 
 
+def ensure_app_icons():
+    """Build installable PWA icon sizes from the checked-in square mark."""
+    try:
+        from PIL import Image
+    except ImportError:
+        sys.exit('Pillow is required to build the 192px and 512px app icons.')
+    source = os.path.join(ROOT, 'assets', 'cfp-icon.png')
+    image = Image.open(source).convert('RGBA')
+    for size in (192, 512):
+        target = os.path.join(ROOT, 'assets', 'cfp-icon-%d.png' % size)
+        image.resize((size, size), Image.Resampling.LANCZOS).save(target, optimize=True)
+
+
 def stamp_assets():
     """Append a content hash to the css/js URLs in the published index.html.
 
@@ -72,10 +96,54 @@ def stamp_assets():
     open(idx, 'w', encoding='utf-8').write(html)
 
 
+def write_logo_manifest():
+    """Publish one exact path per bundled logo.
+
+    The browser used to probe five extensions for every school, producing
+    hundreds of avoidable 404s. A tiny manifest makes misses free and lets the
+    team pool load crests only as they scroll into view.
+    """
+    folder = os.path.join(OUT, 'logos')
+    if not os.path.isdir(folder):
+        return
+    paths = {}
+    for name in sorted(os.listdir(folder)):
+        full = os.path.join(folder, name)
+        stem, ext = os.path.splitext(name)
+        if os.path.isfile(full) and ext.lower() in {'.png', '.webp', '.jpg', '.jpeg', '.svg'}:
+            paths.setdefault(stem, 'logos/' + name)
+    with open(os.path.join(folder, 'manifest.json'), 'w', encoding='utf-8') as handle:
+        json.dump({'version': 1, 'paths': paths}, handle, separators=(',', ':'))
+
+
+def media_base():
+    """Read the media base out of index.html, so the build and the browser
+    can never disagree about where the big files are coming from."""
+    idx = os.path.join(ROOT, 'index.html')
+    if not os.path.exists(idx):
+        return ''
+    html = open(idx, encoding='utf-8').read()
+    # The tag is documented by an example inside a comment right above it,
+    # and a plain search finds the example first — which silently builds for
+    # a bucket that does not exist. The browser is not fooled by that (a
+    # comment is not an element) so the two would disagree. Strip comments.
+    html = re.sub(r'<!--.*?-->', '', html, flags=re.S)
+    m = re.search(r'<meta\s+name=["\']media-base["\']\s+content=["\']([^"\']*)["\']',
+                  html, re.I)
+    return (m.group(1).strip().rstrip('/') if m else '')
+
+
 def main():
+    ensure_app_icons()
     missing = [f for f in FILES if not os.path.exists(os.path.join(ROOT, f))]
     if 'music.mp3' in missing or 'intro.mp3' in missing:
         sys.exit('Run tools/trim_music.py first — music.mp3 / intro.mp3 are missing.')
+
+    base = media_base()
+    offsite = CDN_FILES if base else set()
+    if base:
+        print('Media base: %s' % base)
+        print('  serving from there: %s\n' % ', '.join(sorted(CDN_FILES)))
 
     if os.path.exists(OUT):
         try:
@@ -89,7 +157,7 @@ def main():
     total = 0
     for f in FILES:
         src = os.path.join(ROOT, f)
-        if not os.path.exists(src):
+        if not os.path.exists(src) or f in offsite:
             continue
         shutil.copy2(src, os.path.join(OUT, f))
         total += os.path.getsize(src)
@@ -119,11 +187,34 @@ def main():
                     shutil.copy2(p, os.path.join(sdst, name))
                     total += os.path.getsize(p)
 
+    write_logo_manifest()
     stamp_assets()
+
+    # nothing in the build is allowed to surprise Cloudflare
+    oversize = []
+    count = 0
+    for dirpath, _, names in os.walk(OUT):
+        for n in names:
+            p = os.path.join(dirpath, n)
+            count += 1
+            if os.path.getsize(p) > PAGES_FILE_CAP:
+                oversize.append((os.path.relpath(p, OUT), os.path.getsize(p)))
+
     print('Built %s' % OUT)
-    print('%.1f MB, ready to publish.' % (total / 1e6))
+    print('%.1f MB across %d files.' % (total / 1e6, count))
+
+    if oversize:
+        print('\n  !! Cloudflare static assets will reject this deploy.')
+        print('     Its limit is 25 MiB per file, on every plan:')
+        for name, size in oversize:
+            print('       %-24s %6.1f MB' % (name, size / 1e6))
+        print('     Add them to CDN_FILES and set <meta name="media-base">')
+        print('     in index.html — see CLOUDFLARE.md.')
+    elif base:
+        print('Ready for Cloudflare Workers — nothing over 25 MiB.')
     print('\nGitHub Pages: commit and push, then Settings -> Pages -> main -> /docs')
-    print('Netlify:      drag the "docs" folder onto https://app.netlify.com/drop')
+    print('Cloudflare:   npx wrangler deploy')
+    print('Netlify:      clear media-base, rebuild, then deploy docs/')
 
 
 if __name__ == '__main__':

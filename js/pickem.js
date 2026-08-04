@@ -17,22 +17,54 @@ const Pickem = (() => {
 
   /* ---------------------------------------------------------- encoding */
 
-  /** picks: array of 11 values, 0 = slot a, 1 = slot b. */
-  function encode(name, picks) {
+  /** picks: array of 11 values, 0 = slot a, 1 = slot b.
+      Optional predicted scores ride after a ~ suffix. Old winner-only codes
+      remain valid, while a scored bracket can still travel as one chat-safe
+      string. */
+  function encode(name, picks, scores) {
     let bits = 0;
     for (let i = 0; i < GAMES.length; i++) bits |= (picks[i] ? 1 : 0) << i;
-    return cleanName(name) + '-' + bits.toString(36).toUpperCase();
+    const scorebook = scores && typeof scores === 'object' ? scores : {};
+    const hasScores = GAMES.some(g => ['a', 'b'].some(side => scoreValue(scorebook[g.id]?.[side]) !== null));
+    const packedScores = hasScores ? '~' + GAMES.map(g => ['a', 'b'].map(side => {
+      const value = scoreValue(scorebook[g.id]?.[side]);
+      return value === null ? 'X' : value.toString(36).toUpperCase();
+    }).join('.')).join('_') : '';
+    return cleanName(name) + '-' + bits.toString(36).toUpperCase() + packedScores;
   }
 
   function decode(code) {
-    const m = String(code || '').trim().match(/^(.*)-([0-9A-Z]+)$/i);
+    const m = String(code || '').trim().match(/^(.*)-([0-9A-Z]+)(?:~([0-9A-Z._]+))?$/i);
     if (!m) return null;
     const bits = parseInt(m[2], 36);
     if (!Number.isFinite(bits) || bits < 0) return null;
     const picks = [];
     for (let i = 0; i < GAMES.length; i++) picks.push((bits >> i) & 1);
-    return { name: cleanName(m[1]) || 'ANON', picks, code: code.trim().toUpperCase() };
+    const scores = {};
+    if (m[3]) {
+      const games = m[3].split('_');
+      if (games.length !== GAMES.length) return null;
+      for (let i = 0; i < GAMES.length; i++) {
+        const pair = games[i].split('.');
+        if (pair.length !== 2) return null;
+        const values = pair.map(value => value.toUpperCase() === 'X' ? null : parseInt(value, 36));
+        if (values.some(value => value !== null && (!Number.isInteger(value) || value < 0 || value > 999))) return null;
+        if (values.some(value => value !== null)) {
+          scores[GAMES[i].id] = {
+            a: values[0] === null ? '' : String(values[0]),
+            b: values[1] === null ? '' : String(values[1])
+          };
+        }
+      }
+    }
+    return { name: cleanName(m[1]) || 'ANON', picks, scores, code: code.trim().toUpperCase() };
   }
+
+  const scoreValue = value => {
+    if (value === '' || value == null || !/^\d{1,3}$/.test(String(value))) return null;
+    const number = Number(value);
+    return Number.isInteger(number) && number >= 0 && number <= 999 ? number : null;
+  };
 
   const cleanName = n => String(n || '').toUpperCase()
     .replace(/[^A-Z0-9 _]/g, '').trim().replace(/\s+/g, '_').slice(0, 16);
@@ -52,8 +84,8 @@ const Pickem = (() => {
     };
     GAMES.forEach((g, i) => {
       const a = slot(g.a), b = slot(g.b);
-      const choice = picks[i] ? 'b' : 'a';
-      const winner = choice === 'b' ? b : a;
+      const choice = picks[i] === 1 ? 'b' : picks[i] === 0 ? 'a' : null;
+      const winner = choice === 'b' ? b : choice === 'a' ? a : null;
       out[g.id] = { a, b, choice, winner };
     });
     return out;
@@ -110,8 +142,13 @@ const Pickem = (() => {
   }
 
   function write(list) {
-    try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, 60))); } catch (e) {}
+    try {
+      localStorage.setItem(KEY, JSON.stringify(list.slice(0, 60)));
+      document.dispatchEvent(new CustomEvent('cfp:local-change', { detail: { source: 'pickem' } }));
+    } catch (e) {}
   }
+
+  function replace(list) { write(Array.isArray(list) ? list : []); }
 
   /** Add an entry from its code. One entry per name — pasting a newer
       code for somebody replaces their old one rather than entering them
@@ -121,7 +158,7 @@ const Pickem = (() => {
     const e = decode(code);
     if (!e) return null;
     const list = all().filter(x => x.name !== e.name);
-    list.push({ name: e.name, picks: e.picks, code: e.code, addedAt: Date.now() });
+    list.push({ name: e.name, picks: e.picks, scores: e.scores || {}, code: e.code, addedAt: Date.now() });
     write(list);
     return e;
   }
@@ -153,5 +190,5 @@ const Pickem = (() => {
     GAMES.reduce((n, g) => n + ROUND_INFO[g.round].points, 0);
 
   return { encode, decode, resolve, championOf, score, all, add, remove,
-           clear, leaderboard, consensus, maxPoints, cleanName };
+           clear, replace, leaderboard, consensus, maxPoints, cleanName };
 })();

@@ -239,6 +239,38 @@ function loadCustomTeams() {
 function saveCustomTeams() {
   const custom = TEAMS.filter(t => t.custom);
   localStorage.setItem('cfp27.customTeams', JSON.stringify(custom));
+  document.dispatchEvent(new CustomEvent('cfp:local-change', { detail: { source: 'teams' } }));
+}
+
+function customTeams() {
+  return TEAMS.filter(t => t.custom).map(t => Object.assign({}, t));
+}
+
+/** Replace just the user-created part of the catalog when a cloud workspace
+    is opened. Built-in FBS teams are never touched. */
+function replaceCustomTeams(list) {
+  TEAMS.filter(t => t.custom).forEach(t => delete TEAM_BY_ID[t.id]);
+  for (let i = TEAMS.length - 1; i >= 0; i--) {
+    if (TEAMS[i].custom) TEAMS.splice(i, 1);
+  }
+  (Array.isArray(list) ? list : []).slice(0, 100).forEach(raw => {
+    if (!raw || !/^x[a-z0-9]{1,63}$/.test(String(raw.id || ''))) return;
+    const t = {
+      id: String(raw.id),
+      school: String(raw.school || 'Custom Team').slice(0, 80),
+      mascot: String(raw.mascot || '').slice(0, 80),
+      abbr: String(raw.abbr || 'TEAM').toUpperCase().slice(0, 6),
+      conf: String(raw.conf || 'Custom').slice(0, 50),
+      primary: /^#[0-9a-f]{6}$/i.test(raw.primary || '') ? raw.primary : '#333333',
+      secondary: /^#[0-9a-f]{6}$/i.test(raw.secondary || '') ? raw.secondary : '#ffffff',
+      custom: true,
+      mark: String(raw.mark || '').slice(0, 6)
+    };
+    TEAM_BY_ID[t.id] = t;
+    TEAMS.push(t);
+    if (!CONFERENCES.includes(t.conf)) CONFERENCES.push(t.conf);
+  });
+  localStorage.setItem('cfp27.customTeams', JSON.stringify(customTeams()));
 }
 
 /* ---- Per-team overrides (colors / abbr / logo) the commish has edited -- */
@@ -248,6 +280,7 @@ function loadOverrides() {
 }
 function saveOverrides(o) {
   localStorage.setItem('cfp27.overrides', JSON.stringify(o));
+  document.dispatchEvent(new CustomEvent('cfp:local-change', { detail: { source: 'branding' } }));
 }
 
 loadCustomTeams();

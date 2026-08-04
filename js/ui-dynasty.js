@@ -26,6 +26,37 @@ const Dynasty = (() => {
     return s ? team(s.id) : null;
   };
 
+  /* A changed winner invalidates every score or prediction fed by that game.
+     Walking the graph keeps the reset surgical: the other side of the bracket
+     is never touched. */
+  function downstreamGames(gameId) {
+    const affected = new Set([gameId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      GAMES.forEach(g => {
+        if (affected.has(g.id)) return;
+        if ((g.a.win && affected.has(g.a.win)) || (g.b.win && affected.has(g.b.win))) {
+          affected.add(g.id); changed = true;
+        }
+      });
+    }
+    affected.delete(gameId);
+    return [...affected];
+  }
+
+  function clearDownstreamResults(gameId) {
+    downstreamGames(gameId).forEach(id => { delete STATE.results[id]; });
+  }
+
+  function clearDownstreamProjection(gameId) {
+    downstreamGames(gameId).forEach(id => {
+      const index = GAMES.findIndex(g => g.id === id);
+      if (index >= 0) myPicks[index] = null;
+      delete STATE.projectionScores[id];
+    });
+  }
+
   /* ======================================================================
      RESULTS — play the bracket out
      ====================================================================== */
@@ -34,6 +65,7 @@ const Dynasty = (() => {
     const wrap = $('#resultsBody');
     if (!wrap) return;
     wrap.innerHTML = '';
+    wrap.className = 'playoff-bracket-board result-bracket-board';
 
     const solved = Bracket.solve();
     const rounds = ['r1', 'qf', 'sf', 'nc'];
@@ -87,13 +119,15 @@ const Dynasty = (() => {
     const st = solved[g.id];
     const card = document.createElement('div');
     card.className = 'gcard' + (st.winner ? ' done' : '') +
-                     (st.a && st.b && !st.winner ? ' live' : '');
+                     (st.a && st.b && !st.winner ? ' live' : '') +
+                     (st.decidedBy === 'advance' ? ' manual' : '');
+    card.dataset.game = g.id;
 
     const h = document.createElement('div');
     h.className = 'g-head';
     const where = g.site === 'campus' && st.a
       ? `at ${(seedTeam(st.a) || {}).school || 'the higher seed'}`
-      : g.site === 'campus' ? 'campus site' : '';
+      : g.site === 'campus' ? 'campus site' : 'tap a team or enter score';
     h.innerHTML = `<b>${esc(g.name)}</b><span>${esc(where)}</span>`;
     card.appendChild(h);
 
@@ -108,6 +142,11 @@ const Dynasty = (() => {
     const row = document.createElement('div');
     row.className = 'g-side';
     if (st.winner) row.classList.add(st.winner === seedNo ? 'won' : 'lost');
+    if (seedNo) {
+      row.classList.add('can-advance');
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+    }
 
     const n = document.createElement('span');
     n.className = 'g-seed';
@@ -123,6 +162,12 @@ const Dynasty = (() => {
       row.appendChild(ph);
     }
 
+    const advance = document.createElement('span');
+    advance.className = 'g-advance';
+    advance.textContent = st.winner === seedNo ? 'ADVANCED' : 'ADVANCE';
+    advance.setAttribute('aria-hidden', 'true');
+    row.appendChild(advance);
+
     const inp = document.createElement('input');
     inp.className = 'g-score';
     inp.type = 'text';
@@ -130,15 +175,56 @@ const Dynasty = (() => {
     inp.maxLength = 3;
     inp.placeholder = '—';
     inp.disabled = !seedNo;
+    inp.dataset.game = g.id;
+    inp.dataset.side = which;
+    inp.setAttribute('aria-label', seedNo && STATE.seeds[seedNo - 1]
+      ? `${team(STATE.seeds[seedNo - 1].id).school} score in ${g.name}`
+      : `Score in ${g.name}`);
     inp.value = (STATE.results[g.id] || {})[which] ?? '';
+    inp.onclick = event => event.stopPropagation();
+    inp.onkeydown = event => event.stopPropagation();
     inp.oninput = () => {
+      const before = Bracket.solve()[g.id].winner;
       inp.value = inp.value.replace(/[^0-9]/g, '');
       STATE.results[g.id] = Object.assign({}, STATE.results[g.id]);
       STATE.results[g.id][which] = inp.value;
+      delete STATE.results[g.id].w;
+      const after = Bracket.solve()[g.id].winner;
+      if (before !== after) clearDownstreamResults(g.id);
       persist();
+      if (after && after !== before) {
+        const winner = seedTeam(after);
+        CFPFoundation.live.announce(`${g.name} finalized. ${winner?.school || 'Winner'} advances.`);
+      }
       scheduleResultsPaint();
     };
     row.appendChild(inp);
+
+    const advanceTeam = () => {
+      if (!seedNo) return;
+      const before = Bracket.solve()[g.id].winner;
+      const result = Object.assign({}, STATE.results[g.id]);
+      const other = which === 'a' ? 'b' : 'a';
+      const selectedScore = Bracket.numOrNull(result[which]);
+      const otherScore = Bracket.numOrNull(result[other]);
+      /* If a completed score points the other way, a deliberate tap updates
+         the visible score too so the bracket can never contradict itself. */
+      if (selectedScore !== null && otherScore !== null && selectedScore <= otherScore)
+        result[which] = String(otherScore + 1);
+      result.w = which;
+      STATE.results[g.id] = result;
+      const after = Bracket.solve()[g.id].winner;
+      if (before !== after) clearDownstreamResults(g.id);
+      persist(); renderResults();
+      const winner = seedTeam(after);
+      CFPFoundation.live.announce(`${g.name} finalized. ${winner?.school || 'Winner'} advances.`);
+    };
+    row.onclick = advanceTeam;
+    row.onkeydown = event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault(); advanceTeam();
+      }
+    };
 
     return row;
   }
@@ -151,28 +237,50 @@ const Dynasty = (() => {
     paintTimer = setTimeout(() => {
       const act = document.activeElement;
       const mark = act && act.classList.contains('g-score')
-        ? [...document.querySelectorAll('.g-score')].indexOf(act) : -1;
+        ? `${act.dataset.game || ''}:${act.dataset.side || ''}` : '';
       renderResults();
-      if (mark >= 0) {
-        const back = document.querySelectorAll('.g-score')[mark];
+      if (mark) {
+        const [game, side] = mark.split(':');
+        const back = document.querySelector(`.g-score[data-game="${game}"][data-side="${side}"]`);
         if (back) { back.focus(); back.setSelectionRange(back.value.length, back.value.length); }
       }
     }, 420);
   }
 
-  function clearResults() {
-    if (!confirm('Clear every score and start the playoff again?')) return;
+  async function clearResults(event) {
+    if (!Object.keys(STATE.results || {}).length) return;
+    const before = CFPFoundation.actions.clone(STATE.results);
+    const accepted = await CFPFoundation.actions.confirm({
+      title: 'Clear every playoff score?',
+      message: 'All finalized games and the current champion will be removed. You can undo this afterward.',
+      confirmLabel: 'Clear scores',
+      trigger: event?.currentTarget,
+    });
+    if (!accepted) return;
     STATE.results = {};
     persist(); renderResults();
     toast('Results cleared');
+    CFPFoundation.live.announce('All playoff scores were cleared');
+    CFPFoundation.actions.undo('Scores cleared', () => {
+      STATE.results = CFPFoundation.actions.clone(before);
+      persist(); renderResults();
+    });
   }
 
   /* ======================================================================
      PICK'EM
      ====================================================================== */
 
-  let myPicks = new Array(GAMES.length).fill(0);
+  let myPicks = [];
   let pickMode = 'make';                 // 'make' | 'board'
+  let projectionPaintTimer = null;
+
+  function saveProjection() {
+    STATE.projectionPicks = myPicks.slice(0, GAMES.length);
+    while (STATE.projectionPicks.length < GAMES.length) STATE.projectionPicks.push(null);
+    STATE.projectionScores = STATE.projectionScores || {};
+    persist();
+  }
 
   function renderPickem() {
     $$('#pickem .pk-tab').forEach(b =>
@@ -185,62 +293,157 @@ const Dynasty = (() => {
   function renderPickForm() {
     const wrap = $('#pkGames');
     wrap.innerHTML = '';
+    wrap.className = 'playoff-bracket-board projection-bracket-board';
     const mine = Pickem.resolve(myPicks);
 
     ['r1', 'qf', 'sf', 'nc'].forEach(r => {
       const games = GAMES.filter(g => g.round === r);
+      const section = document.createElement('section');
+      section.className = 'res-round projection-round r-' + r;
       const head = document.createElement('div');
-      head.className = 'pk-round';
+      head.className = 'res-head pk-round';
       head.innerHTML = `<b>${esc(ROUND_INFO[r].label)}</b>` +
         `<span>${ROUND_INFO[r].points} pt${ROUND_INFO[r].points === 1 ? '' : 's'} each</span>`;
-      wrap.appendChild(head);
+      section.appendChild(head);
 
+      const grid = document.createElement('div');
+      grid.className = 'res-grid';
       games.forEach(g => {
         const i = GAMES.indexOf(g);
         const st = mine[g.id];
-        const card = document.createElement('div');
-        card.className = 'pk-card';
-        card.innerHTML = `<div class="pk-name">${esc(g.name)}</div>`;
-
-        ['a', 'b'].forEach(side => {
-          const seedNo = st[side];
-          const btn = document.createElement('button');
-          btn.className = 'pk-pick' + (st.choice === side ? ' on' : '') +
-                          (seedNo ? '' : ' blank');
-          btn.disabled = !seedNo;
-          if (seedNo && STATE.seeds[seedNo - 1]) {
-            const sp = document.createElement('span');
-            sp.className = 'pk-seed'; sp.textContent = seedNo;
-            btn.append(sp, plate(STATE.seeds[seedNo - 1].id, 38));
-          } else {
-            btn.textContent = Bracket.slotName(seedNo, mine, g[side]);
-          }
-          btn.onclick = () => {
-            myPicks[i] = side === 'b' ? 1 : 0;
-            /* A change upstream can orphan a later pick — the team they had
-               winning the final might not be in it any more. Leaving those
-               alone is fine: resolve() always reads the live slots, so the
-               bracket stays consistent whatever is stored. */
-            renderPickForm();
-            updateCode();
-          };
-          card.appendChild(btn);
-        });
-        wrap.appendChild(card);
+        grid.appendChild(projectionGameCard(g, i, st, mine));
       });
+      section.appendChild(grid);
+      wrap.appendChild(section);
     });
     updateCode();
+  }
+
+  function projectionGameCard(g, index, st, mine) {
+    const card = document.createElement('div');
+    card.className = 'gcard projection-card' + (st.winner ? ' picked' : '') +
+      (st.a && st.b && !st.winner ? ' live' : '');
+    card.dataset.game = g.id;
+
+    const head = document.createElement('div');
+    head.className = 'g-head';
+    const where = g.site === 'campus' && st.a
+      ? `at ${(seedTeam(st.a) || {}).school || 'the higher seed'}`
+      : `${ROUND_INFO[g.round].points} point${ROUND_INFO[g.round].points === 1 ? '' : 's'}`;
+    head.innerHTML = `<b>${esc(g.name)}</b><span>${esc(where)}</span>`;
+    card.appendChild(head);
+    card.appendChild(projectionSideRow(g, index, st, mine, 'a'));
+    card.appendChild(projectionSideRow(g, index, st, mine, 'b'));
+    return card;
+  }
+
+  function projectionSideRow(g, index, st, mine, side) {
+    const seedNo = st[side];
+    const row = document.createElement('div');
+    row.className = 'g-side prediction-side' + (st.choice === side ? ' won selected' : '') +
+      (st.choice && st.choice !== side ? ' lost' : '');
+    if (seedNo) {
+      row.classList.add('can-advance');
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+    }
+
+    const seed = document.createElement('span');
+    seed.className = 'g-seed';
+    seed.textContent = seedNo || '';
+    row.appendChild(seed);
+
+    if (seedNo && STATE.seeds[seedNo - 1]) {
+      row.appendChild(plate(STATE.seeds[seedNo - 1].id, 40));
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'dy-plate empty';
+      placeholder.textContent = Bracket.slotName(seedNo, mine, g[side]);
+      row.appendChild(placeholder);
+    }
+
+    const advance = document.createElement('span');
+    advance.className = 'g-advance';
+    advance.textContent = st.choice === side ? 'PICKED' : 'PICK';
+    advance.setAttribute('aria-hidden', 'true');
+    row.appendChild(advance);
+
+    const input = document.createElement('input');
+    input.className = 'g-score projection-score';
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.maxLength = 3;
+    input.placeholder = '—';
+    input.disabled = !seedNo;
+    input.dataset.game = g.id;
+    input.dataset.side = side;
+    input.setAttribute('aria-label', seedNo && STATE.seeds[seedNo - 1]
+      ? `${team(STATE.seeds[seedNo - 1].id).school} predicted score in ${g.name}`
+      : `Predicted score in ${g.name}`);
+    input.value = (STATE.projectionScores[g.id] || {})[side] ?? '';
+    input.onclick = event => event.stopPropagation();
+    input.onkeydown = event => event.stopPropagation();
+    input.oninput = () => {
+      input.value = input.value.replace(/[^0-9]/g, '');
+      STATE.projectionScores[g.id] = Object.assign({}, STATE.projectionScores[g.id]);
+      STATE.projectionScores[g.id][side] = input.value;
+      const score = STATE.projectionScores[g.id];
+      const a = Bracket.numOrNull(score.a), b = Bracket.numOrNull(score.b);
+      const previous = myPicks[index];
+      if (st.a && st.b && a !== null && b !== null && a !== b)
+        myPicks[index] = a > b ? 0 : 1;
+      if (previous !== myPicks[index]) clearDownstreamProjection(g.id);
+      saveProjection();
+      if (previous !== myPicks[index] && myPicks[index] !== null)
+        CFPFoundation.live.announce(`${g.name} projection saved`);
+      scheduleProjectionPaint(input);
+    };
+    row.appendChild(input);
+
+    const choose = () => {
+      if (!seedNo) return;
+      const choice = side === 'b' ? 1 : 0;
+      if (myPicks[index] !== choice) clearDownstreamProjection(g.id);
+      myPicks[index] = choice;
+      saveProjection(); renderPickForm();
+      CFPFoundation.live.announce(`${g.name} projection saved`);
+    };
+    row.onclick = choose;
+    row.onkeydown = event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault(); choose();
+      }
+    };
+    return row;
+  }
+
+  function scheduleProjectionPaint(activeInput) {
+    clearTimeout(projectionPaintTimer);
+    const mark = `${activeInput.dataset.game}:${activeInput.dataset.side}`;
+    projectionPaintTimer = setTimeout(() => {
+      renderPickForm();
+      const [game, side] = mark.split(':');
+      const back = document.querySelector(`.projection-score[data-game="${game}"][data-side="${side}"]`);
+      if (back) { back.focus(); back.setSelectionRange(back.value.length, back.value.length); }
+    }, 420);
   }
 
   function updateCode() {
     const name = $('#pkName').value;
     const champ = Pickem.championOf(myPicks);
     const t = champ && seedTeam(champ);
-    $('#pkChampion').innerHTML = t
-      ? `Your champion: <b>${esc(t.school)}</b>`
-      : 'Pick a winner in every game to finish your bracket.';
-    $('#pkCode').value = name.trim() ? Pickem.encode(name, myPicks) : '';
-    $('#pkCopy').disabled = !name.trim();
+    const picked = myPicks.filter(value => value === 0 || value === 1).length;
+    const complete = picked === GAMES.length && !!champ;
+    const scored = Object.values(STATE.projectionScores || {}).some(score =>
+      score && (score.a !== '' && score.a != null || score.b !== '' && score.b != null));
+    $('#pkChampion').innerHTML = complete && t
+      ? `Your champion: <b>${esc(t.school)}</b>${scored ? ' · predicted scores included' : ''}`
+      : `${picked} of ${GAMES.length} winners picked. Tap a team to advance it.`;
+    $('#pkCode').value = name.trim() && complete
+      ? Pickem.encode(name, myPicks, STATE.projectionScores) : '';
+    $('#pkCode').placeholder = complete ? 'add your name' : 'finish every round to unlock';
+    $('#pkCopy').disabled = !name.trim() || !complete;
+    $('#pkCount').textContent = `${picked}/${GAMES.length} picks`;
   }
 
   function renderBoard() {
@@ -304,7 +507,7 @@ const Dynasty = (() => {
     const code = $('#pkPaste').value.trim();
     if (!code) return;
     /* people paste a whole chat line — take every code-shaped thing in it */
-    const found = code.match(/[A-Z0-9_ ]{1,16}-[0-9A-Z]+/gi) || [];
+    const found = code.match(/[A-Z0-9_ ]{1,16}-[0-9A-Z]+(?:~[0-9A-Z._]+)?/gi) || [];
     let n = 0;
     found.forEach(c => { if (Pickem.add(c)) n++; });
     if (!n) { toast('That does not look like an entry code'); return; }
@@ -325,9 +528,8 @@ const Dynasty = (() => {
     const list = History.all();
     if (!list.length) {
       wrap.innerHTML =
-        '<p class="dy-empty">Nothing archived yet. Finish a show, or press ' +
-        '<b>Archive this season</b>, and every playoff you run lands here — ' +
-        'field, bracket and champion.</p>';
+        '<p class="dy-empty">Nothing archived yet. Finish the show and archive ' +
+        'the season. Every playoff you run lands here — field, bracket and champion.</p>';
       $('#histRoll').innerHTML = '';
       return;
     }
@@ -373,19 +575,38 @@ const Dynasty = (() => {
       const load = document.createElement('button');
       load.className = 'btn ghost sm';
       load.textContent = 'Load this season';
-      load.onclick = () => {
-        if (!confirm(`Replace the board with the ${h.season} field?`)) return;
+      load.onclick = async event => {
+        const before = fieldSnapshot();
+        const accepted = await CFPFoundation.actions.confirm({
+          title: `Load the ${h.season} field?`,
+          message: 'This replaces the current working board and scores with the archived season. You can undo it afterward.',
+          confirmLabel: 'Load season',
+          trigger: event.currentTarget,
+        });
+        if (!accepted) return;
         History.restoreSeason(h.savedAt);
         persist(); renderPool(); renderSeeds(); Movement.refresh();
         toast(`${h.season} loaded`);
+        CFPFoundation.actions.undo(`${h.season} loaded`, () => restoreFieldSnapshot(before));
         showScreen('room');
       };
       const del = document.createElement('button');
       del.className = 'btn ghost sm danger';
       del.textContent = 'Delete';
-      del.onclick = () => {
-        if (!confirm(`Delete ${h.season} from the history?`)) return;
+      del.onclick = async event => {
+        const before = History.all();
+        const accepted = await CFPFoundation.actions.confirm({
+          title: `Delete ${h.season} from history?`,
+          message: 'The archived season will be removed from Dynasty History. You can undo it afterward.',
+          confirmLabel: 'Delete archive',
+          trigger: event.currentTarget,
+        });
+        if (!accepted) return;
         History.remove(h.savedAt); renderHistory();
+        CFPFoundation.live.announce(`${h.season} archive deleted`);
+        CFPFoundation.actions.undo(`${h.season} archive deleted`, () => {
+          History.replace(before); renderHistory();
+        });
       };
       acts.append(load, del);
       card.appendChild(acts);
@@ -527,16 +748,73 @@ const Dynasty = (() => {
   function renderStrip() {
     const track = $('#ssTrack');
     if (!track) return;
+    const oldScroll = track.scrollLeft;
+    const oldSignature = track.dataset.fieldSignature || '';
+    const fieldSignature = STATE.seeds.map(s => s ? s.id : '-').join('|');
     track.innerHTML = '';
 
     const solved = Bracket.solve();
     const anySeeded = STATE.seeds.some(Boolean);
 
     if (!anySeeded) {
+      track.dataset.fieldSignature = fieldSignature;
       track.innerHTML = '<span class="ss-empty">No field set &mdash; ' +
         'build one in the committee room</span>';
       return;
     }
+
+    /* Until a playoff result exists, this is a live field ribbon—not a list
+       of hypothetical games. Showing seeds in order means a new No. 1, No. 2,
+       etc. appears immediately instead of being buried after the four opening
+       round pairings. Two teams per cell keeps all twelve easy to scan. */
+    if (!Bracket.played()) {
+      let changedSeed = -1;
+      if (oldSignature && oldSignature !== fieldSignature) {
+        const before = oldSignature.split('|');
+        const after = fieldSignature.split('|');
+        changedSeed = after.findIndex((id, i) => id !== before[i]);
+      }
+
+      for (let first = 0; first < 12; first += 2) {
+        const cell = document.createElement('button');
+        cell.className = 'ss-cell field-cell';
+        cell.dataset.firstSeed = first;
+        cell.onclick = () => showScreen('room');
+        cell.innerHTML = `<span class="ss-status">CURRENT FIELD · ${first + 1}—${first + 2}</span>`;
+
+        [first, first + 1].forEach(seedIndex => {
+          const selection = STATE.seeds[seedIndex];
+          const t = selection && team(selection.id);
+          const row = document.createElement('span');
+          row.className = 'ss-row' + (selection ? ' filled' : ' empty');
+          row.innerHTML =
+            `<i class="ss-rank">${seedIndex + 1}</i>` +
+            `<b class="ss-abbr">${t ? esc(t.abbr) : '&mdash;'}</b>` +
+            `<u class="ss-num"></u>`;
+          cell.appendChild(row);
+        });
+        track.appendChild(cell);
+      }
+
+      track.dataset.fieldSignature = fieldSignature;
+      requestAnimationFrame(() => {
+        if (changedSeed >= 0) {
+          const cell = track.querySelector(
+            `.field-cell[data-first-seed="${Math.floor(changedSeed / 2) * 2}"]`);
+          if (cell) {
+            cell.classList.add('updated');
+            const left = cell.offsetLeft - track.offsetLeft -
+              Math.max(0, (track.clientWidth - cell.offsetWidth) / 2);
+            track.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+          }
+        } else {
+          track.scrollLeft = Math.min(oldScroll, Math.max(0, track.scrollWidth - track.clientWidth));
+        }
+      });
+      return;
+    }
+
+    track.dataset.fieldSignature = fieldSignature;
 
     GAMES.forEach(g => {
       const st = solved[g.id];
@@ -564,6 +842,10 @@ const Dynasty = (() => {
 
       track.appendChild(cell);
     });
+
+    requestAnimationFrame(() => {
+      track.scrollLeft = Math.min(oldScroll, Math.max(0, track.scrollWidth - track.clientWidth));
+    });
   }
 
   /** Which nav item is lit. */
@@ -578,14 +860,30 @@ const Dynasty = (() => {
 
   function init() {
     STATE.results = STATE.results || {};
+    STATE.projectionScores = STATE.projectionScores || {};
+    myPicks = Array.isArray(STATE.projectionPicks) && STATE.projectionPicks.length === GAMES.length
+      ? STATE.projectionPicks.map(value => value === 0 || value === 1 ? value : null)
+      : new Array(GAMES.length).fill(null);
+    STATE.projectionPicks = myPicks.slice();
 
     /* ---- results ---- */
     $('#resClear').onclick = clearResults;
     $('#resRoom').onclick = () => showScreen('room');
     $('#resBracketBtn').onclick = () => showScreen('final');
-    $('#resArchive').onclick = () => {
+    $('#resArchive').onclick = async event => {
+      const before = History.all();
+      const accepted = await CFPFoundation.actions.confirm({
+        title: `Archive the ${STATE.season} season?`,
+        message: 'This stores the current field, scores, and champion in Dynasty History. Re-archiving the same season replaces its earlier snapshot.',
+        confirmLabel: 'Archive season',
+        danger: false,
+        trigger: event.currentTarget,
+      });
+      if (!accepted) return;
       History.save(); Movement.refresh();
       toast(`${STATE.season} archived`);
+      CFPFoundation.live.announce(`${STATE.season} season archived`);
+      CFPFoundation.actions.undo(`${STATE.season} archived`, () => History.replace(before));
     };
 
     /* ---- pick'em ---- */
@@ -600,17 +898,66 @@ const Dynasty = (() => {
       catch (e) { $('#pkCode').select(); toast('Press Ctrl+C to copy'); }
     };
     $('#pkAdd').onclick = addEntry;
-    $('#pkClear').onclick = () => {
-      if (!confirm('Remove every entry?')) return;
+    $('#pkReset').onclick = async event => {
+      if (!myPicks.some(value => value === 0 || value === 1) &&
+          !Object.keys(STATE.projectionScores).length) return;
+      const before = {
+        picks: myPicks.slice(),
+        scores: CFPFoundation.actions.clone(STATE.projectionScores),
+      };
+      const accepted = await CFPFoundation.actions.confirm({
+        title: 'Reset this projection?',
+        message: 'All predicted winners and scores in your projection will be cleared. You can undo it afterward.',
+        confirmLabel: 'Reset projection',
+        trigger: event.currentTarget,
+      });
+      if (!accepted) return;
+      myPicks = new Array(GAMES.length).fill(null);
+      STATE.projectionScores = {};
+      saveProjection(); renderPickForm();
+      toast('Projection reset');
+      CFPFoundation.live.announce('Projection reset');
+      CFPFoundation.actions.undo('Projection reset', () => {
+        myPicks = before.picks.slice();
+        STATE.projectionScores = CFPFoundation.actions.clone(before.scores);
+        saveProjection(); renderPickForm();
+      });
+    };
+    $('#pkClear').onclick = async event => {
+      const before = Pickem.all();
+      if (!before.length) return;
+      const accepted = await CFPFoundation.actions.confirm({
+        title: 'Remove every league entry?',
+        message: 'All submitted projection entries will be removed from the leaderboard. You can undo it afterward.',
+        confirmLabel: 'Clear entries',
+        trigger: event.currentTarget,
+      });
+      if (!accepted) return;
       Pickem.clear(); renderBoard(); toast('Entries cleared');
+      CFPFoundation.actions.undo('Projection entries cleared', () => {
+        Pickem.replace(before); renderBoard();
+      });
     };
     $('#pkRoom').onclick = () => showScreen(VIEWER ? 'show' : 'room');
 
     /* ---- history ---- */
     $('#histRoom').onclick = () => showScreen(VIEWER ? 'show' : 'room');
-    $('#histSave').onclick = () => {
+    $('#histSave').onclick = async event => {
+      const before = History.all();
+      const accepted = await CFPFoundation.actions.confirm({
+        title: `Archive the ${STATE.season} season?`,
+        message: 'This stores the current field, scores, and champion. Re-archiving the same season replaces its earlier snapshot.',
+        confirmLabel: 'Archive season',
+        danger: false,
+        trigger: event.currentTarget,
+      });
+      if (!accepted) return;
       History.save(); Movement.refresh(); renderHistory();
       toast(`${STATE.season} archived`);
+      CFPFoundation.live.announce(`${STATE.season} season archived`);
+      CFPFoundation.actions.undo(`${STATE.season} archived`, () => {
+        History.replace(before); renderHistory();
+      });
     };
 
     /* ---- export ---- */
@@ -632,11 +979,16 @@ const Dynasty = (() => {
     $$('#enLinks button').forEach(b => b.onclick = () => showScreen(b.dataset.go));
     $('#navBrand').onclick = () => showScreen('home');
     $('#ssLeague').onclick = () => showScreen('final');
-    $('#navShow').onclick = () => { showScreen('show'); Show.arm(); };
+    $('#navShow').onclick = () => { enterPremiere(); };
     $('#ssNext').onclick = () => {
       const t = $('#ssTrack');
       t.scrollBy({ left: t.clientWidth * 0.8, behavior: 'smooth' });
     };
+
+    /* The strip is fixed above the commissioner room, so it must subscribe
+       to board changes instead of waiting for a page navigation to repaint. */
+    document.addEventListener('cfp:state', renderStrip);
+    renderStrip();
 
     Movement.refresh();
   }

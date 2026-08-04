@@ -5,7 +5,38 @@
 /* The cold open, in order. Drop replacements next to index.html and rename
    here. The mp3s are trimmed copies made by tools/trim_music.py, and the
    video is shrunk by tools/shrink_video.py — small enough to host. */
-const VIDEO_FILE = 'intro-video.mp4';    // rolls first, full screen
+/* =====================================================================
+   WHERE THE BIG FILES LIVE
+
+   Cloudflare's static asset pipeline will not accept the 55 MB intro film,
+   so anything in CDN_FILES is served by the Worker from its private R2
+   binding. The rest of the site stays in the static asset layer.
+
+   The address comes from a meta tag rather than from this file so it can
+   be changed without touching any JavaScript. Empty means "everything is
+   local", which is useful for a self-contained local/GitHub Pages build.
+   ===================================================================== */
+const MEDIA_BASE = (() => {
+  const m = document.querySelector('meta[name="media-base"]');
+  return ((m && m.content) || '').trim().replace(/\/+$/, '');
+})();
+
+/* Only these are big enough to be worth hosting apart. Everything else is
+   comfortably under the cap and stays with the site, where it needs no
+   CORS and no second thing to go wrong. */
+const CDN_FILES = new Set([
+  'committee.mp4', 'intro-video.mp4', 'selection-night-open.mp4', 'music.mp3',
+]);
+
+const mediaUrl = f => (MEDIA_BASE && CDN_FILES.has(f)) ? MEDIA_BASE + '/' + f : f;
+
+/** True only when a file crosses origins. /media is same-origin in production. */
+const isRemote = f => {
+  try { return new URL(mediaUrl(f), document.baseURI).origin !== location.origin; }
+  catch (e) { return false; }
+};
+
+const VIDEO_FILE = 'selection-night-open.mp4'; // the supplied 15-second committee film
 const INTRO_FILE = 'patmac.mp3';         // then Pat
 const BOONE_FILE = 'coachboone.mp3';     // then Coach Boone
 const MUSIC_FILE = 'music.mp3';          // bed under everything
@@ -45,10 +76,51 @@ const SEED_DIR = 'seedcall/';
 
 const Show = (() => {
 
-  let seq = [], cursor = -1, timer = null;
+  let seq = [], cursor = -1, timer = null, suspenseTimer = null;
   let paused = false, running = false, phase = 'idle', filmGuard = null;
   let ctlHide = null, revealed = [];
+  let chapterAdvance = null;
+  const chaptersPlayed = new Set();
   const el = {};
+
+  const PICK_CHAPTERS = {
+    0: { kick: 'Chapter one', index: '01—04', title: 'THE FOUR BYES',
+         sub: 'Four teams skip opening weekend. Every position changes the road.' },
+    4: { kick: 'Chapter two', index: '05—08', title: 'CAMPUS LIGHTS',
+         sub: 'Four hosts. Four home crowds. Opening-round football comes to campus.' },
+    8: { kick: 'Chapter three', index: '09—12', title: 'THE CUT LINE',
+         sub: 'The final four invitations. The bubble closes one name at a time.' }
+  };
+
+  /* Every selection has its own editorial role and camera language. The
+     show still feels like one package, but it no longer repeats the same
+     centered card twelve times. */
+  const DIRECTOR_PICKS = [
+    { camera: 'center', tier: 'bye', kicker: 'The standard',
+      title: 'No. 1 in the nation', milestone: 'THE STANDARD' },
+    { camera: 'left', tier: 'bye', kicker: 'Bye secured',
+      title: 'Quarterfinal bound' },
+    { camera: 'right', tier: 'bye', kicker: 'Championship position',
+      title: 'A direct road forward' },
+    { camera: 'center', tier: 'bye', kicker: 'The bye line closes',
+      title: 'The final direct ticket', milestone: 'BYE LINE CLOSED' },
+    { camera: 'center', tier: 'host', kicker: 'Opening weekend',
+      title: 'The top campus host', milestone: 'HOME FIELD SECURED' },
+    { camera: 'right', tier: 'host', kicker: 'Home field',
+      title: 'Protect this house' },
+    { camera: 'left', tier: 'host', kicker: 'December football',
+      title: 'One more game at home' },
+    { camera: 'center', tier: 'host', kicker: 'The host line closes',
+      title: 'The final home game', milestone: 'FINAL CAMPUS HOST' },
+    { camera: 'center', tier: 'road', kicker: 'The cut line',
+      title: 'The first road team', milestone: 'THE BUBBLE BREAKS' },
+    { camera: 'right', tier: 'road', kicker: 'On the road',
+      title: 'No easy way in' },
+    { camera: 'left', tier: 'road', kicker: 'One win away',
+      title: 'The road test' },
+    { camera: 'center', tier: 'road', kicker: 'Last team in',
+      title: 'The final invitation', milestone: 'THE FIELD IS COMPLETE' }
+  ];
 
   const fxLevel = () => STATE.fx || 'max';
   const isMax   = () => fxLevel() === 'max';
@@ -89,6 +161,7 @@ const Show = (() => {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 5 + Math.random() * 22;
       parts.push({
+        kind: 'shard',
         x: cx + (Math.random() - .5) * 380, y: cy + (Math.random() - .5) * 140,
         vx: Math.cos(a) * sp * 1.75, vy: Math.sin(a) * sp - 6,
         w: 3 + Math.random() * 10, h: 5 + Math.random() * 16,
@@ -99,9 +172,24 @@ const Show = (() => {
     if (!isCalm()) for (let i = 0; i < (isMax() ? 44 : 22); i++) {
       const left = Math.random() < .5;
       parts.push({
+        kind: 'streak',
         x: left ? -20 : innerWidth + 20, y: Math.random() * innerHeight,
         vx: (left ? 1 : -1) * (26 + Math.random() * 34), vy: (Math.random() - .5) * 5,
         w: 30 + Math.random() * 70, h: 2, rot: 0, vr: 0,
+        c: colors[(Math.random() * colors.length) | 0], life: 1
+      });
+    }
+    /* Fast, short-lived light streaks make the impact read like camera
+       flashes and pyro instead of relying on confetti alone. */
+    if (!isCalm()) for (let i = 0; i < (isMax() ? 58 : 30); i++) {
+      const a = Math.random() * Math.PI * 2, sp = 18 + Math.random() * 34;
+      parts.push({
+        kind: 'spark',
+        x: cx + (Math.random() - .5) * 170,
+        y: cy + (Math.random() - .5) * 80,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        w: 18 + Math.random() * 44, h: .7 + Math.random() * 1.5,
+        rot: a, vr: 0,
         c: colors[(Math.random() * colors.length) | 0], life: 1
       });
     }
@@ -136,20 +224,35 @@ const Show = (() => {
       const r = rings[i];
       r.r += r.sp; r.a -= .022; r.sp *= .985;
       if (r.a <= 0) { rings.splice(i, 1); continue; }
+      ctx.save();
       ctx.globalAlpha = r.a; ctx.strokeStyle = r.c; ctx.lineWidth = Math.max(.5, r.w);
-      ctx.beginPath(); ctx.arc(cx, cy, r.r, 0, 6.284); ctx.stroke();
+      ctx.shadowColor = r.c; ctx.shadowBlur = 16;
+      ctx.translate(cx, cy); ctx.scale(1, .42);
+      ctx.beginPath(); ctx.arc(0, 0, r.r, 0, 6.284); ctx.stroke();
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
 
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
-      p.x += p.vx; p.y += p.vy; p.vy += .58; p.vx *= .985; p.rot += p.vr;
-      p.life -= .0105;
+      p.x += p.vx; p.y += p.vy;
+      if (p.kind === 'spark') {
+        p.vy *= .965; p.vx *= .965; p.life -= .034;
+      } else {
+        p.vy += .58; p.vx *= .985; p.rot += p.vr; p.life -= .0105;
+      }
       if (p.life <= 0 || p.y > innerHeight + 90) { parts.splice(i, 1); continue; }
       ctx.save();
       ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
       ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-      ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      if (p.kind === 'spark') {
+        const g = ctx.createLinearGradient(-p.w, 0, p.w / 2, 0);
+        g.addColorStop(0, 'transparent'); g.addColorStop(.7, p.c); g.addColorStop(1, '#fff');
+        ctx.strokeStyle = g; ctx.lineWidth = p.h; ctx.shadowColor = p.c; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.moveTo(-p.w, 0); ctx.lineTo(0, 0); ctx.stroke();
+      } else {
+        ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      }
       ctx.restore();
     }
 
@@ -401,6 +504,7 @@ const Show = (() => {
      the video, then Pat, then Boone — and setting a volume cannot un-pause
      anything. So we track intent and put it back. */
   let bedWanted = false, bedWatch = null;
+  let soundtrackEnabled = true, soundtrackActivated = false;
 
   function ensureBed(why) {
     const m = el.music;
@@ -470,7 +574,7 @@ const Show = (() => {
     STATE.seeds.forEach(s => {
       if (!s || callCache[s.id] !== undefined) return;
       const a = new Audio(VOICE_DIR + s.id + '.mp3');
-      a.preload = 'auto';
+      a.preload = 'metadata';
       a.onerror = () => { callCache[s.id] = false; };
       callCache[s.id] = a;
     });
@@ -497,7 +601,7 @@ const Show = (() => {
     if (seedCache[key] === false) return null;
     if (!seedCache[key]) {
       const a = new Audio(SEED_DIR + key + '.mp3');
-      a.preload = 'auto';
+      a.preload = 'metadata';
       a.onerror = () => { seedCache[key] = false; };
       seedCache[key] = a;
     }
@@ -569,13 +673,41 @@ const Show = (() => {
   /** Start the music bed and keep it running everywhere in the app. */
   function startBed() {
     const m = el.music;
-    if (!m) return;
+    if (!m || !soundtrackEnabled) return Promise.resolve(false);
+    soundtrackActivated = true;
+    bedWanted = true;
+    watchBed(true);
     Bus.wake();
-    if (!m.getAttribute('src')) m.src = MUSIC_FILE;
-    if (bedStarted && !m.paused) return;
+    if (!m.getAttribute('src')) m.src = mediaUrl(MUSIC_FILE);
+    if (bedStarted && !m.paused) {
+      setBedVolume();
+      return Promise.resolve(true);
+    }
     Bus.set(m, 0, 0);
-    m.play().then(() => { bedStarted = true; fadeTo(bedVol(), 2500); })
-            .catch(() => { bedStarted = false; });
+    return m.play().then(() => {
+      bedStarted = true;
+      fadeTo(bedVol(), 2500);
+      return true;
+    }).catch(() => {
+      bedStarted = false;
+      return false;
+    });
+  }
+
+  function setSoundtrackEnabled(enabled) {
+    soundtrackEnabled = !!enabled;
+    if (soundtrackEnabled) return startBed();
+    bedWanted = false;
+    watchBed(false);
+    fadeTo(0, 220);
+    setTimeout(() => {
+      if (soundtrackEnabled) return;
+      try { el.music.pause(); } catch (e) {}
+      el.music.removeAttribute('src');
+      try { el.music.load(); } catch (e) {}
+      bedStarted = false;
+    }, 260);
+    return Promise.resolve(false);
   }
 
   function setBedVolume() {
@@ -652,6 +784,7 @@ const Show = (() => {
       `#liveBracket .bk-seed[data-seed="${i + 1}"]`);
     if (!s || !plate) { then && then(); return; }
 
+    setCinemaPhase('bracket-moment');
     el.revealLayer.classList.remove('on');
     el.lower.classList.remove('on');
     showPickArt(null, 'off');          // the card goes with the reveal
@@ -706,7 +839,7 @@ const Show = (() => {
   /* ====================================================== SPOILER-FREE
      The ticker never names a team that has not been revealed on screen. */
   function hypeLines() {
-    const n = seq.length || 12;
+    const n = seq.length;
     return [
       `<span><b>${esc(STATE.league.toUpperCase())}</b> &nbsp;${esc(STATE.season)} SELECTION SHOW</span>`,
       `<span>THE COMMITTEE HAS MET &middot; <b>THE FIELD IS SET</b></span>`,
@@ -757,19 +890,27 @@ const Show = (() => {
   /* ==================================================== ARM (play gate) */
   function arm() {
     running = false; paused = false; cursor = -1; phase = 'gate';
+    document.getElementById('show').classList.remove('film-playing');
+    setCinemaPhase(null);
     clearTimeout(timer);
+    clearTimeout(suspenseTimer);
     revealed = [];
+    chaptersPlayed.clear();
+    hideStoryLayers();
 
     seq = STATE.seeds.map((s, i) => s ? i : null).filter(i => i !== null);
     if (STATE.order === 'desc') seq.reverse();
 
     buildRail(); clearRail(); paintTicker();
+    buildDirectorRundown();
+    resetDirectorReveal();
     buildLiveBracket(); showLiveBracket(false);
 
     hideCold();
     hidePops();
     if (el.snubWrap) el.snubWrap.classList.remove('on');
     el.revealLayer.classList.remove('on');
+    if (el.pickLock) el.pickLock.classList.remove('on');
     el.lower.classList.remove('on');
     el.rail.style.opacity = '0';
     el.glow.style.opacity = '0';
@@ -782,11 +923,11 @@ const Show = (() => {
       : `${n} team${n === 1 ? '' : 's'} selected`;
     el.gateTitle.innerHTML = `${esc(STATE.title)}<br>${esc(STATE.subtitle)}`;
     el.gateSub.innerHTML = `${esc(STATE.league)} &middot; ${esc(STATE.season)}` +
-      ` &nbsp;&middot;&nbsp; press play when everyone is watching`;
+      ` &nbsp;&middot;&nbsp; 15-second opening film &nbsp;&middot;&nbsp; press play when everyone is watching`;
 
     el.intro.src ||= INTRO_FILE;
     el.boone.src ||= BOONE_FILE;
-    el.filmStage.classList.remove('on');
+    el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
     try { el.film.pause(); el.film.currentTime = 0; } catch (e) {}
     stopCall();
     stopSeedTalk();
@@ -794,7 +935,7 @@ const Show = (() => {
     primeSeedTalk();
     primePickArt();
     showPickArt(null, 'off');
-    startBed();
+    if (soundtrackActivated) startBed();
     setBedVolume();
     startAmbient();
 
@@ -898,13 +1039,35 @@ const Show = (() => {
   /* ---------------------------------------------------------- the film */
   function runFilm() {
     const mode = STATE.cold || 'full';
-    if (mode !== 'full') { runVoiceOpen(); return; }
+    /* Full and short shows both begin with the supplied committee film.
+       "Off" is the only explicit opt-out. */
+    if (mode === 'off') { runVoiceOpen(); return; }
 
     phase = 'film';
+    /* The supplied opening owns the entire frame. A delayed chapter/reveal
+       callback from an earlier run must never leak broadcast copy over it. */
+    document.getElementById('show').classList.add('film-playing');
+    hideStoryLayers();
+    el.revealLayer.classList.remove('on');
+    el.liveWrap.classList.remove('on');
+    el.lower.classList.remove('on');
+    el.fourOutWrap.classList.remove('on');
+    el.snubWrap.classList.remove('on');
     const v = el.film;
-    if (!v.getAttribute('src')) v.src = VIDEO_FILE;
+    if (!v.getAttribute('src')) {
+      /* The film goes through createMediaElementSource so the mixer can duck
+         it. For a cross-origin element that call yields SILENCE unless the
+         media was fetched with CORS — the picture plays and the soundtrack
+         is simply gone, with no error anywhere. So the attribute goes on
+         first (it has no effect once src is set) and only when the file is
+         actually remote, because requesting CORS from a server that does not
+         send the header fails the load outright. */
+      if (isRemote(VIDEO_FILE)) v.crossOrigin = 'anonymous';
+      v.src = mediaUrl(VIDEO_FILE);
+    }
 
-    el.filmStage.classList.add('on');
+    el.filmStage.classList.remove('second-act', 'final-beat');
+    el.filmStage.classList.add('on', 'authored-open');
     /* silence underneath, and stop the watchdog putting it back */
     bedWanted = false;
     watchBed(false);
@@ -917,12 +1080,13 @@ const Show = (() => {
       handed = true;
       clearTimeout(filmGuard);
       phase = 'voice';
-      el.filmStage.classList.remove('on');
+      document.getElementById('show').classList.remove('film-playing');
+      el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
       try { v.pause(); v.ontimeupdate = null; } catch (e) {}
       /* the bed comes back from the top, so the voices open over its start */
-      bedWanted = true;
-      watchBed(true);
-      try { el.music.currentTime = 0; } catch (e) {}
+      bedWanted = soundtrackEnabled && soundtrackActivated;
+      watchBed(bedWanted);
+      if (bedWanted) try { el.music.currentTime = 0; } catch (e) {}
       runVoiceOpen();
     };
     v.onended = go;
@@ -953,6 +1117,8 @@ const Show = (() => {
       if (el.fbNow)   el.fbNow.textContent = fmt(v.currentTime);
       if (el.fbTotal) el.fbTotal.textContent = fmt(d);
       if (el.fbLeft)  el.fbLeft.textContent = fmt(d - v.currentTime) + ' left';
+      el.filmStage.classList.toggle('second-act', k > .36);
+      el.filmStage.classList.toggle('final-beat', k > .76);
     };
     v.ontimeupdate = paintBar;
 
@@ -1148,7 +1314,7 @@ const Show = (() => {
     });
     clearTimeout(filmGuard);
     try { el.film.pause(); el.film.onended = null; } catch (e) {}
-    el.filmStage.classList.remove('on');
+    el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
     clearTimeout(timer);
     hidePops();
     hideCold();
@@ -1158,6 +1324,302 @@ const Show = (() => {
     el.rail.style.opacity = '1';
     crowd(2.2); flare();
     next();
+  }
+
+  /* =====================================================================
+     STORY BEATS
+
+     A twelve-pick show needs shape, not twelve copies of the same animation.
+     Three chapter cards reset the tension, every completed campus matchup
+     gets a broadcast lockup, and the full field receives a final hero wall.
+     ===================================================================== */
+  function hideStoryLayers() {
+    [el.pickChapter, el.matchMoment, el.fieldWall]
+      .forEach(node => node && node.classList.remove('on'));
+    chapterAdvance = null;
+  }
+
+  function runChapter(pos, then) {
+    const card = PICK_CHAPTERS[pos];
+    if (!card) { then(); return; }
+
+    phase = 'chapter';
+    chaptersPlayed.add(pos);
+    setCinemaPhase('chapter-moment');
+    el.revealLayer.classList.remove('on');
+    if (el.pickLock) el.pickLock.classList.remove('on');
+    el.lower.classList.remove('on');
+    showPickArt(null, 'off');
+    showLiveBracket(false);
+    el.rail.style.opacity = '0';
+
+    el.pcKicker.textContent = card.kick.toUpperCase();
+    el.pcIndex.textContent = card.index;
+    el.pcTitle.textContent = card.title;
+    el.pcSub.textContent = card.sub;
+    el.pickChapter.classList.remove('on');
+    void el.pickChapter.offsetWidth;
+    el.pickChapter.classList.add('on');
+    stinger(pos === 8 ? 392 : 523.25);
+    crowd(pos === 8 ? 2.5 : 1.8);
+    flare();
+    if (!isCalm()) shockwave(pos === 8 ? '#ef3824' : '#f4c25c', 3);
+
+    let done = false;
+    chapterAdvance = () => {
+      if (done) return;
+      done = true;
+      phase = 'transition';
+      clearTimeout(timer);
+      el.pickChapter.classList.remove('on');
+      chapterAdvance = null;
+      setCinemaPhase(null);
+      el.rail.style.opacity = '1';
+      setTimeout(then, 460);
+    };
+    timer = setTimeout(chapterAdvance, 3400);
+  }
+
+  function matchTeam(target, selection, seed) {
+    const t = team(selection.id);
+    target.innerHTML = `<span class="mm-seed">NO. ${seed}</span>`;
+    target.appendChild(bannerEl(selection.id, { flip: seed > 8, lazy: false }));
+    target.insertAdjacentHTML('beforeend',
+      `<strong>${esc(t.school.toUpperCase())}</strong>` +
+      `<small>${[esc(selection.record || ''), esc(t.conf || '')].filter(Boolean).join(' · ')}</small>`);
+  }
+
+  function runMatchupMoment(i, gen, then) {
+    const seed = i + 1;
+    const matchup = firstRound().find(m => m.lo === seed || m.hi === seed);
+    if (!matchup || !STATE.seeds[matchup.hi - 1] || !STATE.seeds[matchup.lo - 1]) {
+      then(); return;
+    }
+    const shown = seq.slice(0, cursor + 1);
+    if (!shown.includes(matchup.hi - 1) || !shown.includes(matchup.lo - 1)) {
+      then(); return;
+    }
+
+    phase = 'matchup';
+    setCinemaPhase('matchup-moment');
+    el.revealLayer.classList.remove('on');
+    el.lower.classList.remove('on');
+    showPickArt(null, 'off');
+    showLiveBracket(false);
+    el.rail.style.opacity = '0';
+
+    const high = STATE.seeds[matchup.hi - 1];
+    const low = STATE.seeds[matchup.lo - 1];
+    el.matchMoment.style.setProperty('--mm-left', hexA(accentOf(team(high.id)), .24));
+    el.matchMoment.style.setProperty('--mm-right', hexA(accentOf(team(low.id)), .22));
+    matchTeam(el.mmLeft, high, matchup.hi);
+    matchTeam(el.mmRight, low, matchup.lo);
+    el.mmSite.textContent = `AT ${team(high.id).school.toUpperCase()} · CAMPUS SITE`;
+    el.matchMoment.classList.remove('on');
+    void el.matchMoment.offsetWidth;
+    el.matchMoment.classList.add('on');
+    stinger(659.25); crowd(2.4); flare();
+    if (!isCalm()) {
+      shockwave(accentOf(team(high.id)), 2);
+      setTimeout(() => { if (gen === revealGen) shockwave(accentOf(team(low.id)), 2); }, 520);
+    }
+
+    let done = false;
+    chapterAdvance = () => {
+      if (done || gen !== revealGen) return;
+      done = true;
+      phase = 'transition';
+      clearTimeout(timer);
+      el.matchMoment.classList.remove('on');
+      chapterAdvance = null;
+      setCinemaPhase(null);
+      el.rail.style.opacity = '1';
+      setTimeout(then, 500);
+    };
+    timer = setTimeout(chapterAdvance, 4800);
+  }
+
+  function runFieldWall(then) {
+    phase = 'fieldwall';
+    setCinemaPhase('fieldwall-moment');
+    el.revealLayer.classList.remove('on');
+    el.lower.classList.remove('on');
+    showPickArt(null, 'off');
+    showLiveBracket(false);
+    el.rail.style.opacity = '0';
+
+    el.fieldWallGrid.innerHTML = '';
+    STATE.seeds.forEach((selection, i) => {
+      if (!selection) return;
+      const card = document.createElement('div');
+      card.className = 'fw-team';
+      card.style.setProperty('--fw-i', i);
+      card.innerHTML = `<span>${i + 1}</span>`;
+      card.appendChild(bannerEl(selection.id, { lazy: false }));
+      el.fieldWallGrid.appendChild(card);
+    });
+    el.fwMeta.textContent = `${STATE.league.toUpperCase()} · ${STATE.season} · ONE CHAMPION`;
+    el.fieldWall.classList.remove('on');
+    void el.fieldWall.offsetWidth;
+    el.fieldWall.classList.add('on');
+    crowd(3); stinger(523.25); flare();
+    burst(['#f4c25c', '#ef3824', '#ffffff', '#d99328']);
+    if (!isCalm()) shockwave('#f4c25c', 5);
+
+    let done = false;
+    chapterAdvance = () => {
+      if (done) return;
+      done = true;
+      phase = 'transition';
+      clearTimeout(timer);
+      el.fieldWall.classList.remove('on');
+      chapterAdvance = null;
+      setCinemaPhase(null);
+      setTimeout(then, 650);
+    };
+    timer = setTimeout(chapterAdvance, 5600);
+  }
+
+  function pickPrompt(i) {
+    if (i < 4) return 'WHO CLAIMS A FIRST-ROUND BYE?';
+    if (i < 8) return 'WHO BRINGS PLAYOFF FOOTBALL HOME?';
+    return i === 11 ? 'WHO GETS THE FINAL INVITATION?' : 'WHO SURVIVES THE CUT LINE?';
+  }
+
+  function directorAct(i) {
+    if (i < 4) return 'ACT I · THE FOUR BYES';
+    if (i < 8) return 'ACT II · CAMPUS LIGHTS';
+    return 'ACT III · THE CUT LINE';
+  }
+
+  function buildDirectorRundown() {
+    if (!el.directorTrack) return;
+    el.directorTrack.innerHTML = '';
+    seq.forEach((seedIndex, orderIndex) => {
+      const dot = document.createElement('i');
+      dot.dataset.seed = seedIndex;
+      dot.dataset.order = orderIndex;
+      dot.innerHTML = `<b>${String(seedIndex + 1).padStart(2, '0')}</b>`;
+      el.directorTrack.appendChild(dot);
+    });
+  }
+
+  function updateDirectorRundown(i, landed) {
+    if (el.directorAct) el.directorAct.textContent = directorAct(i);
+    if (!el.directorTrack) return;
+    [...el.directorTrack.children].forEach((dot, orderIndex) => {
+      const seedIndex = +dot.dataset.seed;
+      dot.classList.toggle('done', orderIndex < cursor ||
+        (seedIndex === i && !!landed));
+      dot.classList.toggle('current', seedIndex === i);
+      dot.classList.toggle('locked', seedIndex === i && !!landed);
+    });
+  }
+
+  function setDirectorTreatment(i) {
+    const show = document.getElementById('show');
+    if (!show) return;
+    const d = DIRECTOR_PICKS[i] || DIRECTOR_PICKS[0];
+    show.classList.remove('camera-left', 'camera-right', 'camera-center',
+      'tier-bye', 'tier-host', 'tier-road', 'is-milestone');
+    show.classList.add(`camera-${d.camera}`, `tier-${d.tier}`);
+    if (d.milestone) show.classList.add('is-milestone');
+  }
+
+  function resetDirectorReveal() {
+    if (el.pickStory) el.pickStory.classList.remove('in');
+    if (el.milestoneStamp) el.milestoneStamp.classList.remove('on');
+    if (el.heroCrest) {
+      el.heroCrest.classList.remove('in');
+      el.heroCrest.removeAttribute('data-team');
+      el.heroCrest.innerHTML = '';
+    }
+  }
+
+  function directorStory(i, t) {
+    const route = matchupText(i);
+    switch (i) {
+      case 0: return `${t.school} owns the top line and the shortest road to the championship.`;
+      case 1: return `${t.school} skips opening weekend and enters on the quarterfinal stage.`;
+      case 2: return `${t.school} has earned a bye. Two wins now separate this team from the title game.`;
+      case 3: return `${t.school} takes the last first-round bye. Every direct ticket is now gone.`;
+      case 4: return `${t.school} leads opening weekend. The playoff begins in front of its own crowd.`;
+      case 5: return `${t.school} brings December football home with the season on the line.`;
+      case 6: return `${t.school} gets one more night on its own field and one chance to defend it.`;
+      case 7: return `${t.school} claims the final campus site. Every remaining team must travel.`;
+      case 8: return `${t.school} is the first road invitation. ${route || 'The margin for error is gone.'}`;
+      case 9: return `${t.school} is in, and the path starts away from home. ${route || 'Win or the season ends.'}`;
+      case 10: return `${t.school} survived the room. ${route || 'The road is the only way forward.'}`;
+      case 11: return `${t.school} takes the twelfth and final chair. The playoff field is complete.`;
+      default: return `${t.school} is officially in the College Football Playoff.`;
+    }
+  }
+
+  function paintHeroCrest(t) {
+    if (!el.heroCrest) return;
+    const host = el.heroCrest;
+    host.dataset.team = t.id;
+    host.innerHTML = `<span>${esc(t.mark || t.abbr || t.school.slice(0, 2))}</span>`;
+
+    const install = img => {
+      if (!img || host.dataset.team !== t.id) return;
+      img.alt = '';
+      host.innerHTML = '';
+      host.appendChild(img);
+    };
+    const ready = LogoStore.imageFor(t.id);
+    if (ready) install(ready);
+    else LogoStore.get(t.id, url => {
+      const img = new Image();
+      img.onload = () => install(img);
+      img.src = url;
+    });
+    host.classList.remove('in');
+    void host.offsetWidth;
+    host.classList.add('in');
+  }
+
+  function populateDirectorStory(i, t, gen) {
+    const d = DIRECTOR_PICKS[i] || DIRECTOR_PICKS[0];
+    if (el.pickStory) {
+      el.pickStoryKicker.textContent = d.kicker.toUpperCase();
+      el.pickStoryTitle.textContent = d.title.toUpperCase();
+      el.pickStoryBody.textContent = directorStory(i, t);
+      el.pickStory.classList.remove('in');
+      void el.pickStory.offsetWidth;
+      el.pickStory.classList.add('in');
+    }
+    if (!el.milestoneStamp) return;
+    el.milestoneStamp.classList.remove('on');
+    if (!d.milestone) return;
+    el.milestoneNumber.textContent = String(i + 1).padStart(2, '0');
+    el.milestoneText.textContent = d.milestone;
+    setTimeout(() => {
+      if (gen !== revealGen) return;
+      el.milestoneStamp.classList.remove('on');
+      void el.milestoneStamp.offsetWidth;
+      el.milestoneStamp.classList.add('on');
+    }, 920);
+  }
+
+  function minimumSuspense(i) {
+    const milestone = !!(DIRECTOR_PICKS[i] && DIRECTOR_PICKS[i].milestone);
+    if (isCalm()) return milestone ? 1500 : 1150;
+    if (i === 11) return 2900;
+    if (milestone) return 2450;
+    return i >= 8 ? 2200 : 1950;
+  }
+
+  function runSuspense(i, gen, clip) {
+    let voiceDone = false, clockDone = false, landed = false;
+    const finish = () => {
+      if (landed || !voiceDone || !clockDone || gen !== revealGen) return;
+      landed = true;
+      clearTimeout(suspenseTimer);
+      landTeam(i, gen);
+    };
+    suspenseTimer = setTimeout(() => { clockDone = true; finish(); }, minimumSuspense(i));
+    playSeedTalk(clip, gen, () => { voiceDone = true; finish(); });
   }
 
   /* ============================================================= PLAY */
@@ -1203,9 +1665,10 @@ const Show = (() => {
   }
 
   function begin() {
-    bedWanted = true;
-    watchBed(true);
+    bedWanted = soundtrackEnabled && soundtrackActivated;
+    watchBed(bedWanted);
     el.gate.style.display = 'none';
+    AmbientFilm.unmount();
     running = true; paused = false;
     revealed = []; cursor = -1;
     paintTicker();
@@ -1213,10 +1676,12 @@ const Show = (() => {
 
     /* restart the bed from the top for the show */
     const m = el.music;
-    if (!m.getAttribute('src')) m.src = MUSIC_FILE;
-    try { m.currentTime = 0; } catch (e) {}
-    Bus.set(m, 0, 0);
-    m.play().then(() => { bedStarted = true; setBedVolume(); }).catch(() => {});
+    if (bedWanted) {
+      if (!m.getAttribute('src')) m.src = mediaUrl(MUSIC_FILE);
+      try { m.currentTime = 0; } catch (e) {}
+      Bus.set(m, 0, 0);
+      m.play().then(() => { bedStarted = true; setBedVolume(); }).catch(() => {});
+    }
 
     startAmbient();
     runFilm();
@@ -1227,9 +1692,18 @@ const Show = (() => {
     phase === 'film' || phase === 'voice' || phase === 'intro' || phase === 'boone';
 
   function next() {
+    if (chapterAdvance && ['chapter', 'matchup', 'fieldwall'].includes(phase)) {
+      chapterAdvance();
+      return;
+    }
     if (inColdOpen()) { endColdOpen(); return; }
     if (cursor >= seq.length - 1) { finish(); return; }
-    goto(cursor + 1);
+    const pos = cursor + 1;
+    if (PICK_CHAPTERS[pos] && !chaptersPlayed.has(pos)) {
+      runChapter(pos, () => goto(pos));
+      return;
+    }
+    goto(pos);
   }
   function prev() {
     if (inColdOpen()) return;
@@ -1239,6 +1713,8 @@ const Show = (() => {
 
   function goto(pos, rebuild) {
     clearTimeout(timer);
+    clearTimeout(suspenseTimer);
+    hideStoryLayers();
     phase = 'reveal';
     cursor = pos;
     reveal(seq[cursor]);
@@ -1302,11 +1778,21 @@ const Show = (() => {
   function shakeStage() {
     if (isCalm()) return;
     const s = document.getElementById('show');
+    if (!s) return;
     s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake');
   }
   function pulseVignette() {
     el.vig.classList.remove('pulse'); void el.vig.offsetWidth;
     el.vig.classList.add('pulse');
+  }
+
+  /** One class owns the visual beat so layers never compete for emphasis. */
+  function setCinemaPhase(name) {
+    const show = document.getElementById('show');
+    if (!show) return;
+    show.classList.remove('anticipating', 'landing', 'holding', 'bracket-moment',
+      'chapter-moment', 'matchup-moment', 'fieldwall-moment');
+    if (name) show.classList.add(name);
   }
 
   let revealGen = 0;
@@ -1319,28 +1805,51 @@ const Show = (() => {
     if (!s) { next(); return; }
     const gen = ++revealGen;
     clearTimeout(timer);
+    clearTimeout(suspenseTimer);
     stopCall();
     stopSeedTalk();
 
+    setDirectorTreatment(i);
+    resetDirectorReveal();
+    updateDirectorRundown(i, false);
+    setCinemaPhase('anticipating');
     showLiveBracket(false);
     el.revealLayer.classList.add('on');
     el.bannerStage.innerHTML = '';       // no team yet — that is the point
     el.teamInfo.innerHTML = '';
+    if (el.bidRow) el.bidRow.classList.remove('in');
+    if (el.bidTag) el.bidTag.textContent = '';
+    if (el.moveTag) { el.moveTag.textContent = ''; el.moveTag.hidden = true; }
     el.lower.classList.remove('on');
     el.bloom.classList.remove('go');
     el.glow.style.opacity = '0';
+    if (el.revealEyebrow) el.revealEyebrow.textContent = 'COMMITTEE SELECTION';
+    if (el.revealCount) el.revealCount.textContent =
+      `PICK ${String(i + 1).padStart(2, '0')} / ${String(seq.length).padStart(2, '0')}`;
+    if (el.pickLock) {
+      el.pickLockSeed.textContent = String(i + 1).padStart(2, '0');
+      el.pickLockPrompt.textContent = pickPrompt(i);
+      el.pickLock.classList.remove('on');
+      void el.pickLock.offsetWidth;
+      el.pickLock.classList.add('on');
+    }
+    if (el.teamGhost) {
+      el.teamGhost.textContent = '';
+      el.teamGhost.classList.remove('in');
+    }
 
     /* Beat one is the pick card, full bleed and on its own. It already says
        the number in three-foot gold letters, so the stage numeral stands
        down rather than competing with it. */
     showPickArt(i, 'full');
+    el.bigNum.textContent = i + 1;
     el.bigNum.classList.remove('pop', 'show');
     el.seedChip.textContent = `NO. ${i + 1} SEED`;
     el.seedChip.classList.remove('roll'); void el.seedChip.offsetWidth;
     el.seedChip.classList.add('roll');
     whoosh();
 
-    playSeedTalk(seedClip(i, 'before'), gen, () => landTeam(i, gen));
+    runSuspense(i, gen, seedClip(i, 'before'));
   }
 
   /** The name drops. Everything that used to be the whole reveal. */
@@ -1350,6 +1859,26 @@ const Show = (() => {
     if (!s) return;
     const t = team(s.id);
     const bye = i < 4;
+    const accent = accentOf(t);
+    const show = document.getElementById('show');
+    if (!show) return;
+    CFPFoundation.live.announce(`Reveal advanced. Number ${i + 1}, ${t.school}.`);
+
+    setCinemaPhase('landing');
+    clearTimeout(suspenseTimer);
+    if (el.pickLock) el.pickLock.classList.remove('on');
+    show.style.setProperty('--team-a', t.primary);
+    show.style.setProperty('--team-b', accent);
+    if (el.revealEyebrow)
+      el.revealEyebrow.textContent = bye ? 'TOP FOUR SEED · FIRST-ROUND BYE' : 'COMMITTEE SELECTION';
+    if (el.teamGhost) {
+      el.teamGhost.textContent = t.school;
+      el.teamGhost.classList.remove('in'); void el.teamGhost.offsetWidth;
+      el.teamGhost.classList.add('in');
+    }
+    paintHeroCrest(t);
+    populateDirectorStory(i, t, gen);
+    updateDirectorRundown(i, true);
 
     /* ---- pre-hit: wipe + glitch, then the banner lands ---- */
     wipe(t.primary);
@@ -1367,7 +1896,8 @@ const Show = (() => {
     el.seedChip.classList.add('roll');
 
     el.bannerStage.innerHTML = '';
-    const b = bannerEl(s.id);
+    el.bannerStage.style.setProperty('--team-halo', hexA(accent, .32));
+    const b = bannerEl(s.id, { lazy: false });
     el.bannerStage.appendChild(b);
     el.bannerStage.classList.remove('slam'); void el.bannerStage.offsetWidth;
     el.bannerStage.classList.add('slam');
@@ -1401,7 +1931,6 @@ const Show = (() => {
     el.teamInfo.classList.add('in');
 
     /* ---- colour the whole stage in the team's palette ---- */
-    const accent = accentOf(t);
     el.bloom.style.setProperty('--bl1', hexA(accent, .45));
     el.bloom.style.setProperty('--bl2', hexA(t.primary, .55));
     el.bloom.classList.remove('go'); void el.bloom.offsetWidth;
@@ -1419,6 +1948,7 @@ const Show = (() => {
     /* ---- the hit ---- */
     setTimeout(() => {
       if (gen !== revealGen) return;
+      setCinemaPhase('holding');
       shakeStage(); pulseVignette();
       impact(); crowd(1.9);
       shockwave(accent, isMax() ? 4 : 2);
@@ -1426,14 +1956,14 @@ const Show = (() => {
       flare();
       fadeTo(bedVol() * DUCK_UNDER_HIT, 180);
       setTimeout(() => { if (gen === revealGen) setBedVolume(); }, 850);
-    }, 250);
+    }, 300);
 
     /* ---- the announcer's call, once the banner has landed ---- */
     stopCall();
     setTimeout(() => {
       if (gen !== revealGen) return;
       playCall(s.id);
-    }, 700);
+    }, 780);
 
     /* ---- lower third ---- */
     el.lower.classList.remove('on');
@@ -1445,7 +1975,7 @@ const Show = (() => {
       el.l3t2.textContent = [s.record, t.conf, bye ? 'First-round bye' : matchupText(i)]
         .filter(Boolean).join('  ·  ');
       el.lower.classList.add('on');
-    }, 640);
+    }, 880);
 
     litRail(i, true);
     pushTickerTeam(i);
@@ -1459,8 +1989,12 @@ const Show = (() => {
         /* the pick is done: put them on the board, hold, then move on */
         placeOnBracket(i, gen, () => {
           if (gen !== revealGen) return;
-          if (STATE.pace !== 'manual' && !paused)
-            timer = setTimeout(next, 1900);
+          const advance = () => {
+            if (gen !== revealGen) return;
+            if (STATE.pace !== 'manual' && !paused)
+              timer = setTimeout(next, 1900);
+          };
+          runMatchupMoment(i, gen, advance);
         });
       });
     };
@@ -1504,7 +2038,7 @@ const Show = (() => {
                     `<span class="sn-seed">NO. ${seedNo}</span>`;
     const w = document.createElement('div');
     w.className = 'sn-banner';
-    w.appendChild(bannerEl(s.id));
+    w.appendChild(bannerEl(s.id, { lazy: false }));
     col.appendChild(w);
     col.insertAdjacentHTML('beforeend',
       `<span class="sn-school">${esc(t.school.toUpperCase())}</span>` +
@@ -1575,7 +2109,7 @@ const Show = (() => {
         row.innerHTML = `<span class="fo-n">${13 + i}</span>`;
         const w = document.createElement('div');
         w.className = 'fo-banner';
-        w.appendChild(bannerEl(s.id));
+        w.appendChild(bannerEl(s.id, { lazy: false }));
         row.appendChild(w);
         if (s.record) {
           const r = document.createElement('span');
@@ -1598,7 +2132,9 @@ const Show = (() => {
   /* ============================================================ FINISH */
   function finish() {
     running = false;
+    setCinemaPhase(null);
     clearTimeout(timer);
+    clearTimeout(suspenseTimer);
     stopCall();
     stopSeedTalk();
     el.revealLayer.classList.remove('on');
@@ -1606,8 +2142,8 @@ const Show = (() => {
 
     showLiveBracket(false);
     fullTicker();
-    /* the argument first, then the names, then the closing card */
-    runSnub(() => runFourOut(closingCard));
+    /* the argument first, then the names, the complete twelve, and the close */
+    runSnub(() => runFourOut(() => runFieldWall(closingCard)));
   }
 
   function closingCard() {
@@ -1629,21 +2165,22 @@ const Show = (() => {
       fadeTo(bedVol() * 0.55, 1800);
       stopAmbient();
 
-      /* The field is now public, so it becomes history. Archiving here is
-         also what gives next season's show its movement arrows — a guest
-         watching a share link keeps their own archive, which is exactly
-         right: it is their copy of the league's seasons. */
-      try { History.save(); Movement.refresh(); } catch (e) {}
+      /* Archiving is deliberately commissioner-confirmed and recoverable.
+         The completed show moves to the bracket without silently writing a
+         permanent season into either the local or cloud-backed archive. */
+      CFPFoundation.live.announce('Selection Show complete. Archive the season when the results are final.');
 
       showScreen('final');
       buildBracket();                    // the plates fly in one at a time
-      /* let the bracket breathe, then close the recording and the music */
+      /* Let the bracket breathe, then return the persistent app bed to its
+         normal level. Recording ends; the soundtrack continues. */
       timer = setTimeout(() => {
-        fadeTo(0, 3000);
-        setTimeout(() => {
-          bedWanted = false; watchBed(false);
-          el.music.pause(); bedStarted = false;
-        }, 3100);
+        if (soundtrackEnabled && soundtrackActivated) {
+          bedWanted = true;
+          watchBed(true);
+          ensureBed('post-show');
+          fadeTo(bedVol(), 1800);
+        }
         if (Recorder.active) Recorder.stop();
       }, 11000);
     }, 5000);
@@ -1696,11 +2233,13 @@ const Show = (() => {
       if (callAudio) try { callAudio.pause(); } catch (e) {}
       if (seedAudio) try { seedAudio.pause(); } catch (e) {}
     } else {
-      bedWanted = true; watchBed(true);
-      el.music.play().catch(() => {});
+      bedWanted = soundtrackEnabled && soundtrackActivated; watchBed(bedWanted);
+      if (bedWanted) el.music.play().catch(() => {});
       if (phase === 'film')  el.film.play().catch(() => {});
       else if (phase === 'intro') el.intro.play().catch(() => {});
       else if (phase === 'boone') el.boone.play().catch(() => {});
+      else if (chapterAdvance && ['chapter', 'matchup', 'fieldwall'].includes(phase))
+        timer = setTimeout(chapterAdvance, 1200);
       else {
         if (callAudio) callAudio.play().catch(() => {});
         if (seedAudio) seedAudio.play().catch(() => {});
@@ -1716,11 +2255,18 @@ const Show = (() => {
      'flash', 'wipe', 'glitch', 'flare', 'vig', 'floor', 'stage', 'rail', 'lower',
      'l3cap', 'l3t1', 'l3t2', 'tkRun', 'tkBadge', 'tkClock', 'gate', 'gateKick',
      'gateTitle', 'gateSub', 'music', 'intro', 'boone', 'ctl', 'cPlay',
-     'recLamp', 'film', 'filmStage', 'filmSkip', 'fourOut', 'fourOutWrap',
+     'recLamp', 'film', 'filmStage', 'filmCredit', 'filmSkip', 'fourOut', 'fourOutWrap',
      'bloom', 'l3bar', 'foHead',
      'nameBar', 'nameWho', 'nameRole', 'vPop', 'vpKick', 'vpBig', 'vpSub',
      'liveWrap', 'liveBracket', 'lbCount',
      'bidRow', 'bidTag', 'moveTag', 'snubWrap', 'snubIn', 'snubOut', 'pickBack',
+     'revealEyebrow', 'revealCount', 'teamGhost', 'pickLock', 'pickLockSeed',
+     'pickLockPrompt', 'pickChapter', 'pcKicker', 'pcIndex', 'pcTitle', 'pcSub',
+     'matchMoment', 'mmLeft', 'mmRight', 'mmSite',
+     'fieldWall', 'fieldWallGrid', 'fwMeta',
+     'directorRundown', 'directorAct', 'directorTrack', 'pickMain',
+     'heroCrest', 'pickStory', 'pickStoryKicker', 'pickStoryTitle', 'pickStoryBody',
+     'milestoneStamp', 'milestoneNumber', 'milestoneText',
      'preCount', 'preClock', 'preWhen',
      'fbFill', 'fbNow', 'fbLeft', 'fbTotal']
       .forEach(id => el[id] = document.getElementById(id));
@@ -1743,8 +2289,8 @@ const Show = (() => {
     document.getElementById('cPlay').onclick = togglePause;
     document.getElementById('cSkip').onclick = () => { if (inColdOpen()) endColdOpen(); };
     const mx = document.getElementById('mixer');
-    document.getElementById('cMix').onclick = () => mx.classList.toggle('on');
-    document.getElementById('mxClose').onclick = () => mx.classList.remove('on');
+    document.getElementById('cMix').onclick = event => CFPFoundation.panel.toggle(mx, event.currentTarget);
+    document.getElementById('mxClose').onclick = () => CFPFoundation.panel.close(mx);
     document.getElementById('cRestart').onclick = arm;
     document.getElementById('cBracket').onclick = () => { stop(); showScreen('final'); };
     document.getElementById('cRoom').onclick = () => {
@@ -1774,7 +2320,8 @@ const Show = (() => {
     }, 1000);
 
     addEventListener('keydown', e => {
-      if (!document.getElementById('show').classList.contains('active')) return;
+      const show = document.getElementById('show');
+      if (!show || !show.classList.contains('active')) return;
       if (/input|select|textarea/i.test(e.target.tagName)) return;
       if (e.code === 'Space') {
         e.preventDefault();
@@ -1785,9 +2332,13 @@ const Show = (() => {
       else if (e.key === 's' || e.key === 'S') { if (inColdOpen()) endColdOpen(); }
       else if (e.key === 'p' || e.key === 'P') togglePause();
       else if (e.key === 'm' || e.key === 'M')
-        document.getElementById('mixer').classList.toggle('on');
+        CFPFoundation.panel.toggle(document.getElementById('mixer'), e.target);
       else if (e.key === 'f' || e.key === 'F') toggleFull();
       else if (e.key === 'Escape') {
+        if (document.getElementById('mixer').classList.contains('on')) {
+          CFPFoundation.panel.close(document.getElementById('mixer'));
+          return;
+        }
         if (VIEWER) { stop(); arm(); }      // back to the play button, no further
         else { stop(); showScreen('room'); }
       }
@@ -1804,29 +2355,67 @@ const Show = (() => {
     else req.call(de).catch(() => {});
   }
 
-  /** Leave the show — kill the voice track but keep the bed playing. */
+  /** Leave the show: unload show-only media while the app soundtrack stays. */
   function stop() {
     running = false; phase = 'idle';
-    bedWanted = false; watchBed(false);
-    clearTimeout(timer); clearTimeout(markTimer);
+    revealGen += 1;
+    const mixer = document.getElementById('mixer');
+    if (mixer?.classList.contains('on')) CFPFoundation.panel.close(mixer);
+    document.getElementById('show').classList.remove('film-playing');
+    setCinemaPhase(null);
+    bedWanted = soundtrackEnabled && soundtrackActivated;
+    watchBed(bedWanted);
+    clearTimeout(timer); clearTimeout(markTimer); clearTimeout(suspenseTimer);
     [el.intro, el.boone].forEach(a => {
       try { a.pause(); a.ontimeupdate = null; a.onended = null; } catch (e) {}
     });
     stopSeedTalk();
     clearTimeout(filmGuard);
-    try { el.film.pause(); el.film.onended = null; el.film.onloadedmetadata = null; }
+    try {
+      el.film.pause();
+      el.film.onended = null;
+      el.film.onerror = null;
+      el.film.onloadedmetadata = null;
+    }
     catch (e) {}
-    el.filmStage.classList.remove('on');
+    el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
     stopCall();
     stopSeedTalk();
     showPickArt(null, 'off');
     showLiveBracket(false);
+    hideStoryLayers();
+    resetDirectorReveal();
+    if (el.pickLock) el.pickLock.classList.remove('on');
     hideCold();
     stopAmbient();
     setBedVolume();
+    [el.intro, el.boone, el.film].forEach(media => {
+      if (!media) return;
+      try { media.pause(); } catch (e) {}
+      media.removeAttribute('src');
+      try { media.load(); } catch (e) {}
+    });
+    if (bedWanted) ensureBed('leave-show');
+    else try { el.music.pause(); } catch (e) {}
+    Object.keys(callCache).forEach(key => {
+      const media = callCache[key];
+      if (media && media !== false) {
+        try { media.pause(); media.removeAttribute('src'); media.load(); } catch (e) {}
+      }
+      delete callCache[key];
+    });
+    Object.keys(seedCache).forEach(key => {
+      const media = seedCache[key];
+      if (media && media !== false) {
+        try { media.pause(); media.removeAttribute('src'); media.load(); } catch (e) {}
+      }
+      delete seedCache[key];
+    });
+    Object.keys(pickWarm).forEach(key => { delete pickWarm[key]; });
+    AmbientFilm.unmount();
   }
 
-  return { init, arm, play, next, prev, stop, startBed, setBedVolume,
+  return { init, arm, play, next, prev, stop, startBed, setSoundtrackEnabled, setBedVolume,
            applyLevels, fadeTo,
            get usingWebAudio() { return Bus.usingWebAudio; },
            get routedSources() { return Bus.routed; },
