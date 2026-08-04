@@ -571,7 +571,7 @@ const Show = (() => {
     STATE.seeds.forEach(s => {
       if (!s || callCache[s.id] !== undefined) return;
       const a = new Audio(VOICE_DIR + s.id + '.mp3');
-      a.preload = 'auto';
+      a.preload = 'metadata';
       a.onerror = () => { callCache[s.id] = false; };
       callCache[s.id] = a;
     });
@@ -598,7 +598,7 @@ const Show = (() => {
     if (seedCache[key] === false) return null;
     if (!seedCache[key]) {
       const a = new Audio(SEED_DIR + key + '.mp3');
-      a.preload = 'auto';
+      a.preload = 'metadata';
       a.onerror = () => { seedCache[key] = false; };
       seedCache[key] = a;
     }
@@ -1352,7 +1352,7 @@ const Show = (() => {
   function matchTeam(target, selection, seed) {
     const t = team(selection.id);
     target.innerHTML = `<span class="mm-seed">NO. ${seed}</span>`;
-    target.appendChild(bannerEl(selection.id, { flip: seed > 8 }));
+    target.appendChild(bannerEl(selection.id, { flip: seed > 8, lazy: false }));
     target.insertAdjacentHTML('beforeend',
       `<strong>${esc(t.school.toUpperCase())}</strong>` +
       `<small>${[esc(selection.record || ''), esc(t.conf || '')].filter(Boolean).join(' · ')}</small>`);
@@ -1424,7 +1424,7 @@ const Show = (() => {
       card.className = 'fw-team';
       card.style.setProperty('--fw-i', i);
       card.innerHTML = `<span>${i + 1}</span>`;
-      card.appendChild(bannerEl(selection.id));
+      card.appendChild(bannerEl(selection.id, { lazy: false }));
       el.fieldWallGrid.appendChild(card);
     });
     el.fwMeta.textContent = `${STATE.league.toUpperCase()} · ${STATE.season} · ONE CHAMPION`;
@@ -1487,6 +1487,7 @@ const Show = (() => {
 
   function setDirectorTreatment(i) {
     const show = document.getElementById('show');
+    if (!show) return;
     const d = DIRECTOR_PICKS[i] || DIRECTOR_PICKS[0];
     show.classList.remove('camera-left', 'camera-right', 'camera-center',
       'tier-bye', 'tier-host', 'tier-road', 'is-milestone');
@@ -1636,6 +1637,7 @@ const Show = (() => {
     bedWanted = true;
     watchBed(true);
     el.gate.style.display = 'none';
+    AmbientFilm.unmount();
     running = true; paused = false;
     revealed = []; cursor = -1;
     paintTicker();
@@ -1743,6 +1745,7 @@ const Show = (() => {
   function shakeStage() {
     if (isCalm()) return;
     const s = document.getElementById('show');
+    if (!s) return;
     s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake');
   }
   function pulseVignette() {
@@ -1753,6 +1756,7 @@ const Show = (() => {
   /** One class owns the visual beat so layers never compete for emphasis. */
   function setCinemaPhase(name) {
     const show = document.getElementById('show');
+    if (!show) return;
     show.classList.remove('anticipating', 'landing', 'holding', 'bracket-moment',
       'chapter-moment', 'matchup-moment', 'fieldwall-moment');
     if (name) show.classList.add(name);
@@ -1824,6 +1828,8 @@ const Show = (() => {
     const bye = i < 4;
     const accent = accentOf(t);
     const show = document.getElementById('show');
+    if (!show) return;
+    CFPFoundation.live.announce(`Reveal advanced. Number ${i + 1}, ${t.school}.`);
 
     setCinemaPhase('landing');
     clearTimeout(suspenseTimer);
@@ -1858,7 +1864,7 @@ const Show = (() => {
 
     el.bannerStage.innerHTML = '';
     el.bannerStage.style.setProperty('--team-halo', hexA(accent, .32));
-    const b = bannerEl(s.id);
+    const b = bannerEl(s.id, { lazy: false });
     el.bannerStage.appendChild(b);
     el.bannerStage.classList.remove('slam'); void el.bannerStage.offsetWidth;
     el.bannerStage.classList.add('slam');
@@ -1999,7 +2005,7 @@ const Show = (() => {
                     `<span class="sn-seed">NO. ${seedNo}</span>`;
     const w = document.createElement('div');
     w.className = 'sn-banner';
-    w.appendChild(bannerEl(s.id));
+    w.appendChild(bannerEl(s.id, { lazy: false }));
     col.appendChild(w);
     col.insertAdjacentHTML('beforeend',
       `<span class="sn-school">${esc(t.school.toUpperCase())}</span>` +
@@ -2070,7 +2076,7 @@ const Show = (() => {
         row.innerHTML = `<span class="fo-n">${13 + i}</span>`;
         const w = document.createElement('div');
         w.className = 'fo-banner';
-        w.appendChild(bannerEl(s.id));
+        w.appendChild(bannerEl(s.id, { lazy: false }));
         row.appendChild(w);
         if (s.record) {
           const r = document.createElement('span');
@@ -2126,11 +2132,10 @@ const Show = (() => {
       fadeTo(bedVol() * 0.55, 1800);
       stopAmbient();
 
-      /* The field is now public, so it becomes history. Archiving here is
-         also what gives next season's show its movement arrows — a guest
-         watching a share link keeps their own archive, which is exactly
-         right: it is their copy of the league's seasons. */
-      try { History.save(); Movement.refresh(); } catch (e) {}
+      /* Archiving is deliberately commissioner-confirmed and recoverable.
+         The completed show moves to the bracket without silently writing a
+         permanent season into either the local or cloud-backed archive. */
+      CFPFoundation.live.announce('Selection Show complete. Archive the season when the results are final.');
 
       showScreen('final');
       buildBracket();                    // the plates fly in one at a time
@@ -2249,8 +2254,8 @@ const Show = (() => {
     document.getElementById('cPlay').onclick = togglePause;
     document.getElementById('cSkip').onclick = () => { if (inColdOpen()) endColdOpen(); };
     const mx = document.getElementById('mixer');
-    document.getElementById('cMix').onclick = () => mx.classList.toggle('on');
-    document.getElementById('mxClose').onclick = () => mx.classList.remove('on');
+    document.getElementById('cMix').onclick = event => CFPFoundation.panel.toggle(mx, event.currentTarget);
+    document.getElementById('mxClose').onclick = () => CFPFoundation.panel.close(mx);
     document.getElementById('cRestart').onclick = arm;
     document.getElementById('cBracket').onclick = () => { stop(); showScreen('final'); };
     document.getElementById('cRoom').onclick = () => {
@@ -2280,7 +2285,8 @@ const Show = (() => {
     }, 1000);
 
     addEventListener('keydown', e => {
-      if (!document.getElementById('show').classList.contains('active')) return;
+      const show = document.getElementById('show');
+      if (!show || !show.classList.contains('active')) return;
       if (/input|select|textarea/i.test(e.target.tagName)) return;
       if (e.code === 'Space') {
         e.preventDefault();
@@ -2291,9 +2297,13 @@ const Show = (() => {
       else if (e.key === 's' || e.key === 'S') { if (inColdOpen()) endColdOpen(); }
       else if (e.key === 'p' || e.key === 'P') togglePause();
       else if (e.key === 'm' || e.key === 'M')
-        document.getElementById('mixer').classList.toggle('on');
+        CFPFoundation.panel.toggle(document.getElementById('mixer'), e.target);
       else if (e.key === 'f' || e.key === 'F') toggleFull();
       else if (e.key === 'Escape') {
+        if (document.getElementById('mixer').classList.contains('on')) {
+          CFPFoundation.panel.close(document.getElementById('mixer'));
+          return;
+        }
         if (VIEWER) { stop(); arm(); }      // back to the play button, no further
         else { stop(); showScreen('room'); }
       }
@@ -2313,6 +2323,9 @@ const Show = (() => {
   /** Leave the show — kill the voice track but keep the bed playing. */
   function stop() {
     running = false; phase = 'idle';
+    revealGen += 1;
+    const mixer = document.getElementById('mixer');
+    if (mixer?.classList.contains('on')) CFPFoundation.panel.close(mixer);
     document.getElementById('show').classList.remove('film-playing');
     setCinemaPhase(null);
     bedWanted = false; watchBed(false);
@@ -2322,7 +2335,12 @@ const Show = (() => {
     });
     stopSeedTalk();
     clearTimeout(filmGuard);
-    try { el.film.pause(); el.film.onended = null; el.film.onloadedmetadata = null; }
+    try {
+      el.film.pause();
+      el.film.onended = null;
+      el.film.onerror = null;
+      el.film.onloadedmetadata = null;
+    }
     catch (e) {}
     el.filmStage.classList.remove('on', 'authored-open', 'second-act', 'final-beat');
     stopCall();
@@ -2335,6 +2353,29 @@ const Show = (() => {
     hideCold();
     stopAmbient();
     setBedVolume();
+    [el.intro, el.boone, el.music, el.film].forEach(media => {
+      if (!media) return;
+      try { media.pause(); } catch (e) {}
+      media.removeAttribute('src');
+      try { media.load(); } catch (e) {}
+    });
+    Object.keys(callCache).forEach(key => {
+      const media = callCache[key];
+      if (media && media !== false) {
+        try { media.pause(); media.removeAttribute('src'); media.load(); } catch (e) {}
+      }
+      delete callCache[key];
+    });
+    Object.keys(seedCache).forEach(key => {
+      const media = seedCache[key];
+      if (media && media !== false) {
+        try { media.pause(); media.removeAttribute('src'); media.load(); } catch (e) {}
+      }
+      delete seedCache[key];
+    });
+    Object.keys(pickWarm).forEach(key => { delete pickWarm[key]; });
+    bedStarted = false;
+    AmbientFilm.unmount();
   }
 
   return { init, arm, play, next, prev, stop, startBed, setBedVolume,

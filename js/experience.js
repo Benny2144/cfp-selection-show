@@ -80,20 +80,9 @@
   }
 
   function syncGateFilm() {
-    const film = $('#gateFilm');
-    if (!film) return;
     const shouldPlay = filmIsAtGate() && !reduceMotion.matches;
-
-    if (shouldPlay) {
-      if (!film.dataset.ready) {
-        film.src = mediaUrl('committee.mp4');
-        film.dataset.ready = '1';
-        film.load();
-      }
-      film.play().catch(() => {});
-    } else {
-      try { film.pause(); } catch (_) {}
-    }
+    if (shouldPlay) AmbientFilm.activate('show');
+    else if (currentScreen === 'show') AmbientFilm.unmount();
   }
 
   function announceScreen(name) {

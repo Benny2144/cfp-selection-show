@@ -313,7 +313,11 @@ const CloudSync = (() => {
   }
 
   async function signOutOtherDevices() {
-    if (!user || !confirm('Sign out every other device connected to this cloud account? This device will stay signed in.')) return;
+    if (!user || !await CFPFoundation.actions.confirm({
+      title: 'Sign out other devices?',
+      message: 'Every other session connected to this cloud account will be signed out. This device will stay signed in.',
+      confirmLabel: 'Sign out others',
+    })) return;
     const button = $c('accountSignOutOthers');
     if (button) button.disabled = true;
     try {
@@ -361,8 +365,11 @@ const CloudSync = (() => {
 
   async function deleteAccount() {
     if (!user) return;
-    if (!confirm('Delete your cloud account and every cloud save? Your current device copy will remain.')) return;
-    if (!confirm('This cannot be undone. Delete the cloud account now?')) return;
+    if (!await CFPFoundation.actions.confirm({
+      title: 'Permanently delete the cloud account?',
+      message: 'This cannot be undone. Every cloud save, uploaded logo, published event, and shared league owned by this account will be deleted. The current device copy remains local.',
+      confirmLabel: 'Delete cloud account',
+    })) return;
     try {
       await api('/api/account', { method: 'DELETE' });
       closeLeagueLive();
@@ -664,7 +671,11 @@ const CloudSync = (() => {
           } catch (error) { activity.textContent = 'Activity could not be loaded.'; }
         }),
         eventButton('Revoke', 'event-action danger', async () => {
-          if (!confirm(`Revoke ${event.title || 'this event'}? Its public link will stop working.`)) return;
+          if (!await CFPFoundation.actions.confirm({
+            title: `Revoke ${event.title || 'this event'}?`,
+            message: 'Its public link will stop working immediately.',
+            confirmLabel: 'Revoke event',
+          })) return;
           try { await revokeEvent(event.id); toast('Public event revoked'); }
           catch (error) { toast(error.message || 'Could not revoke event'); }
         })
@@ -785,7 +796,12 @@ const CloudSync = (() => {
     try {
       const league = await fetchLeague(leagueId, true);
       if (!league.workspace) throw new Error('This league board is unavailable');
-      if (!confirm(`Load ${league.name} board v${league.version}? A recovery copy of this device will be kept.`)) return;
+      if (!await CFPFoundation.actions.confirm({
+        title: `Load ${league.name} board v${league.version}?`,
+        message: 'The shared workspace will replace this device view. A recovery copy of this device will be kept.',
+        confirmLabel: 'Load shared board',
+        danger: false,
+      })) return;
       if (!applySnapshot(league.workspace)) throw new Error('The shared board could not be restored');
       setActiveLeague(league);
       toast(`${league.name} board loaded`);
@@ -799,7 +815,12 @@ const CloudSync = (() => {
     if (!summary || !['owner', 'admin'].includes(summary.role)) return;
     try {
       const latest = await fetchLeague(leagueId, true);
-      if (!confirm(`Publish this device as ${latest.name} board v${latest.version + 1}? Members will be able to load it immediately.`)) return;
+      if (!await CFPFoundation.actions.confirm({
+        title: `Publish ${latest.name} board v${latest.version + 1}?`,
+        message: 'Members will be able to load this device state immediately.',
+        confirmLabel: 'Publish board',
+        danger: false,
+      })) return;
       await flush();
       const result = await api(`/api/leagues/${encodeURIComponent(leagueId)}/workspace`, {
         method: 'PUT', headers: { 'content-type': 'application/json' },
@@ -821,7 +842,11 @@ const CloudSync = (() => {
     const message = owner
       ? `Delete ${league.name}? The shared board, invite code and member access will be permanently removed.`
       : `Leave ${league.name}? You will need a new invite to rejoin.`;
-    if (!confirm(message)) return;
+    if (!await CFPFoundation.actions.confirm({
+      title: owner ? `Delete ${league.name}?` : `Leave ${league.name}?`,
+      message,
+      confirmLabel: owner ? 'Delete league' : 'Leave league',
+    })) return;
     try {
       if (owner) await api(`/api/leagues/${encodeURIComponent(league.id)}`, { method: 'DELETE' });
       else await api(`/api/leagues/${encodeURIComponent(league.id)}/members/${encodeURIComponent(user.id)}`, { method: 'DELETE' });
@@ -838,7 +863,11 @@ const CloudSync = (() => {
 
   async function rotateLeagueInvite(league) {
     if (league.role !== 'owner') return;
-    if (!confirm(`Rotate the ${league.name} invite? The old code will stop working immediately.`)) return;
+    if (!await CFPFoundation.actions.confirm({
+      title: `Rotate the ${league.name} invite?`,
+      message: 'The old invite code will stop working immediately.',
+      confirmLabel: 'Rotate invite',
+    })) return;
     try {
       const result = await api(`/api/leagues/${encodeURIComponent(league.id)}/invite`, { method: 'POST' });
       leagueDetailCache.set(league.id, result.league);
@@ -851,7 +880,11 @@ const CloudSync = (() => {
   async function changeMember(league, member, role) {
     try {
       if (role === 'remove') {
-        if (!confirm(`Remove ${member.name} from ${league.name}?`)) return;
+        if (!await CFPFoundation.actions.confirm({
+          title: `Remove ${member.name}?`,
+          message: `${member.name} will lose access to ${league.name}.`,
+          confirmLabel: 'Remove member',
+        })) return;
         await api(`/api/leagues/${encodeURIComponent(league.id)}/members/${encodeURIComponent(member.id)}`, { method: 'DELETE' });
       } else {
         await api(`/api/leagues/${encodeURIComponent(league.id)}/members/${encodeURIComponent(member.id)}`, {

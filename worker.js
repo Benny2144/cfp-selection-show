@@ -383,6 +383,11 @@ function validPublishedPayload(payload) {
   return true;
 }
 
+function publishedFieldReady(payload) {
+  if (!validPublishedPayload(payload)) return false;
+  return payload.d.every(Boolean) && payload.d.filter(seed => seed[2] === 1).length >= 5;
+}
+
 function randomCode(length) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const bytes = new Uint8Array(length);
@@ -850,8 +855,8 @@ async function publishEvent(request, env, ctx) {
   if (publishLimit) return publishLimit;
   const body = await readJson(request, MAX_EVENT_BYTES);
   if (!validPublishedPayload(body.payload)) return json({ error: 'Invalid Selection Night event' }, 400);
-  if (body.payload.d.some(seed => !seed)) {
-    return json({ error: 'Fill all 12 seeds before publishing' }, 400);
+  if (!publishedFieldReady(body.payload)) {
+    return json({ error: 'Fill all 12 seeds and mark at least five conference champions before publishing' }, 400);
   }
   const payloadJson = JSON.stringify(body.payload);
   if (new TextEncoder().encode(payloadJson).byteLength > MAX_EVENT_BYTES) {
@@ -1608,13 +1613,23 @@ async function serveSpaRoute(request, env, url, watchCode = '') {
     .transform(response);
 }
 
+const APP_SCREEN_ROUTES = new Set([
+  '/hub', '/committee', '/bracket', '/results', '/projections', '/history', '/show',
+]);
+function isAppScreenRoute(pathname) {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  return APP_SCREEN_ROUTES.has(path);
+}
+
 export const testable = Object.freeze({
   parseRange,
   validSnapshot,
   validPublishedPayload,
+  publishedFieldReady,
   sameOriginMutation,
   randomCode,
   rateLimitResponse,
+  isAppScreenRoute,
 });
 
 export default {
@@ -1643,6 +1658,11 @@ export default {
           request, env, url, spaMatch[1] === 'watch' ? spaMatch[2] : '',
         );
         return secureResponse(response, requestId);
+      }
+      if (isAppScreenRoute(url.pathname)) {
+        if (request.method !== 'GET' && request.method !== 'HEAD')
+          return secureResponse(methodNotAllowed('GET, HEAD'), requestId);
+        return secureResponse(await serveSpaRoute(request, env, url), requestId);
       }
       const response = await env.ASSETS.fetch(request);
       return secureResponse(response, requestId);

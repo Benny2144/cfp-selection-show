@@ -9,9 +9,10 @@ const DOCS = join(ROOT, 'docs');
 
 const styles = [
   'broadcast.css', 'dynasty.css', 'espn.css', 'cinematic.css', 'prime.css', 'game27.css',
+  'foundation.css', 'broadcast-system.css',
 ];
 const scripts = [
-  'teams.js', 'logos.js', 'recorder.js', 'cloud.js', 'app.js', 'dynasty.js',
+  'teams.js', 'logos.js', 'recorder.js', 'cloud.js', 'foundation.js', 'app.js', 'dynasty.js',
   'pickem.js', 'export.js', 'ui-dynasty.js', 'show.js', 'experience.js',
 ];
 

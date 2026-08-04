@@ -12,7 +12,26 @@
   "assets": {
     "directory": "./docs",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/media/*", "/watch/*", "/join/*"]
+    "run_worker_first": [
+      "/api/*",
+      "/media/*",
+      "/watch/*",
+      "/join/*",
+      "/hub",
+      "/hub/*",
+      "/committee",
+      "/committee/*",
+      "/bracket",
+      "/bracket/*",
+      "/results",
+      "/results/*",
+      "/projections",
+      "/projections/*",
+      "/history",
+      "/history/*",
+      "/show",
+      "/show/*"
+    ]
   },
   "d1_databases": [
     {

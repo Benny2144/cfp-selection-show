@@ -6,7 +6,8 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "python tools/make_site.py && node tools/bundle_site.mjs",
-    "check": "node --check worker.js && node --check js/cloud.js && node --check js/app.js && node --check js/logos.js && node --check js/show.js && node --check js/dynasty.js && node --check js/pickem.js && node --check js/ui-dynasty.js && node --check js/teams.js && node --check sw.js",
+    "check": "node --check worker.js && node --check js/foundation.js && node --check js/cloud.js && node --check js/app.js && node --check js/logos.js && node --check js/show.js && node --check js/dynasty.js && node --check js/pickem.js && node --check js/ui-dynasty.js && node --check js/teams.js && node --check js/experience.js && node --check js/export.js && node --check js/recorder.js && node --check sw.js",
+    "lint": "pnpm run check",
     "test": "vitest run",
     "verify": "pnpm run check && pnpm test && pnpm run build && pnpm run deploy:check",
     "deploy": "pnpm run build && wrangler deploy",

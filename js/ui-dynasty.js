@@ -192,6 +192,10 @@ const Dynasty = (() => {
       const after = Bracket.solve()[g.id].winner;
       if (before !== after) clearDownstreamResults(g.id);
       persist();
+      if (after && after !== before) {
+        const winner = seedTeam(after);
+        CFPFoundation.live.announce(`${g.name} finalized. ${winner?.school || 'Winner'} advances.`);
+      }
       scheduleResultsPaint();
     };
     row.appendChild(inp);
@@ -212,6 +216,8 @@ const Dynasty = (() => {
       const after = Bracket.solve()[g.id].winner;
       if (before !== after) clearDownstreamResults(g.id);
       persist(); renderResults();
+      const winner = seedTeam(after);
+      CFPFoundation.live.announce(`${g.name} finalized. ${winner?.school || 'Winner'} advances.`);
     };
     row.onclick = advanceTeam;
     row.onkeydown = event => {
@@ -241,11 +247,24 @@ const Dynasty = (() => {
     }, 420);
   }
 
-  function clearResults() {
-    if (!confirm('Clear every score and start the playoff again?')) return;
+  async function clearResults(event) {
+    if (!Object.keys(STATE.results || {}).length) return;
+    const before = CFPFoundation.actions.clone(STATE.results);
+    const accepted = await CFPFoundation.actions.confirm({
+      title: 'Clear every playoff score?',
+      message: 'All finalized games and the current champion will be removed. You can undo this afterward.',
+      confirmLabel: 'Clear scores',
+      trigger: event?.currentTarget,
+    });
+    if (!accepted) return;
     STATE.results = {};
     persist(); renderResults();
     toast('Results cleared');
+    CFPFoundation.live.announce('All playoff scores were cleared');
+    CFPFoundation.actions.undo('Scores cleared', () => {
+      STATE.results = CFPFoundation.actions.clone(before);
+      persist(); renderResults();
+    });
   }
 
   /* ======================================================================
@@ -375,6 +394,8 @@ const Dynasty = (() => {
         myPicks[index] = a > b ? 0 : 1;
       if (previous !== myPicks[index]) clearDownstreamProjection(g.id);
       saveProjection();
+      if (previous !== myPicks[index] && myPicks[index] !== null)
+        CFPFoundation.live.announce(`${g.name} projection saved`);
       scheduleProjectionPaint(input);
     };
     row.appendChild(input);
@@ -385,6 +406,7 @@ const Dynasty = (() => {
       if (myPicks[index] !== choice) clearDownstreamProjection(g.id);
       myPicks[index] = choice;
       saveProjection(); renderPickForm();
+      CFPFoundation.live.announce(`${g.name} projection saved`);
     };
     row.onclick = choose;
     row.onkeydown = event => {
@@ -553,19 +575,38 @@ const Dynasty = (() => {
       const load = document.createElement('button');
       load.className = 'btn ghost sm';
       load.textContent = 'Load this season';
-      load.onclick = () => {
-        if (!confirm(`Replace the board with the ${h.season} field?`)) return;
+      load.onclick = async event => {
+        const before = fieldSnapshot();
+        const accepted = await CFPFoundation.actions.confirm({
+          title: `Load the ${h.season} field?`,
+          message: 'This replaces the current working board and scores with the archived season. You can undo it afterward.',
+          confirmLabel: 'Load season',
+          trigger: event.currentTarget,
+        });
+        if (!accepted) return;
         History.restoreSeason(h.savedAt);
         persist(); renderPool(); renderSeeds(); Movement.refresh();
         toast(`${h.season} loaded`);
+        CFPFoundation.actions.undo(`${h.season} loaded`, () => restoreFieldSnapshot(before));
         showScreen('room');
       };
       const del = document.createElement('button');
       del.className = 'btn ghost sm danger';
       del.textContent = 'Delete';
-      del.onclick = () => {
-        if (!confirm(`Delete ${h.season} from the history?`)) return;
+      del.onclick = async event => {
+        const before = History.all();
+        const accepted = await CFPFoundation.actions.confirm({
+          title: `Delete ${h.season} from history?`,
+          message: 'The archived season will be removed from Dynasty History. You can undo it afterward.',
+          confirmLabel: 'Delete archive',
+          trigger: event.currentTarget,
+        });
+        if (!accepted) return;
         History.remove(h.savedAt); renderHistory();
+        CFPFoundation.live.announce(`${h.season} archive deleted`);
+        CFPFoundation.actions.undo(`${h.season} archive deleted`, () => {
+          History.replace(before); renderHistory();
+        });
       };
       acts.append(load, del);
       card.appendChild(acts);
@@ -829,9 +870,20 @@ const Dynasty = (() => {
     $('#resClear').onclick = clearResults;
     $('#resRoom').onclick = () => showScreen('room');
     $('#resBracketBtn').onclick = () => showScreen('final');
-    $('#resArchive').onclick = () => {
+    $('#resArchive').onclick = async event => {
+      const before = History.all();
+      const accepted = await CFPFoundation.actions.confirm({
+        title: `Archive the ${STATE.season} season?`,
+        message: 'This stores the current field, scores, and champion in Dynasty History. Re-archiving the same season replaces its earlier snapshot.',
+        confirmLabel: 'Archive season',
+        danger: false,
+        trigger: event.currentTarget,
+      });
+      if (!accepted) return;
       History.save(); Movement.refresh();
       toast(`${STATE.season} archived`);
+      CFPFoundation.live.announce(`${STATE.season} season archived`);
+      CFPFoundation.actions.undo(`${STATE.season} archived`, () => History.replace(before));
     };
 
     /* ---- pick'em ---- */
@@ -846,26 +898,66 @@ const Dynasty = (() => {
       catch (e) { $('#pkCode').select(); toast('Press Ctrl+C to copy'); }
     };
     $('#pkAdd').onclick = addEntry;
-    $('#pkReset').onclick = () => {
+    $('#pkReset').onclick = async event => {
       if (!myPicks.some(value => value === 0 || value === 1) &&
           !Object.keys(STATE.projectionScores).length) return;
-      if (!confirm('Clear your projection winners and predicted scores?')) return;
+      const before = {
+        picks: myPicks.slice(),
+        scores: CFPFoundation.actions.clone(STATE.projectionScores),
+      };
+      const accepted = await CFPFoundation.actions.confirm({
+        title: 'Reset this projection?',
+        message: 'All predicted winners and scores in your projection will be cleared. You can undo it afterward.',
+        confirmLabel: 'Reset projection',
+        trigger: event.currentTarget,
+      });
+      if (!accepted) return;
       myPicks = new Array(GAMES.length).fill(null);
       STATE.projectionScores = {};
       saveProjection(); renderPickForm();
       toast('Projection reset');
+      CFPFoundation.live.announce('Projection reset');
+      CFPFoundation.actions.undo('Projection reset', () => {
+        myPicks = before.picks.slice();
+        STATE.projectionScores = CFPFoundation.actions.clone(before.scores);
+        saveProjection(); renderPickForm();
+      });
     };
-    $('#pkClear').onclick = () => {
-      if (!confirm('Remove every entry?')) return;
+    $('#pkClear').onclick = async event => {
+      const before = Pickem.all();
+      if (!before.length) return;
+      const accepted = await CFPFoundation.actions.confirm({
+        title: 'Remove every league entry?',
+        message: 'All submitted projection entries will be removed from the leaderboard. You can undo it afterward.',
+        confirmLabel: 'Clear entries',
+        trigger: event.currentTarget,
+      });
+      if (!accepted) return;
       Pickem.clear(); renderBoard(); toast('Entries cleared');
+      CFPFoundation.actions.undo('Projection entries cleared', () => {
+        Pickem.replace(before); renderBoard();
+      });
     };
     $('#pkRoom').onclick = () => showScreen(VIEWER ? 'show' : 'room');
 
     /* ---- history ---- */
     $('#histRoom').onclick = () => showScreen(VIEWER ? 'show' : 'room');
-    $('#histSave').onclick = () => {
+    $('#histSave').onclick = async event => {
+      const before = History.all();
+      const accepted = await CFPFoundation.actions.confirm({
+        title: `Archive the ${STATE.season} season?`,
+        message: 'This stores the current field, scores, and champion. Re-archiving the same season replaces its earlier snapshot.',
+        confirmLabel: 'Archive season',
+        danger: false,
+        trigger: event.currentTarget,
+      });
+      if (!accepted) return;
       History.save(); Movement.refresh(); renderHistory();
       toast(`${STATE.season} archived`);
+      CFPFoundation.live.announce(`${STATE.season} season archived`);
+      CFPFoundation.actions.undo(`${STATE.season} archived`, () => {
+        History.replace(before); renderHistory();
+      });
     };
 
     /* ---- export ---- */

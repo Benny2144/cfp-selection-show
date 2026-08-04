@@ -36,7 +36,7 @@
 <link rel="preload" as="image" href="assets/room-bg.webp" fetchpriority="high">
 <link rel="icon" type="image/png" href="assets/cfp-icon.png">
 <link rel="manifest" href="manifest.webmanifest?v=3">
-<link rel="stylesheet" href="css/app.bundle.css?v=dbd64465">
+<link rel="stylesheet" href="css/app.bundle.css?v=0b66fea2">
 </head>
 <body>
 
@@ -79,15 +79,14 @@
      SCREEN 0 — HOME
      ================================================================== -->
 <section id="home" class="screen active game27-home">
-  <video class="roomfilm" id="homeFilm" muted loop playsinline preload="none"
-         poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+  <div class="roomfilm roomfilm-slot" data-ambient-film aria-hidden="true"></div>
   <div class="roomfilm-scrim"></div>
   <div class="game-home-texture" aria-hidden="true"></div>
 
   <main class="game-home-layout">
     <aside class="game-home-menu" aria-label="Dynasty Studio menu">
       <div class="game-home-kicker"><i></i> POSTSEASON HUB</div>
-      <h1>DYNASTY<br>STUDIO</h1>
+      <h1>Dynasty<br>Studio</h1>
       <p id="resumeNote"></p>
 
       <div class="game-menu-stack">
@@ -131,8 +130,7 @@
      SCREEN 1 — COMMITTEE ROOM (commissioner only)
      ================================================================== -->
 <section id="room" class="screen selection-deck">
-  <video class="roomfilm" id="roomFilm" muted loop playsinline preload="none"
-         poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+  <div class="roomfilm roomfilm-slot" data-ambient-film aria-hidden="true"></div>
   <div class="roomfilm-scrim"></div>
   <div class="carbon"></div>
   <div class="deck-lighting" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -140,7 +138,7 @@
   <header class="room-head deck-masthead">
     <div class="deck-title">
       <span class="room-eyebrow"><i></i> EYES ONLY &middot; COMMISSIONER SESSION</span>
-      <h1 id="roomHome" title="Back to the home screen">THE SELECTION DECK</h1>
+      <h1 id="roomHome" title="Back to the home screen">The Selection Deck</h1>
       <div class="sub">Build the ranking in four rounds. Every decision becomes part of the premiere.</div>
     </div>
     <div class="spacer"></div>
@@ -214,11 +212,13 @@
     <div class="runway-status">
       <span class="room-ready"><i></i><b id="roomReadyLabel">0/12 &middot; FIELD IN PROGRESS</b></span>
       <div class="runway-meter" aria-hidden="true"><i id="runwayProgress"></i></div>
+      <small class="readiness-reason" id="roomReadyReason">Fill all 12 seeds and mark five conference champions.</small>
     </div>
     <div class="go-row">
       <button class="btn runway-btn" id="btnSetup"><span>PRODUCE</span>Show Setup</button>
       <button class="btn runway-btn" id="btnShare"><span>INVITE</span>League Link</button>
       <button class="btn runway-btn" id="btnBracket"><span>REVIEW</span>Bracket</button>
+      <button class="btn runway-btn runway-review" id="btnOverride" type="button"><span>REVIEW</span>Requirements</button>
       <button class="btn primary runway-premiere" id="btnGo"><span>FINAL STEP</span>Enter Premiere <i>&#9654;</i></button>
     </div>
   </footer>
@@ -249,7 +249,7 @@
 
   <!-- the intro film, full bleed -->
   <div class="filmstage" id="filmStage">
-    <video id="film" playsinline preload="auto"></video>
+    <video id="film" playsinline preload="none"></video>
     <div class="film-grade" aria-hidden="true"></div>
     <div class="film-credit" id="filmCredit" aria-hidden="true">
       <span><i></i> A CFP DYNASTY STUDIO ORIGINAL <i></i></span>
@@ -424,8 +424,7 @@
   </div>
 
   <div class="gate" id="gate">
-    <video class="gate-film" id="gateFilm" muted loop playsinline preload="none"
-           poster="assets/room-bg.webp" aria-hidden="true" tabindex="-1"></video>
+    <div class="gate-film gate-film-slot" data-ambient-film aria-hidden="true"></div>
     <div class="gate-film-scrim"></div>
     <div class="gate-glow"></div>
     <div class="gate-overline"><i></i> CFP DYNASTY STUDIO PRESENTS <i></i></div>
@@ -456,6 +455,10 @@
   <!-- recording indicator -->
   <div class="reclamp" id="recLamp"><i></i>REC</div>
 
+  <audio id="intro" preload="none"></audio>
+  <audio id="boone" preload="none"></audio>
+  <audio id="music" preload="none" loop></audio>
+
 </section>
 
 <!-- =====================================================================
@@ -463,7 +466,7 @@
      ================================================================== -->
 <section id="final" class="screen">
   <div class="final-status" aria-hidden="true">
-    <span><i></i> FIELD LOCKED</span>
+    <span><i></i> <b id="finalFieldState">FIELD IN PROGRESS</b></span>
     <b>THE ROAD TO THE CHAMPIONSHIP</b>
     <em id="finalStatusMeta">12 TEAMS &middot; 11 GAMES &middot; 1 CHAMPION</em>
   </div>
@@ -491,7 +494,7 @@
   <header class="dy-head">
     <div>
       <span class="dy-eyebrow">INTERACTIVE POSTSEASON</span>
-      <h1>BRACKET ROOM</h1>
+      <h1>Bracket Room</h1>
       <div class="sub">Tap a team to advance it instantly, or enter the final score. Every later round rewires itself.</div>
     </div>
     <div class="spacer"></div>
@@ -522,7 +525,7 @@
   <header class="dy-head">
     <div>
       <span class="dy-eyebrow">YOUR ROAD TO THE TITLE</span>
-      <h1>PROJECTION BRACKET</h1>
+      <h1>Projection Bracket</h1>
       <div class="sub">The same cinematic bracket, now in your hands. Pick every winner and add your predicted scores.</div>
     </div>
     <div class="spacer"></div>
@@ -585,7 +588,7 @@
   <header class="dy-head">
     <div>
       <span class="dy-eyebrow">YOUR LEAGUE LEGACY</span>
-      <h1>DYNASTY ARCHIVE</h1>
+      <h1>Dynasty Archive</h1>
       <div class="sub">Every field. Every champion. Every season your league still talks about.</div>
     </div>
     <div class="spacer"></div>
@@ -801,12 +804,24 @@
     <h3 id="readyTitle">SELECTION NIGHT IS NOT READY TO AIR</h3>
     <div class="readiness-score"><b id="readyCount">0/12</b><span>SEEDS LOCKED</span></div>
     <div class="readiness-track"><i id="readyBar"></i></div>
+    <ul class="readiness-reasons" id="readyReasons"></ul>
     <p id="readyMissing">Missing seeds: No. 1 through No. 12</p>
     <p class="note">A permanent event requires the complete field. Preview mode is
       available for production rehearsals and is clearly marked as unfinished.</p>
     <div class="row">
       <button class="btn primary" id="readyReturn">Return to the Field</button>
       <button class="btn ghost" id="readyPreview">Rehearse Incomplete Show</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mConfirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="card confirm-card">
+    <h3 id="confirmTitle">Confirm action</h3>
+    <p id="confirmMessage">Are you sure?</p>
+    <div class="row">
+      <button class="btn ghost" id="confirmCancel" type="button">Cancel</button>
+      <button class="btn" id="confirmAccept" type="button">Continue</button>
     </div>
   </div>
 </div>
@@ -847,8 +862,8 @@
 </div>
 
 <!-- live mixer, usable while the show is running -->
-  <div class="mixer" id="mixer">
-    <div class="mx-head">AUDIO MIX <i id="mxClose">&times;</i></div>
+  <div class="mixer" id="mixer" role="dialog" aria-label="Live audio mixer" aria-modal="false" aria-hidden="true" inert>
+    <div class="mx-head">AUDIO MIX <button id="mxClose" type="button" data-panel-close aria-label="Close audio mixer">&times;</button></div>
     <div class="mx-rows" id="mxRows"></div>
     <div class="mx-foot">Changes are live &mdash; nothing pauses.</div>
   </div>
@@ -944,10 +959,9 @@
   </div>
 </div>
 
-<audio id="intro" preload="auto"></audio>
-<audio id="boone" preload="auto"></audio>
-<audio id="music" preload="auto" loop></audio>
+<div class="visually-hidden-live" id="appLiveStatus" role="status" aria-live="polite" aria-atomic="true"></div>
+<div class="undo-bar" id="undoBar" role="status" hidden inert><span></span><button type="button">Undo</button></div>
 
-<script src="js/app.bundle.js?v=7032a9b8"></script>
+<script src="js/app.bundle.js?v=8a9d6f04"></script>
 </body>
 </html>

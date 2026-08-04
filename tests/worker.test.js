@@ -7,7 +7,7 @@ function validEventPayload() {
     l: 'Saturday Dynasty', y: '2032', t: 'Selection Night', s: '', k: '', ol: '',
     o: 'asc', c: 'full', f: 'max', n: 'on', st: 'lead', rf: 'on', p: 'manual', oc: 4,
     mv: 100, vv: 100, cv: 100, fv: 100, bv: 100, pm: 0,
-    d: Array.from({ length: 12 }, (_, index) => [`team-${index + 1}`, `Team ${index + 1}`, 0]),
+    d: Array.from({ length: 12 }, (_, index) => [`team-${index + 1}`, `Team ${index + 1}`, index < 5 ? 1 : 0]),
     u: [], g: '', rs: {}, v: {},
   };
 }
@@ -35,6 +35,15 @@ describe('Worker contract validation', () => {
     expect(testable.validPublishedPayload(payload)).toBe(true);
     payload.d[0][0] = '../other-account';
     expect(testable.validPublishedPayload(payload)).toBe(false);
+  });
+
+  it('requires a full field and five automatic bids before publishing', () => {
+    const payload = validEventPayload();
+    expect(testable.publishedFieldReady(payload)).toBe(true);
+    payload.d[0] = null;
+    expect(testable.publishedFieldReady(payload)).toBe(false);
+    payload.d[0] = ['team-1', 'Team 1', 0];
+    expect(testable.publishedFieldReady(payload)).toBe(false);
   });
 
   it('accepts a tapped winner marker and rejects an invalid result side', () => {
@@ -83,5 +92,13 @@ describe('Worker contract validation', () => {
     await expect(room.status()).resolves.toEqual({ members: [] });
     await expect(room.publishBoard({ version: 7, actor: 'Commissioner', at: Date.now() }))
       .resolves.toEqual({ delivered: 0 });
+  });
+
+  it('recognizes every durable application screen route for SPA fallback', () => {
+    ['/hub', '/committee', '/bracket', '/results', '/projections', '/history', '/show']
+      .forEach(route => expect(testable.isAppScreenRoute(route)).toBe(true));
+    expect(testable.isAppScreenRoute('/committee/')).toBe(true);
+    expect(testable.isAppScreenRoute('/api/account')).toBe(false);
+    expect(testable.isAppScreenRoute('/unknown')).toBe(false);
   });
 });

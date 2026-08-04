@@ -41,6 +41,7 @@ const STATE = {
   seeds: Array(12).fill(null),         // null | {id, record, champ}
   out:   Array(4).fill(null)           // first four out — shown before the bracket
 };
+globalThis.STATE = STATE;
 
 /* True when the page was opened from a share link. The committee room is
    sealed off in that mode — otherwise whoever you sent it to could just walk
@@ -60,6 +61,7 @@ function team(id) {
    ====================================================================== */
 function bannerEl(id, opts = {}) {
   const t = team(id);
+  const shouldLazy = opts.lazy !== false;
   const el = document.createElement('div');
   el.className = 'banner' + (opts.flip ? ' flip' : '');
   el.dataset.team = id;
@@ -102,18 +104,22 @@ function bannerEl(id, opts = {}) {
      the flicker you see when a team is picked. */
   const ready = LogoStore.imageFor(id);
   if (ready) {
+    ready.loading = shouldLazy ? 'lazy' : 'eager';
+    ready.decoding = 'async';
     crest.innerHTML = '';
     crest.appendChild(ready);
   } else {
     const loadLogo = () => LogoStore.get(id, src => {
       const img = new Image();
       img.alt = t.school;
+      img.loading = shouldLazy ? 'lazy' : 'eager';
+      img.decoding = 'async';
       const swap = () => { crest.innerHTML = ''; crest.appendChild(img); };
       img.onload = swap;
       img.src = src;
       if (img.complete && img.naturalWidth) swap();
     });
-    if (opts.lazy && 'IntersectionObserver' in window) {
+    if (shouldLazy && 'IntersectionObserver' in window) {
       const observer = new IntersectionObserver(entries => {
         if (!entries.some(entry => entry.isIntersecting)) return;
         observer.disconnect();
@@ -190,15 +196,31 @@ function renderPool() {
     return (t.school + ' ' + t.mascot + ' ' + t.abbr).toLowerCase().includes(q);
   }).sort((a, b) => a.school.localeCompare(b.school));
 
+  const nextSeed = STATE.seeds.findIndex(seed => !seed);
+  const nextOut = STATE.out.slice(0, STATE.outCount).findIndex(candidate => !candidate);
+  const boardFull = nextSeed < 0 && nextOut < 0;
+
   list.forEach(t => {
     const card = document.createElement('button');
     card.type = 'button';
     const picked = isSeeded(t.id);
     card.className = 'pool-card candidate-card' + (picked ? ' picked' : '');
-    card.disabled = picked;
+    card.disabled = picked || boardFull;
     card.dataset.team = t.id;
-    card.setAttribute('aria-label', `Add ${t.school} to the next open spot`);
-    card.title = `Add ${t.school} · right-click to edit`;
+    card.setAttribute('aria-label', picked
+      ? `${t.school} is already on the board`
+      : boardFull
+        ? `${t.school} unavailable because the board is full`
+        : nextSeed >= 0
+          ? `Add ${t.school} as seed ${nextSeed + 1}`
+          : `Place ${t.school} at number ${nextOut + 13} outside the field`);
+    card.title = picked
+      ? `${t.school} is already on the board`
+      : boardFull
+        ? 'The board is full'
+        : nextSeed >= 0
+          ? `Add ${t.school} as seed ${nextSeed + 1} · right-click to edit`
+          : `Place ${t.school} outside the field · right-click to edit`;
     card.appendChild(bannerEl(t.id, { lazy: true }));
     const identity = document.createElement('span');
     identity.className = 'candidate-identity';
@@ -209,7 +231,9 @@ function renderPool() {
     identity.append(school, detail);
     const action = document.createElement('span');
     action.className = 'candidate-add';
-    action.innerHTML = `<small>${picked ? 'ON BOARD' : 'ADD TO'}</small><b>${picked ? 'LOCKED' : 'NEXT'}</b>`;
+    action.innerHTML = boardFull && !picked
+      ? '<small>BOARD</small><b>FULL</b>'
+      : `<small>${picked ? 'ON BOARD' : 'ADD TO'}</small><b>${picked ? 'LOCKED' : 'NEXT'}</b>`;
     card.append(identity, action);
     card.onclick = () => seedNext(t.id);
     card.oncontextmenu = e => { e.preventDefault(); openTeamModal(t.id); };
@@ -236,6 +260,24 @@ function persistFieldChange() {
   persist();
 }
 
+function fieldSnapshot() {
+  return CFPFoundation.actions.clone({
+    seeds: STATE.seeds,
+    out: STATE.out,
+    results: STATE.results,
+    projectionPicks: STATE.projectionPicks,
+    projectionScores: STATE.projectionScores,
+  });
+}
+
+function restoreFieldSnapshot(snapshot) {
+  Object.assign(STATE, CFPFoundation.actions.clone(snapshot));
+  persist();
+  renderPool();
+  renderSeeds();
+  refreshGameShell();
+}
+
 /** Swap two seed slots — the touch-friendly way to reorder. */
 function swapSeeds(a, b) {
   if (b < 0 || b > 11) return;
@@ -243,6 +285,8 @@ function swapSeeds(a, b) {
   STATE.seeds[a] = STATE.seeds[b];
   STATE.seeds[b] = tmp;
   persistFieldChange(); renderSeeds();
+  const moved = STATE.seeds[b];
+  if (moved) CFPFoundation.live.announce(`${team(moved.id).school} moved to seed ${b + 1}`);
 }
 
 /** Click a team: fills the next open seed, then the first four out. */
@@ -253,9 +297,13 @@ function markPicked(id) {
   if (card) {
     const picked = isSeeded(id);
     card.classList.toggle('picked', picked);
-    card.disabled = picked;
+    const boardFull = STATE.seeds.every(Boolean) &&
+      STATE.out.slice(0, STATE.outCount).every(Boolean);
+    card.disabled = picked || boardFull;
     const action = card.querySelector('.candidate-add');
-    if (action) action.innerHTML = `<small>${picked ? 'ON BOARD' : 'ADD TO'}</small><b>${picked ? 'LOCKED' : 'NEXT'}</b>`;
+    if (action) action.innerHTML = boardFull && !picked
+      ? '<small>BOARD</small><b>FULL</b>'
+      : `<small>${picked ? 'ON BOARD' : 'ADD TO'}</small><b>${picked ? 'LOCKED' : 'NEXT'}</b>`;
   }
   const filled = STATE.seeds.filter(Boolean).length;
   const visible = Number($('#poolGrid')?.dataset.visible || TEAMS.length);
@@ -272,7 +320,15 @@ function updatePoolCallouts() {
   $$('.candidate-card:not(.picked) .candidate-add b').forEach(label => { label.textContent = target; });
   $$('.candidate-card:not(.picked)').forEach(card => {
     const school = card.querySelector('.candidate-identity strong')?.textContent || 'team';
-    card.setAttribute('aria-label', `Add ${school} to ${target.toLowerCase()}`);
+    const full = target === 'FULL';
+    card.disabled = full;
+    card.setAttribute('aria-label', full
+      ? `${school} unavailable because the board is full`
+      : next >= 0
+        ? `Add ${school} as seed ${next + 1}`
+        : `Place ${school} at number ${out + 13} outside the field`);
+    const small = card.querySelector('.candidate-add small');
+    if (small) small.textContent = full ? 'BOARD' : next >= 0 ? 'ADD TO' : 'OUTSIDE';
   });
 }
 
@@ -285,6 +341,7 @@ function seedNext(id) {
     STATE.seeds[i] = { id, record: '', champ: false };
     lastPlacedIndex = i;
     persistFieldChange(); markPicked(id); renderSeeds();
+    CFPFoundation.live.announce(`${team(id).school} added as seed ${i + 1}`);
     if (i === 11) toast('That\'s all twelve — now the four who missed');
     return;
   }
@@ -292,6 +349,7 @@ function seedNext(id) {
   if (o === -1) { toast('The board is full'); return; }
   STATE.out[o] = { id, record: '' };
   persist(); markPicked(id); renderSeeds();
+  CFPFoundation.live.announce(`${team(id).school} added as number ${o + 13} outside the field`);
   if (o === STATE.outCount - 1) toast('Board complete');
 }
 
@@ -413,9 +471,20 @@ function renderSeeds() {
       acts.innerHTML = `<button aria-label="Edit ${team(s.id).school} branding" title="Edit team look">&#9998;</button>
                         <button aria-label="Remove ${team(s.id).school} from the field" title="Remove from field">&times;</button>`;
       acts.children[0].onclick = () => openTeamModal(s.id);
-      acts.children[1].onclick = () => {
+      acts.children[1].onclick = async event => {
+        const school = team(s.id).school;
+        const before = fieldSnapshot();
+        const accepted = await CFPFoundation.actions.confirm({
+          title: `Remove ${school}?`,
+          message: 'Removing this team also clears results and projections tied to the current seed order. You can undo the change afterward.',
+          confirmLabel: 'Remove team',
+          trigger: event.currentTarget,
+        });
+        if (!accepted) return;
         lastPlacedIndex = -1;
         STATE.seeds[i] = null; persistFieldChange(); renderPool(); renderSeeds();
+        CFPFoundation.live.announce(`${school} removed from the field`);
+        CFPFoundation.actions.undo(`${school} removed`, () => restoreFieldSnapshot(before));
       };
       row.appendChild(acts);
     } else {
@@ -445,13 +514,24 @@ function renderSeeds() {
   });
 
   lastPlacedIndex = -1;
-  const filled = STATE.seeds.filter(Boolean).length;
-  const ready = filled === 12;
-  $('#btnGo').disabled = false;
+  const readiness = fieldReadiness();
+  const filled = readiness.filled;
+  const ready = readiness.ready;
+  $('#btnGo').disabled = !ready;
   $('#btnGo').classList.toggle('not-ready', !ready);
   $('#btnGo').setAttribute('aria-label', ready
     ? 'Enter the Selection Night premiere'
-    : `Review Selection Night readiness, ${filled} of 12 seeds filled`);
+    : `Selection Night unavailable. ${readiness.reasons.join(' ')}`);
+  $('#btnGo').title = ready ? 'Enter the Selection Night premiere' : readiness.reasons.join(' ');
+  const review = $('#btnOverride');
+  if (review) {
+    review.hidden = ready;
+    review.setAttribute('aria-label', `Review Selection Night requirements. ${readiness.reasons.join(' ')}`);
+  }
+  if ($('#roomReadyReason')) {
+    $('#roomReadyReason').hidden = ready;
+    $('#roomReadyReason').textContent = readiness.reasons.join(' ');
+  }
   if ($('#roomReadyLabel')) $('#roomReadyLabel').textContent = ready
     ? 'FIELD READY TO AIR' : `${filled}/12 · FIELD IN PROGRESS`;
   $('#roomReadyLabel')?.parentElement?.classList.toggle('ready', ready);
@@ -465,7 +545,9 @@ function renderBidNote() {
   const box = $('#bidNote');
   if (!box) return;
   const champs = Champs.list();
-  const problems = Champs.problems();
+  const problems = fieldReadiness().issues
+    .filter(issue => issue.code !== 'field-incomplete')
+    .map(CFPFoundation.validationMessage);
 
   if (!champs.length && !problems.length) {
     box.className = 'bid-note';
@@ -512,19 +594,30 @@ function renderOut() {
 
       const move = document.createElement('div');
       move.className = 'move';
-      move.innerHTML = `<button title="Move up" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
-                        <button title="Move down" ${i === STATE.outCount - 1 ? 'disabled' : ''}>&#9660;</button>`;
+      move.innerHTML = `<button aria-label="Move ${team(s.id).school} up outside the field" title="Move up" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
+                        <button aria-label="Move ${team(s.id).school} down outside the field" title="Move down" ${i === STATE.outCount - 1 ? 'disabled' : ''}>&#9660;</button>`;
       move.children[0].onclick = () => swapOut(i, i - 1);
       move.children[1].onclick = () => swapOut(i, i + 1);
       row.appendChild(move);
 
       const acts = document.createElement('div');
       acts.className = 'acts';
-      acts.innerHTML = `<button title="Edit team look">&#9998;</button>
-                        <button title="Remove">&times;</button>`;
+      acts.innerHTML = `<button aria-label="Edit ${team(s.id).school} branding" title="Edit team look">&#9998;</button>
+                        <button aria-label="Remove ${team(s.id).school} from outside the field" title="Remove">&times;</button>`;
       acts.children[0].onclick = () => openTeamModal(s.id);
-      acts.children[1].onclick = () => {
+      acts.children[1].onclick = async event => {
+        const school = team(s.id).school;
+        const before = fieldSnapshot();
+        const accepted = await CFPFoundation.actions.confirm({
+          title: `Remove ${school}?`,
+          message: 'This removes the team from the just-missed list. You can undo the change afterward.',
+          confirmLabel: 'Remove team',
+          trigger: event.currentTarget,
+        });
+        if (!accepted) return;
         STATE.out[i] = null; persist(); renderPool(); renderSeeds();
+        CFPFoundation.live.announce(`${school} removed from outside the field`);
+        CFPFoundation.actions.undo(`${school} removed`, () => restoreFieldSnapshot(before));
       };
       row.appendChild(acts);
     } else {
@@ -648,12 +741,14 @@ const publishedShareLink = () => STATE.shareCode
 const shareLink = () => publishedShareLink() || portableShareLink();
 
 function fieldReadiness() {
-  const filled = STATE.seeds.filter(Boolean).length;
-  return {
-    filled,
-    missing: STATE.seeds.map((seed, index) => seed ? null : index + 1).filter(Boolean),
-    ready: filled === 12
-  };
+  const champions = STATE.seeds
+    .map((seed, index) => seed?.champ
+      ? { seed: index + 1, conf: team(seed.id)?.conf || '' } : null)
+    .filter(Boolean);
+  return Object.assign(
+    CFPFoundation.validatePlayoff({ seeds: STATE.seeds, champions }),
+    { missing: STATE.seeds.map((seed, index) => seed ? null : index + 1).filter(Boolean) },
+  );
 }
 
 function enterPremiere(allowPreview = false) {
@@ -677,14 +772,20 @@ function openReadiness(intent = 'premiere') {
   $('#readyMissing').textContent = status.missing.length
     ? `Missing seeds: ${status.missing.map(seed => `No. ${seed}`).join(', ')}`
     : 'The field is complete.';
+  const reasons = $('#readyReasons');
+  reasons.innerHTML = '';
+  status.reasons.forEach(reason => {
+    const item = document.createElement('li');
+    item.textContent = reason;
+    reasons.appendChild(item);
+  });
   $('#readyTitle').textContent = intent === 'publish'
     ? 'FINISH THE FIELD BEFORE IT GOES PUBLIC'
     : 'SELECTION NIGHT IS NOT READY TO AIR';
-  modal.classList.add('on');
-  setTimeout(() => $('#readyReturn')?.focus(), 0);
+  CFPFoundation.modal.open(modal);
 }
 
-function closeReadiness() { $('#mReadiness')?.classList.remove('on'); }
+function closeReadiness() { CFPFoundation.modal.close($('#mReadiness')); }
 
 async function loadPublishedEvent(code) {
   try {
@@ -1001,6 +1102,19 @@ function renderFieldList() {
    MODALS
    ====================================================================== */
 let editingId = null;
+let editingNewTeam = false;
+
+function openNewTeamModal() {
+  const id = `xcustom${Date.now().toString(36)}`;
+  const custom = { id, school: 'New Program', mascot: '', abbr: 'NEW',
+    conf: 'Custom', primary: '#333333', secondary: '#ffffff', custom: true };
+  TEAM_BY_ID[id] = custom;
+  TEAMS.push(custom);
+  editingNewTeam = true;
+  openTeamModal(id);
+  $('#mTeamTitle').textContent = 'ADD A CUSTOM PROGRAM';
+  $('#fSchool').select();
+}
 
 function openTeamModal(id) {
   editingId = id;
@@ -1038,7 +1152,17 @@ function refreshTeamPreview() {
   OVERRIDES[editingId] = stash;
 }
 
-function closeTeamModal() { $('#mTeam').classList.remove('on'); editingId = null; }
+function closeTeamModal() {
+  if (editingNewTeam && editingId) {
+    const index = TEAMS.findIndex(candidate => candidate.id === editingId);
+    if (index >= 0) TEAMS.splice(index, 1);
+    delete TEAM_BY_ID[editingId];
+    delete OVERRIDES[editingId];
+  }
+  editingNewTeam = false;
+  $('#mTeam').classList.remove('on');
+  editingId = null;
+}
 
 function saveTeamModal() {
   OVERRIDES[editingId] = {
@@ -1049,6 +1173,17 @@ function saveTeamModal() {
     primary: normHex($('#fPrimHex').value),
     secondary: normHex($('#fSecHex').value)
   };
+  if (editingNewTeam) {
+    Object.assign(TEAM_BY_ID[editingId], OVERRIDES[editingId]);
+    saveCustomTeams();
+    if (!CONFERENCES.includes('Custom')) {
+      CONFERENCES.push('Custom');
+      const option = document.createElement('option');
+      option.value = 'Custom'; option.textContent = 'Custom';
+      $('#confFilter').appendChild(option);
+    }
+    editingNewTeam = false;
+  }
   saveOverrides(OVERRIDES);
   closeTeamModal(); renderPool(); renderSeeds(); Dynasty.renderStrip();
   toast('Team saved');
@@ -1116,10 +1251,21 @@ function toast(msg) {
    because by then they have seen it. */
 const VIEWER_BLOCKED = ['room', 'home'];
 
-function showScreen(name) {
+function showScreen(name, options = {}) {
   if (VIEWER && VIEWER_BLOCKED.includes(name)) name = 'show';
-  $$('.screen').forEach(s => s.classList.toggle('active', s.id === name));
+  const current = document.body.dataset.screen || $('.screen.active')?.id || 'home';
+  if (current === 'show' && name !== 'show') Show.stop();
+  const managed = CFPFoundation.activateScreen(name, { focus: options.focus !== false });
+  if (!managed) {
+    $$('.screen').forEach(screen => CFPFoundation.setScreenState(screen, screen.id === name));
+  }
   document.body.dataset.screen = name;
+  document.body.classList.toggle('premiere-active', name === 'show');
+  const chrome = $('#chrome');
+  if (chrome) {
+    chrome.inert = name === 'show';
+    chrome.setAttribute('aria-hidden', name === 'show' ? 'true' : 'false');
+  }
 
   /* The show is the broadcast — it gets the whole glass. Everywhere else
      wears the ESPN chrome. A guest on a share link never sees it at all,
@@ -1134,7 +1280,9 @@ function showScreen(name) {
   if (name === 'pickem')  Dynasty.renderPickem();
   if (name === 'history') Dynasty.renderHistory();
   if (name === 'home')    refreshHub();
-  if (name !== 'show') Show.stop();
+  if (!options.fromHistory)
+    CFPFoundation.router.commit(name, { replace: !!options.replace, preservePath: VIEWER });
+  else document.title = CFPFoundation.titleForScreen(name, STATE.league);
   document.dispatchEvent(new CustomEvent('cfp:screen', { detail: { name } }));
 }
 
@@ -1203,9 +1351,11 @@ function refreshGameShell() {
   const seeded = STATE.seeds.filter(Boolean).length;
   const played = Bracket.played();
   const champion = Bracket.champion();
+  const playoffReady = fieldReadiness().ready;
   const leadLabel = lead ? lead.school.toUpperCase() : 'THE PLAYOFF';
   const week = champion ? 'SEASON COMPLETE' : played ? 'PLAYOFF IN PROGRESS'
-    : seeded === 12 ? 'FIELD LOCKED' : 'COMMITTEE WEEK';
+    : playoffReady ? 'FIELD LOCKED'
+    : seeded === 12 ? 'CONFIGURATION REQUIRED' : 'COMMITTEE WEEK';
 
   set('gameProfileMark', lead?.abbr || 'CFP');
   set('gameLeagueName', String(STATE.league || 'Dynasty League').toUpperCase());
@@ -1219,6 +1369,7 @@ function refreshGameShell() {
   set('gameHomeWeek', week);
   set('gameHomeField', `${seeded} / 12`);
   set('gameHomeLeague', String(STATE.league || 'Dynasty League').toUpperCase());
+  set('finalFieldState', playoffReady ? 'FIELD LOCKED' : 'FIELD IN PROGRESS');
 
   const cloudState = typeof CloudSync !== 'undefined' ? CloudSync.state() : null;
   const cloudLabel = typeof CloudSync !== 'undefined' && CloudSync.isSignedIn()
@@ -1287,39 +1438,58 @@ function applyFx() { document.body.classList.toggle('calm', STATE.fx === 'calm')
    the moment you leave, and it never goes near the audio mixer — it is
    muted at the element and has no gain node, so it cannot make a sound.
    ------------------------------------------------------------------- */
-const FILM_SCREENS = { home: 'homeFilm', room: 'roomFilm' };
+const AmbientFilm = (() => {
+  let video = null;
+  let slot = null;
+
+  function unmount() {
+    if (!video) return;
+    try { video.pause(); } catch (e) {}
+    video.removeAttribute('src');
+    try { video.load(); } catch (e) {}
+    video.remove();
+    video = null;
+    slot = null;
+  }
+
+  function activate(screen) {
+    const section = document.getElementById(screen);
+    const nextSlot = section?.querySelector('[data-ambient-film]');
+    const wanted = STATE.roomFilm !== 'off' && nextSlot;
+    ['home', 'room'].forEach(id =>
+      document.getElementById(id)?.classList.toggle('film-off', STATE.roomFilm === 'off'));
+    if (!wanted) { unmount(); return; }
+    if (!video) {
+      video = document.createElement('video');
+      video.muted = true;
+      video.volume = 0;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      video.poster = 'assets/room-bg.webp';
+      video.tabIndex = -1;
+      video.setAttribute('aria-hidden', 'true');
+      video.src = mediaUrl(ROOM_FILM_FILE);
+    }
+    if (slot !== nextSlot) nextSlot.appendChild(video);
+    slot = nextSlot;
+    video.play().catch(() => {});
+  }
+
+  return { activate, unmount };
+})();
 
 function applyRoomFilm(active) {
-  const mode = STATE.roomFilm || 'on';
-  Object.entries(FILM_SCREENS).forEach(([screen, id]) => {
-    const sec = document.getElementById(screen);
-    const v = document.getElementById(id);
-    if (!sec || !v) return;
-    sec.classList.toggle('film-off', mode === 'off');
-
-    const wanted = mode === 'on' && screen === active;
-    v.dataset.wanted = wanted ? '1' : '';
-    if (wanted) {
-      v.muted = true; v.volume = 0;       // belt and braces: never audible
-      if (!v.getAttribute('src')) {
-        v.src = mediaUrl(ROOM_FILM_FILE);
-        /* play() straight after load() is too early — the media is not ready
-           and the promise rejects, leaving the poster up for good. */
-        v.addEventListener('canplay',
-          () => { if (v.dataset.wanted) v.play().catch(() => {}); },
-          { once: true });
-        v.load();
-      }
-      v.play().catch(() => {});           // poster stays if autoplay is refused
-    } else {
-      try { v.pause(); } catch (e) {}
-    }
-  });
+  AmbientFilm.activate(active);
 }
 
 /* ---------------------------------------------------------------- wire */
 async function boot() {
   restore();
+  CFPFoundation.init(document);
+  document.addEventListener('cfp:modal-closed', event => {
+    if (event.detail?.modal?.id === 'mTeam' && editingId) closeTeamModal();
+  });
   await CloudSync.bootstrap();
   applyFx();
 
@@ -1397,7 +1567,36 @@ async function boot() {
   $$('#roomTabs button').forEach(b => b.onclick = () => {
     $$('#roomTabs button').forEach(x => x.classList.toggle('on', x === b));
     $('#roomBody').dataset.tab = b.dataset.tab;
+    syncResponsiveAccessibility();
   });
+  const roomTabsMedia = matchMedia('(max-width: 1050px)');
+  const syncResponsiveAccessibility = () => {
+    const mobile = roomTabsMedia.matches;
+    const tabs = $('#roomTabs');
+    if (tabs) {
+      tabs.inert = !mobile;
+      tabs.setAttribute('aria-hidden', mobile ? 'false' : 'true');
+    }
+    const activeTab = $('#roomBody')?.dataset.tab || 'pool';
+    const pool = $('.candidate-vault');
+    const board = $('.field-ledger');
+    if (pool) {
+      const hidden = mobile && activeTab !== 'pool';
+      pool.inert = hidden;
+      pool.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+    }
+    if (board) {
+      const hidden = mobile && activeTab !== 'board';
+      board.inert = hidden;
+      board.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+    }
+    $$('.chrome-account, #ssNext, .game-footer a').forEach(control => {
+      control.inert = mobile;
+      control.setAttribute('aria-hidden', mobile ? 'true' : 'false');
+    });
+  };
+  syncResponsiveAccessibility();
+  roomTabsMedia.addEventListener?.('change', syncResponsiveAccessibility);
 
   $('#optOrder').value = STATE.order;
   $('#optPace').value  = String(STATE.pace);
@@ -1408,7 +1607,7 @@ async function boot() {
   $('#optOutCount').value = String(STATE.outCount);
   $('#optFx').value    = STATE.fx;
   buildMixer();
-  $('#btnMix').onclick = () => $('#mixer').classList.add('on');
+  $('#btnMix').onclick = event => CFPFoundation.panel.open($('#mixer'), event.currentTarget);
   $('#btnSetup').onclick = () => $('#mSetup').classList.add('on');
   $('#mSetupClose').onclick = () => $('#mSetup').classList.remove('on');
 
@@ -1431,9 +1630,21 @@ async function boot() {
   $('#optFx').onchange   = e => { STATE.fx = e.target.value; applyFx(); persist(); };
 
 
-  $('#btnClear').onclick = () => {
-    if (!confirm('Clear all 12 seeds?')) return;
-    STATE.seeds = Array(12).fill(null); persistFieldChange(); renderPool(); renderSeeds();
+  $('#btnClear').onclick = async event => {
+    if (!STATE.seeds.some(Boolean) && !STATE.out.some(Boolean)) return;
+    const before = fieldSnapshot();
+    const accepted = await CFPFoundation.actions.confirm({
+      title: 'Clear the entire board?',
+      message: 'This removes the seeded field and just-missed teams, and clears dependent scores and projections. You can undo it afterward.',
+      confirmLabel: 'Clear board',
+      trigger: event.currentTarget,
+    });
+    if (!accepted) return;
+    STATE.seeds = Array(12).fill(null);
+    STATE.out = Array(4).fill(null);
+    persistFieldChange(); renderPool(); renderSeeds();
+    CFPFoundation.live.announce('The playoff board was cleared');
+    CFPFoundation.actions.undo('Board cleared', () => restoreFieldSnapshot(before));
   };
   $('#btnShare').onclick   = openShare;
   $('#fShare').onclick     = openShare;
@@ -1442,7 +1653,20 @@ async function boot() {
   $('#mSharePublish').onclick = () => { void publishShare(); };
   $('#mShareOpen').onclick  = () => window.open($('#shareUrl').value, '_blank');
   $('#readyReturn').onclick = () => { closeReadiness(); showScreen('room'); };
-  $('#readyPreview').onclick = () => { closeReadiness(); enterPremiere(true); };
+  $('#btnOverride').onclick = () => openReadiness('premiere');
+  $('#readyPreview').onclick = async event => {
+    const trigger = event.currentTarget;
+    const accepted = await CFPFoundation.actions.confirm({
+      title: 'Rehearse an incomplete playoff?',
+      message: 'Commissioner override starts a clearly incomplete rehearsal. It does not make the field valid and cannot be published as a permanent event.',
+      confirmLabel: 'Start rehearsal',
+      trigger,
+    });
+    if (accepted) {
+      closeReadiness();
+      enterPremiere(true);
+    }
+  };
   $('#mEventUnavailableClose').onclick = () => { location.assign('/'); };
   /* The destinations that used to live here are in the ESPN nav now. */
   $('#btnBracket').onclick = () => showScreen('final');
@@ -1525,7 +1749,11 @@ async function boot() {
     renderPool(); renderSeeds(); toast('Saved');
   };
   $('#bulkClear').onclick = async () => {
-    if (!confirm('Remove every imported logo?')) return;
+    if (!await CFPFoundation.actions.confirm({
+      title: 'Remove every imported logo?',
+      message: 'All custom team logo files stored on this device and in the signed-in cloud account will be removed.',
+      confirmLabel: 'Remove logos',
+    })) return;
     await LogoStore.clear();
     refreshLogoCount(); renderPool(); renderSeeds(); toast('Logos removed');
   };
@@ -1583,20 +1811,7 @@ async function boot() {
   }
 
   /* ---------- custom team ---------- */
-  $('#btnAddTeam').onclick = () => {
-    const name = prompt('School name (e.g. a relocated or created team):');
-    if (!name) return;
-    const id = 'x' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const t = { id, school: name, mascot: '', abbr: name.slice(0, 4).toUpperCase(),
-                conf: 'Custom', primary: '#333333', secondary: '#ffffff', custom: true };
-    TEAM_BY_ID[id] = t; TEAMS.push(t); saveCustomTeams();
-    if (!CONFERENCES.includes('Custom')) {
-      CONFERENCES.push('Custom');
-      const o = document.createElement('option');
-      o.value = 'Custom'; o.textContent = 'Custom'; $('#confFilter').appendChild(o);
-    }
-    renderPool(); openTeamModal(id);
-  };
+  $('#btnAddTeam').onclick = openNewTeamModal;
 
   /* ---------- team modal ---------- */
   $('#mTeamCancel').onclick = closeTeamModal;
@@ -1663,22 +1878,31 @@ async function boot() {
   }
 
   /* Music bed runs everywhere. Browsers need one gesture first. */
-  const wake = () => { Show.startBed(); };
-  ['pointerdown', 'keydown'].forEach(ev =>
-    addEventListener(ev, wake, { once: true, capture: true }));
+  CFPFoundation.initScreens();
 
-  applyRoomFilm(document.querySelector('.screen.active')?.id || 'home');
+  const openRoute = (screen, options = {}) => {
+    showScreen(screen, options);
+    if (screen !== 'show') return;
+    if (VIEWER || fieldReadiness().ready) Show.arm();
+    else openReadiness('premiere');
+  };
+  addEventListener('popstate', () =>
+    openRoute(CFPFoundation.router.screenFromLocation(), { fromHistory: true }));
+
+  const initialScreen = shared ? 'show' : CFPFoundation.router.screenFromLocation();
+  openRoute(initialScreen, {
+    replace: !shared && location.pathname === '/',
+    focus: false,
+  });
   /* a browser pauses video on a hidden tab and does not resume it by itself */
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible')
-      applyRoomFilm(document.querySelector('.screen.active')?.id);
+      applyRoomFilm(document.body.dataset.screen || 'home');
   });
 
   if (shared) {
     applyFx();
     document.title = `${STATE.league} — ${STATE.subtitle}`;
-    showScreen('show');
-    Show.arm();
   }
 }
 

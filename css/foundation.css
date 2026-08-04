@@ -1,0 +1,65 @@
+/* Application foundation: scrolling, focus, modal and live-region behavior. */
+html{height:auto;min-height:100%;overflow-x:hidden}
+body{height:auto;min-height:100%;overflow-x:hidden;overflow-y:auto}
+body.premiere-active{height:100%;overflow:hidden;overscroll-behavior:none}
+[hidden]{display:none!important}
+
+.screen{
+  position:relative;inset:auto;width:100%;height:auto;min-height:100vh;min-height:100svh;
+  overflow:visible;
+}
+.screen[hidden]{display:none!important}
+.screen.active{display:flex}
+#show.screen{position:fixed;inset:0;height:100vh;height:100svh;min-height:0;overflow:hidden}
+
+.dyscreen,.dy-body{overflow:visible}
+.dy-body{flex:none;min-height:calc(100svh - var(--chrome-h,0px))}
+#room.selection-deck .deck-workspace{min-height:calc(100svh - var(--chrome-h,0px) - 230px);height:auto;align-items:start}
+#room.selection-deck .candidate-vault,#room.selection-deck .field-ledger,
+#room.selection-deck .candidate-grid,#room.selection-deck .tier-board,
+#room.selection-deck .board,#room.selection-deck .pool-grid{max-height:none;overflow:visible}
+
+:focus-visible{outline:3px solid #ffd166!important;outline-offset:3px!important;box-shadow:0 0 0 2px #111!important}
+.screen:focus,.screen h1[tabindex="-1"]:focus{outline:none!important;box-shadow:none!important}
+
+.visually-hidden-live{
+  position:fixed!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;
+  overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important;border:0!important;
+}
+
+.confirm-card{width:min(520px,calc(100vw - 30px))!important}
+.confirm-card p{margin:4px 0 20px;color:var(--dim);font-size:14px;line-height:1.65;text-transform:none}
+.confirm-card .btn.danger{background:#a82d2d;color:#fff;border-color:#d75b5b}
+
+.undo-bar{
+  position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom));z-index:180;
+  display:flex;align-items:center;gap:20px;min-width:min(470px,calc(100vw - 28px));
+  padding:13px 15px 13px 18px;transform:translate(-50%,24px);opacity:0;
+  border:1px solid rgba(255,255,255,.2);background:#111720;color:#fff;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);pointer-events:none;transition:.22s ease;
+}
+.undo-bar.on{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.undo-bar span{flex:1;font-size:13px;font-weight:700;letter-spacing:.03em;text-transform:none}
+.undo-bar button{padding:8px 13px;background:#f0b944;color:#08090c;font-size:12px;font-weight:900;text-transform:uppercase}
+
+.readiness-reasons{display:grid;gap:7px;margin:14px 0;padding:0;list-style:none}
+.readiness-reasons li{padding:9px 11px;border-left:3px solid #f0b944;background:rgba(240,185,68,.08);font-size:12px;line-height:1.45}
+.runway-review[hidden]{display:none!important}
+.runway-premiere:disabled{cursor:not-allowed;opacity:.48!important;filter:grayscale(.65)}
+.runway-status .readiness-reason{display:block;margin-top:4px;color:#f0b944;font-size:7px;line-height:1.4;letter-spacing:.06em}
+
+.roomfilm-slot,.gate-film-slot{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.roomfilm-slot video,.gate-film-slot video{width:100%;height:100%;object-fit:cover}
+.mx-head button{appearance:none;border:0;background:transparent;color:#6c7785;padding:0 4px;font:inherit;font-size:20px;line-height:1;cursor:pointer}
+.mx-head button:hover{color:var(--accent)}
+
+@media (max-width:720px){
+  body:not(.premiere-active){overflow-y:auto}
+  .game-home-layout{height:auto!important;min-height:calc(100svh - var(--chrome-h,0px));overflow:visible!important}
+  .game-home-world{position:fixed!important;pointer-events:none}
+  #room.selection-deck .deck-workspace{min-height:0;display:block}
+  #room.selection-deck .candidate-grid,#room.selection-deck .tier-board,
+  #room.selection-deck .field-ledger{overflow:visible!important}
+  #room.selection-deck .broadcast-runway{position:sticky!important;bottom:0;z-index:20}
+  .undo-bar{gap:10px}
+}
